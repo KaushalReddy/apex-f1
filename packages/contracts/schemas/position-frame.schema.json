@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://apex-f1.dev/schemas/position-frame.schema.json",
+  "title": "PositionFrame",
+  "description": "One tick of car positions. Identical shape for LIVE and REPLAY.",
+  "type": "object",
+  "required": ["sessionKey", "mode", "t", "cars"],
+  "properties": {
+    "sessionKey": { "type": "integer" },
+    "mode": { "enum": ["LIVE", "REPLAY"] },
+    "t": { "type": "integer", "description": "Session clock, epoch milliseconds UTC" },
+    "coordinateSystem": { "type": "string", "description": "Provider frame id, e.g. openf1-v1. Client applies the circuit transform." },
+    "cars": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["driverNumber", "x", "y", "z", "sampleT"],
+        "properties": {
+          "driverNumber": { "type": "integer" },
+          "x": { "type": "number" }, "y": { "type": "number" }, "z": { "type": "number" },
+          "sampleT": { "type": "integer", "description": "Timestamp of the underlying sample (ms). Clients interpolate between samples; do not snap." },
+          "stale": { "type": "boolean", "description": "True when no fresh sample arrived within the staleness threshold" }
+        }
+      }
+    }
+  }
+}

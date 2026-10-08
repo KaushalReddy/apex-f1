@@ -1,0 +1,21 @@
+node_modules/
+.next/
+out/
+dist/
+target/
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+.idea/
+.vscode/
+tools/openf1-spike/out/
+tools/openf1-spike/.cache/
+
+# generated
+*.tsbuildinfo

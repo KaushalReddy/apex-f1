@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://apex-f1.dev/schemas/circuit-geometry.schema.json",
+  "title": "CircuitGeometry",
+  "description": "Centerline derived from location data; the track the 3D engine extrudes.",
+  "type": "object",
+  "required": ["circuitKey", "coordinateSystem", "unitMeters", "closed", "points", "derivation"],
+  "properties": {
+    "circuitKey": { "type": "string" },
+    "coordinateSystem": { "type": "string" },
+    "unitMeters": { "type": "number", "description": "Metres per coordinate unit. Must be verified per spike; never assumed in code." },
+    "closed": { "type": "boolean" },
+    "points": { "type": "array", "minItems": 3, "items": { "type": "array", "items": { "type": "number" }, "minItems": 3, "maxItems": 3, "description": "[x, y, z]" } },
+    "widthMeters": { "type": ["number", "null"], "description": "null until sourced; do not invent" },
+    "derivation": { "type": "object", "required": ["sessionKeys", "lapsUsed", "sigmaMeters", "stepMeters"],
+      "properties": { "sessionKeys": { "type": "array", "items": { "type": "integer" } }, "lapsUsed": { "type": "integer" },
+                      "sigmaMeters": { "type": "number" }, "stepMeters": { "type": "number" } } }
+  }
+}

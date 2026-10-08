@@ -1,0 +1,35 @@
+# Foundation only. Redis is intentionally absent (see docs/ARCHITECTURE.md, ADR-006).
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-apex}
+      POSTGRES_USER: ${POSTGRES_USER:-apex}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    ports: ["5432:5432"]
+    volumes: [pgdata:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-apex} -d ${POSTGRES_DB:-apex}"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: { context: ., dockerfile: infra/docker/api.Dockerfile }
+    env_file: .env
+    depends_on: { postgres: { condition: service_healthy } }
+    ports: ["8080:8080"]
+
+  web:
+    build: { context: ., dockerfile: infra/docker/web.Dockerfile }
+    env_file: .env
+    depends_on: [api]
+    ports: ["3000:3000"]
+
+  # Thin placeholder until the AI Race Engineer phase: start with `--profile ai`.
+  ai:
+    profiles: ["ai"]
+    build: { context: ., dockerfile: infra/docker/ai.Dockerfile }
+    ports: ["8000:8000"]
+
+volumes:
+  pgdata:
