@@ -91,11 +91,37 @@ or Postgres driver in the scaffold. Each arrives with the phase that needs it.
 **ADR-010 CI/Docker foundations only.** CI runs web lint/typecheck/build, `mvn verify`, Python
 tests and schema validation. Compose runs postgres/api/web. No deploy pipeline yet.
 
+**ADR-011 Server components by default (Phase 1).** Every page and presentational component is a
+server component. Only four files are client components, each for a real browser need:
+`nav-link` (active route via `usePathname`), `mobile-nav` (disclosure state, Escape),
+`info-tip` (hover/focus/Escape tooltip) and `error.tsx` (required by Next). All 15 routes are
+statically prerendered.
+
+**ADR-012 Design tokens live in CSS (`@theme` in `globals.css`).** Components reference token
+names (`bg-surface`, `text-muted`, `border-line`), never raw hex. See `DESIGN_SYSTEM.md`.
+
+**ADR-013 System font stacks for now.** Fetching web fonts at build time needs network access to
+a font host, and a font file's licence must be chosen deliberately. A self-hosted font is a
+deliberate later decision, not a Phase 1 side effect.
+
+**ADR-014 Preview content policy.** Static preview content lives only in `src/domain/demo.ts`:
+names, codes and colours, with no results, points, ratings or lengths. Every use is labelled
+"Static preview". Demo line-ups and colours are **[VERIFY]**. Replaced by DTOs from the API in
+Phase 2+; the page components do not change shape.
+
+**ADR-015 Navigation is data.** `src/domain/navigation.ts` is the single source for header,
+mobile menu, footer, homepage capability cards and roadmap-phase badges. `LiveIndicator` takes a
+`SessionStatus` prop (`none | live | replay`) so Phase 5 only has to supply the value.
+
+**ADR-016 No Three.js until Phase 3.** The shell reserves no canvas and ships no 3D code. 3D
+components will live in `src/components/3d/` and be loaded with `next/dynamic` so they stay out of
+non-3D routes.
+
 ## 4. What exists today
 
 | Area | State |
 |---|---|
-| web | Next.js app shell page; lint, typecheck, build verified locally |
+| web | **Phase 1 application shell:** 15 routes, design tokens, layout, UI primitives, preview content; lint, typecheck, build and route crawl verified locally |
 | api | Spring Boot skeleton, `HealthController`, `LocationProvider`, `PositionSample`; **not built here** (no Maven/JDK toolchain in this environment) |
 | ai | FastAPI `/health` + test; passes |
 | contracts | 2 JSON Schemas, syntax-validated |

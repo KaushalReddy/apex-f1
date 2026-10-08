@@ -9,7 +9,7 @@ Each phase ends with a summary and a STOP for approval. Status as of Phase 0.
 | # | Phase | Status |
 |---|---|---|
 | 0 | Repo audit, scaffold, docs, OpenF1 spike | **Scaffold + docs done. Spike implemented, NOT yet run (needs network access to api.openf1.org).** |
-| 1 | Design system + app shell (+ CI/Docker already in place) | not started |
+| 1 | Design system + app shell (+ CI/Docker already in place) | **implemented, awaiting approval** (see DESIGN_SYSTEM.md) |
 | 2 | Data ingestion (providers, DTOs, Postgres schema, caching) | not started; **gated on spike** |
 | 3 | 3D circuit engine (one circuit) | not started; gated on spike |
 | 4 | 3D car system (interpolation, orientation) | not started |
