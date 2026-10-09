@@ -3,6 +3,7 @@
 Network code lives here; all maths lives in analysis.py. Stdlib + numpy only."""
 from __future__ import annotations
 import argparse, hashlib, json, sys, time, urllib.error, urllib.request
+from urllib.parse import quote
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import numpy as np
@@ -17,7 +18,7 @@ CACHE = HERE / ".cache"
 def get(path: str, query: str = "", retries: int = 5):
     """GET with on-disk cache and 429/5xx backoff. `query` is passed RAW because OpenF1 filters
     use operators in the key (date>=...), which must not be percent-encoded [VERIFY]."""
-    url = f"{BASE}/{path}?{query}" if query else f"{BASE}/{path}"
+    url = f"{BASE}/{path}?{quote(query, safe='=&<>:,.-TZ%')}" if query else f"{BASE}/{path}" 
     CACHE.mkdir(exist_ok=True)
     f = CACHE / (hashlib.sha1(url.encode()).hexdigest() + ".json")
     if f.exists():
@@ -42,12 +43,43 @@ def ts(s: str) -> float:
 def iso(t: float) -> str:
     return datetime.fromtimestamp(t, timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3] + "Z"
 
-def fetch_location(session_key, driver, t0, t1, step_s=1800):
-    rows, a = [], t0
+def fetch_location(
+    session_key,
+    driver,
+    t0,
+    t1,
+    step_s=1800,
+):
+    """Fetch location data in time chunks.
+
+    OpenF1 returns HTTP 404 when a filtered time window
+    contains no rows. Such a window is treated as empty.
+    """
+
+    rows = []
+    a = t0
+
     while a < t1:
         b = min(a + step_s, t1)
-        rows += get("location", f"session_key={session_key}&driver_number={driver}&date>={iso(a)}&date<{iso(b)}")
+
+        try:
+            chunk = get(
+                "location",
+                f"session_key={session_key}"
+                f"&driver_number={driver}"
+                f"&date>={iso(a)}"
+                f"&date<{iso(b)}",
+            )
+            rows += chunk
+
+        except RuntimeError as e:
+            if str(e).startswith("404 "):
+                pass
+            else:
+                raise
+
         a = b
+
     return rows
 
 def collect(year, circuit, session_name, n_drivers):
@@ -158,18 +190,105 @@ def markdown(s, rep):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--year", type=int, default=2024); ap.add_argument("--circuit", default="Monza")
-    ap.add_argument("--session-name", default="Race"); ap.add_argument("--drivers", type=int, default=3)
-    ap.add_argument("--known-length-m", type=float); ap.add_argument("--unit-m", type=float, default=0.1,
-                    help="metres per coordinate unit; 0.1 (decimetres) is an ASSUMPTION to be verified")
-    ap.add_argument("--sigma-m", type=float, default=6.0)
+
+    ap.add_argument(
+        "--year",
+        type=int,
+        default=2024,
+    )
+
+    ap.add_argument(
+        "--circuit",
+        default="Monza",
+    )
+
+    ap.add_argument(
+        "--session-name",
+        default="Race",
+    )
+
+    ap.add_argument(
+        "--drivers",
+        type=int,
+        default=3,
+    )
+
+    ap.add_argument(
+        "--known-length-m",
+        type=float,
+    )
+
+    ap.add_argument(
+        "--unit-m",
+        type=float,
+        default=0.1,
+        help=(
+            "metres per coordinate unit; "
+            "0.1 (decimetres) is an ASSUMPTION "
+            "to be verified"
+        ),
+    )
+
+    ap.add_argument(
+        "--sigma-m",
+        type=float,
+        default=6.0,
+    )
+
     a = ap.parse_args()
-    s, data, laps = collect(a.year, a.circuit, a.session_name, a.drivers)
-    rep = analyse(data, laps, a.known_length_m, a.unit_m, a.sigma_m)
-    out = HERE / "out" / f"{a.circuit}-{a.year}"; out.mkdir(parents=True, exist_ok=True)
-    (out / "report.json").write_text(json.dumps(rep, indent=2, default=float))
-    (out / "report.md").write_text(markdown(s, rep))
-    print(markdown(s, rep)); print(f"\nwritten to {out}")
+
+    s, data, laps = collect(
+        a.year,
+        a.circuit,
+        a.session_name,
+        a.drivers,
+    )
+
+    rep = analyse(
+        data,
+        laps,
+        a.known_length_m,
+        a.unit_m,
+        a.sigma_m,
+    )
+
+    out = (
+        HERE
+        / "out"
+        / f"{a.circuit}-{a.year}"
+    )
+
+    out.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    (out / "report.json").write_text(
+        json.dumps(
+            rep,
+            indent=2,
+            default=float,
+        )
+    )
+
+    (out / "report.md").write_text(
+        markdown(
+            s,
+            rep,
+        )
+    )
+
+    print(
+        markdown(
+            s,
+            rep,
+        )
+    )
+
+    print(
+        f"\\nwritten to {out}"
+    )
+
 
 if __name__ == "__main__":
     main()
