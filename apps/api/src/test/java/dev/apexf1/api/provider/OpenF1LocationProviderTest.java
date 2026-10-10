@@ -7,9 +7,11 @@ import dev.apexf1.api.dto.PositionSample;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.web.client.RestClient;
 
+@Tag("integration")
 class OpenF1LocationProviderTest {
 
     @Test

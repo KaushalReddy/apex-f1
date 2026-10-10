@@ -7,11 +7,13 @@ import dev.apexf1.api.persistence.repository.PositionSampleRepository;
 import dev.apexf1.api.provider.OpenF1LocationProvider;
 import java.time.Instant;
 import java.util.List;
+import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
+@Tag("integration")
 class PositionPersistenceServiceTest {
 
     @Autowired
