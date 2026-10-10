@@ -1,10 +1,27 @@
 server:
   port: 8080
+
 management:
   endpoints:
     web:
       exposure:
         include: health,info
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/apex_f1
+    username: kaushalparvatala
+    password:
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+  flyway:
+    enabled: true
+
 apex:
   openf1:
-    base-url: ${OPENF1_BASE_URL:https://api.openf1.org/v1}
+    base-url: https://api.openf1.org/v1
