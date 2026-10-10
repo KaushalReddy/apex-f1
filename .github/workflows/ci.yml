@@ -8,6 +8,7 @@ on:
 jobs:
   web:
     runs-on: ubuntu-latest
+
     defaults:
       run:
         working-directory: apps/web
@@ -76,6 +77,7 @@ jobs:
           python-version: "3.12"
 
       - run: pip install -r apps/ai/requirements.txt -r tools/openf1-spike/requirements.txt pytest
+
       - run: pytest apps/ai tools/openf1-spike
 
   contracts:
