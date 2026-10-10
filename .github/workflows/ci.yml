@@ -1,69 +1,90 @@
 name: CI
+
 on:
-  push: { branches: [main] }
+  push:
+    branches: [main]
   pull_request:
 
 jobs:
   web:
     runs-on: ubuntu-latest
-    defaults: { run: { working-directory: apps/web } }
+    defaults:
+      run:
+        working-directory: apps/web
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
-        with: { node-version: 22, cache: npm, cache-dependency-path: apps/web/package-lock.json }
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
       - run: npm run build
       - run: npm run verify:routes
-api:
-  runs-on: ubuntu-latest
 
-  services:
-    postgres:
-      image: postgres:16
-      env:
-        POSTGRES_USER: postgres
-        POSTGRES_PASSWORD: postgres
-        POSTGRES_DB: apex_f1
-      ports:
-        - 5432:5432
-      options: >-
-        --health-cmd="pg_isready -U postgres -d apex_f1"
-        --health-interval=10s
-        --health-timeout=5s
-        --health-retries=5
+  api:
+    runs-on: ubuntu-latest
 
-  defaults: { run: { working-directory: apps/api } }
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: apex_f1
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d apex_f1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
-  env:
-    SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/apex_f1
-    SPRING_DATASOURCE_USERNAME: postgres
-    SPRING_DATASOURCE_PASSWORD: postgres
+    defaults:
+      run:
+        working-directory: apps/api
 
-  steps:
-    - uses: actions/checkout@v4
+    env:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/apex_f1
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
 
-    - uses: actions/setup-java@v4
-      with:
-        distribution: temurin
-        java-version: 21
-        cache: maven
+    steps:
+      - uses: actions/checkout@v4
 
-    - run: mvn -B verify
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - run: mvn -B verify
 
   ai-and-spike:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
-        with: { python-version: "3.12" }
+        with:
+          python-version: "3.12"
+
       - run: pip install -r apps/ai/requirements.txt -r tools/openf1-spike/requirements.txt pytest
       - run: pytest apps/ai tools/openf1-spike
 
   contracts:
     runs-on: ubuntu-latest
+
     steps:
       - uses: actions/checkout@v4
+
       - run: |
-          for f in packages/contracts/schemas/*.json; do python3 -m json.tool "$f" > /dev/null || exit 1; done
+          for f in packages/contracts/schemas/*.json; do
+            python3 -m json.tool "$f" > /dev/null || exit 1
+          done
