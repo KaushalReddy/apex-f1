@@ -69,3 +69,105 @@ def test_smoothing_shrinks_but_stays_small():
     sw = A.smoothing_sweep(loop, [0, 5, 20], A.loop_length(loop) / 2000)
     assert sw[0]["max_shift_units"] == 0 and sw[1]["roughness"] < sw[0]["roughness"]
     assert abs(sw[1]["length_change_pct"]) < 1.0
+
+
+# ---------------- geometry artifact export ----------------
+import json
+
+def run_export(shape, known_factor=1.0, **kw):
+    d1, l1 = simulate(shape, 1, clock=1000.0)
+    d2, l2 = simulate(shape, 2, clock=1000.13)
+    L = A.loop_length(shape(np.linspace(0, 2 * np.pi, 20000, endpoint=False)))
+    exp = {}
+    rep = analyse({1: d1, 2: d2}, {1: l1, 2: l2}, known_length_m=None if known_factor is None else L * UNIT_M * known_factor, export=exp, **kw)
+    return A.geometry_artifact(circuit_key="SYNTHETIC", coordinate_system="openf1-location", session_keys=[42], **exp), rep
+
+def test_export_shape_and_contract_fields():
+    art, _ = run_export(track)
+    assert art["closed"] is True and art["widthMeters"] is None
+    assert art["circuitKey"] == "SYNTHETIC" and art["coordinateSystem"] == "openf1-location"
+    assert len(art["points"]) >= 3 and all(len(p) == 3 for p in art["points"])
+    d = art["derivation"]
+    assert d["sessionKeys"] == [42] and d["lapsUsed"] > 0 and d["startFinishAtIndex0"] is True
+    z = [p[2] for p in art["points"]]
+    assert 70 <= min(z) and max(z) <= 130          # simulated z = 100 +/- 30; never invented outside the observed range
+
+def test_export_is_deterministic():
+    a, _ = run_export(track)
+    b, _ = run_export(track)
+    assert json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
+
+def test_scale_status_is_honest():
+    assumed, _ = run_export(track, known_factor=None)
+    assert assumed["derivation"]["scale"]["status"] == "assumed"
+    ok, _ = run_export(track, known_factor=1.0)
+    assert ok["derivation"]["scale"]["status"] == "within-tolerance"
+    bad, _ = run_export(track, known_factor=1.10)          # official length 10% longer than measured
+    assert bad["derivation"]["scale"]["status"] == "caveat"
+    assert bad["unitMeters"] == 0.1                          # the assumed unit is never silently overwritten
+
+def test_export_flags_self_crossing_in_verdict():
+    art, _ = run_export(figure_eight)
+    assert "self-crossing" in art["derivation"]["spikeVerdict"]
+
+def test_export_conforms_to_the_json_schema():
+    jsonschema = __import__("pytest").importorskip("jsonschema")
+    schema = json.load(open(__import__("pathlib").Path(__file__).resolve().parents[2] / "packages/contracts/schemas/circuit-geometry.schema.json"))
+    art, _ = run_export(track)
+    jsonschema.Draft202012Validator(schema).validate(json.loads(json.dumps(art)))
+
+def test_report_is_unchanged_by_exporting():
+    rep_plain, _ = run(track)
+    _, rep_exp = run_export(track, known_factor=1.0)
+    assert rep_plain["centerline"]["laps_used"] == rep_exp["centerline"]["laps_used"]
+
+def test_cli_writes_a_schema_shaped_artifact(tmp_path, monkeypatch):
+    """Exercises main() end to end (argument parsing, export, file writing) with the network stubbed out."""
+    import spike
+    d1, l1 = simulate(track, 1, clock=1000.0)
+    d2, l2 = simulate(track, 2, clock=1000.13)
+    monkeypatch.setattr(spike, "collect", lambda *a, **k: ({"session_key": 9999, "circuit_short_name": "SYNTHETIC", "year": 2024, "session_name": "Race"}, {1: d1, 2: d2}, {1: l1, 2: l2}))
+    monkeypatch.setattr(spike, "HERE", tmp_path)
+    out = tmp_path / "nested" / "x.geometry.json"
+    monkeypatch.setattr("sys.argv", ["spike.py", "--circuit", "SYNTHETIC", "--export-geometry", str(out)])
+    spike.main()
+    art = json.loads(out.read_text())
+    assert art["circuitKey"] == "SYNTHETIC" and art["derivation"]["sessionKeys"] == [9999]
+    assert out.read_text().endswith("\n")
+
+def test_dump_is_stable_parseable_and_one_point_per_line():
+    art, _ = run_export(track)
+    text = A.dump_geometry(art)
+    assert json.loads(text) == json.loads(json.dumps(art))
+    assert text == A.dump_geometry(art) and text.endswith("\n")
+    assert sum(1 for line in text.splitlines() if line.startswith("  [")) == len(art["points"])
+
+
+# ---------------- offline mode ----------------
+
+def test_offline_never_touches_the_network_and_reads_the_cache(tmp_path, monkeypatch):
+    import spike
+    monkeypatch.setattr(spike, "CACHE", tmp_path)
+    monkeypatch.setattr(spike, "OFFLINE", True)
+    def boom(*a, **k):
+        raise AssertionError("network used in offline mode")
+    monkeypatch.setattr(spike.urllib.request, "urlopen", boom)
+    url = f"{spike.BASE}/laps?session_key=1"
+    (tmp_path / (spike.hashlib.sha1(url.encode()).hexdigest() + ".json")).write_text('[{"lap_number": 1}]')
+    assert spike.get("laps", "session_key=1") == [{"lap_number": 1}]            # cache hit
+    import pytest
+    with pytest.raises(spike.CacheMiss):
+        spike.get("laps", "session_key=2")                                       # miss -> error, no request
+
+def test_offline_location_misses_are_counted_not_hidden(tmp_path, monkeypatch):
+    import spike
+    monkeypatch.setattr(spike, "CACHE", tmp_path)
+    monkeypatch.setattr(spike, "OFFLINE", True)
+    monkeypatch.setattr(spike, "LOCATION_CACHE_MISSES", [])
+    monkeypatch.setattr(spike.urllib.request, "urlopen", lambda *a, **k: (_ for _ in ()).throw(AssertionError("network used")))
+    rows = spike.fetch_location(1, 44, 1_700_000_000.0, 1_700_000_000.0 + 3600, step_s=1800)
+    assert rows == [] and len(spike.LOCATION_CACHE_MISSES) == 2
+
+def test_online_mode_is_unchanged_by_default():
+    import spike
+    assert spike.OFFLINE is False

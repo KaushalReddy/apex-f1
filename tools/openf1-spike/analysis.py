@@ -123,3 +123,69 @@ def smoothing_sweep(loop_raw: np.ndarray, sigmas_pts, step_units: float) -> list
                     "max_shift_units": round(float(np.linalg.norm(sm - loop_raw, axis=1).max()), 1),
                     "roughness": round(float(np.abs(np.diff(sm, 2, axis=0)).mean()), 4)})
     return out
+
+
+# ---------------- geometry artifact export (Phase 3) ----------------
+
+def z_profile(center: np.ndarray, x: np.ndarray, y: np.ndarray, z: np.ndarray) -> np.ndarray:
+    """Elevation per centerline vertex: median z of the samples whose nearest vertex it is; gaps filled by circular linear
+    interpolation. Nearest-vertex assignment can mix elevations where the line crosses itself (Suzuka): treat z there as unreliable."""
+    idx, _ = project(np.stack([x, y], 1), center)
+    n = len(center)
+    out = np.full(n, np.nan)
+    for i in np.unique(idx):
+        out[i] = np.median(z[idx == i])
+    known = ~np.isnan(out)
+    if not known.any():
+        return np.zeros(n)
+    pos = np.arange(n)
+    k = pos[known]
+    return np.interp(pos, np.concatenate([k - n, k, k + n]), np.concatenate([out[known]] * 3))
+
+
+def geometry_artifact(*, circuit_key: str, coordinate_system: str, unit_m: float, center: np.ndarray, z: np.ndarray, session_keys: list[int],
+                      laps_used: int, sigma_m: float, step_m: float, centerline_report: dict, verdict: str) -> dict:
+    """The circuit-geometry.schema.json document. Deterministic: no timestamps, fixed rounding. Source coordinates are NOT transformed.
+
+    unitMeters is the ASSUMED unit; derivation.scale records whether the measured length supported it. A known-length mismatch
+    over 2% is a 'caveat' and must not be presented as an exact real-world scale."""
+    err = centerline_report.get("length_error_pct_with_assumed_unit")
+    if err is None:
+        status = "assumed"
+    else:
+        status = "within-tolerance" if abs(err) <= 2.0 else "caveat"
+    pts = [[round(float(a), 1), round(float(b), 1), round(float(c), 1)] for (a, b), c in zip(center, z)]
+    return {
+        "circuitKey": circuit_key,
+        "coordinateSystem": coordinate_system,
+        "unitMeters": unit_m,
+        "closed": True,
+        "points": pts,
+        "widthMeters": None,
+        "derivation": {
+            "sessionKeys": sorted(session_keys),
+            "lapsUsed": int(laps_used),
+            "sigmaMeters": float(sigma_m),
+            "stepMeters": round(float(step_m), 2),
+            "scale": {
+                "status": status,
+                "assumedUnitMeters": unit_m,
+                "impliedUnitMeters": centerline_report.get("implied_unit_m"),
+                "lengthErrorPct": err,
+            },
+            "startFinishAtIndex0": True,
+            "direction": "increasing index = direction of travel",
+            "zSource": "median observed z per vertex; unreliable where the line crosses itself",
+            "spikeVerdict": verdict,
+            "tool": "tools/openf1-spike",
+        },
+    }
+
+
+def dump_geometry(art: dict) -> str:
+    """Stable, diff-friendly JSON: header fields indented, one centerline point per line. Same input -> same bytes."""
+    import json
+    body = {k: v for k, v in art.items() if k != "points"}
+    head = json.dumps(body, indent=1, sort_keys=True)          # ends with "\n}"
+    pts = ",\n".join("  " + json.dumps(p, separators=(",", ":")) for p in art["points"])
+    return head[:-2] + ',\n "points": [\n' + pts + "\n ]\n}\n"

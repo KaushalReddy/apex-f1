@@ -4,11 +4,13 @@ import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
 import { DEMO_CIRCUITS } from "@/domain/demo";
 import { getNavItem } from "@/domain/navigation";
+import { availableGeometrySlugs } from "@/lib/circuit/load";
 
 export const metadata = { title: "Circuits" };
 
-export default function CircuitsPage() {
+export default async function CircuitsPage() {
   const { phase } = getNavItem("/circuits");
+  const with3d = await availableGeometrySlugs();
   return (
     <PageContainer>
       <PageHeader
@@ -19,7 +21,7 @@ export default function CircuitsPage() {
       />
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         {DEMO_CIRCUITS.map((c) => (
-          <li key={c.slug}><CircuitCard circuit={c} /></li>
+          <li key={c.slug}><CircuitCard circuit={c} has3d={with3d.has(c.slug)} /></li>
         ))}
       </ul>
     </PageContainer>

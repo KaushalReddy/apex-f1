@@ -117,6 +117,18 @@ mobile menu, footer, homepage capability cards and roadmap-phase badges. `LiveIn
 components will live in `src/components/3d/` and be loaded with `next/dynamic` so they stay out of
 non-3D routes.
 
+**ADR-017 Circuit engine (Phase 3).** three + @react-three/fiber + @react-three/drei, client-only via `next/dynamic` with
+`ssr: false`, behind an error boundary. Pure TypeScript (`lib/circuit`: validation, transform, mesh builders, camera framing) holds the
+logic and is unit-tested; React components are thin. The scene renders on demand. Details in `docs/3D_ENGINE.md` sections 6 to 9.
+ADR-016 is superseded by this: three.js now exists, loaded only by the circuit page.
+
+**ADR-018 One coordinate transform for track and cars.** `createWorldTransform` is the only place source (OpenF1) coordinates become
+Three.js coordinates, shared to scene children via context. Source values are never altered in the backend or the artifacts.
+
+**ADR-019 Geometry artifacts are generated, deterministic and honest about scale.** Produced by `tools/openf1-spike --export-geometry`,
+committed under `apps/web/src/data/circuits/`, validated at load, and labelled "scale not calibrated" unless the spike supports it.
+A missing artifact shows an explicit empty state; no layout is ever guessed.
+
 ## 4. What exists today
 
 | Area | State |

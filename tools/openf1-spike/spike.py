@@ -12,6 +12,12 @@ import analysis as A
 BASE = "https://api.openf1.org/v1"
 HERE = Path(__file__).parent
 CACHE = HERE / ".cache"
+OFFLINE = False          # --offline: never touch the network; a cache miss is an error (or, for location windows, a counted gap)
+LOCATION_CACHE_MISSES: list[str] = []
+
+
+class CacheMiss(RuntimeError):
+    """A request that would have needed the network while --offline is set."""
 
 # ---------------- fetching ----------------
 
@@ -23,6 +29,8 @@ def get(path: str, query: str = "", retries: int = 5):
     f = CACHE / (hashlib.sha1(url.encode()).hexdigest() + ".json")
     if f.exists():
         return json.loads(f.read_text())
+    if OFFLINE:
+        raise CacheMiss(f"offline: not in cache: {url}")
     for attempt in range(retries):
         try:
             req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "apex-f1-spike"})
@@ -72,6 +80,10 @@ def fetch_location(
             )
             rows += chunk
 
+        except CacheMiss as e:
+            # Empty windows (HTTP 404) are not cached by get(), so offline we cannot tell "empty" from "never fetched".
+            # Treat as no rows, but count it and surface it; the lap-gap checks then decide whether laps are still usable.
+            LOCATION_CACHE_MISSES.append(str(e))
         except RuntimeError as e:
             if str(e).startswith("404 "):
                 pass
@@ -110,7 +122,7 @@ def clean_laps(laps, k=3):
     best = min(l[2] for l in ok)
     return sorted([l for l in ok if l[2] <= best * 1.03], key=lambda l: l[2])[:k]
 
-def analyse(data, laps, known_length_m=None, unit_m=0.1, sigma_m=6.0, target_step_m=2.0):
+def analyse(data, laps, known_length_m=None, unit_m=0.1, sigma_m=6.0, target_step_m=2.0, export=None):
     rep = {"assumed_unit_m": unit_m, "drivers": {}}
     cleaned, ts_by = {}, {}
     for n, (t, x, y, z) in data.items():
@@ -170,6 +182,16 @@ def analyse(data, laps, known_length_m=None, unit_m=0.1, sigma_m=6.0, target_ste
     # elevation along the centerline
     zs = np.concatenate([cleaned[n][3] for n in usable]); rep["z_total_range_units"] = float(zs.max() - zs.min())
     rep["verdict"] = verdict(rep)
+    if export is not None:   # raw material for the geometry artifact; the report itself stays unchanged
+        xs, ys, zs_ = [], [], []
+        for n, vs in usable.items():
+            t, x, y, z = cleaned[n]
+            for _, a, dur, _ in vs:
+                m = (t >= a) & (t < a + dur)
+                xs.append(x[m]); ys.append(y[m]); zs_.append(z[m])
+        export.update(center=center, z=A.z_profile(center, np.concatenate(xs), np.concatenate(ys), np.concatenate(zs_)),
+                      laps_used=len(all_loops), sigma_m=sigma_m, step_m=step_u * unit_m, unit_m=unit_m,
+                      centerline_report=rep["centerline"], verdict=rep["verdict"])
     return rep
 
 def verdict(rep):
@@ -230,12 +252,25 @@ def main():
     )
 
     ap.add_argument(
+        "--offline",
+        action="store_true",
+        help="use only the on-disk cache; make NO network requests (location windows missing from the cache are counted and reported)",
+    )
+
+    ap.add_argument(
+        "--export-geometry",
+        metavar="PATH",
+        help="write the circuit-geometry.schema.json artifact (e.g. apps/web/src/data/circuits/monaco.geometry.json)",
+    )
+
+    ap.add_argument(
         "--sigma-m",
         type=float,
         default=6.0,
     )
 
     a = ap.parse_args()
+    globals()["OFFLINE"] = a.offline
 
     s, data, laps = collect(
         a.year,
@@ -244,13 +279,39 @@ def main():
         a.drivers,
     )
 
+    exp = {} if a.export_geometry else None
+
     rep = analyse(
         data,
         laps,
         a.known_length_m,
         a.unit_m,
         a.sigma_m,
+        export=exp,
     )
+
+    if a.offline:
+        rep["offline_cache_misses"] = len(LOCATION_CACHE_MISSES)
+        if LOCATION_CACHE_MISSES:
+            print(f"WARNING: {len(LOCATION_CACHE_MISSES)} location window(s) were not in the cache and were treated as empty "
+                  f"(either genuinely empty, which OpenF1 answers with 404 and the cache does not store, or never fetched).",
+                  file=sys.stderr)
+
+    if exp:
+        art = A.geometry_artifact(
+            circuit_key=s["circuit_short_name"],
+            coordinate_system="openf1-location",
+            session_keys=[s["session_key"]],
+            **exp,
+        )
+        if a.offline:
+            art["derivation"]["offlineCacheMisses"] = len(LOCATION_CACHE_MISSES)
+        dest = Path(a.export_geometry)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(A.dump_geometry(art))
+        print(f"geometry artifact written to {dest} ({len(art['points'])} points, scale {art['derivation']['scale']['status']})")
+    elif a.export_geometry:
+        sys.exit("analysis produced no usable centerline; nothing exported")
 
     out = (
         HERE
