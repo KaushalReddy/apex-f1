@@ -97,8 +97,10 @@
   transition-timing-function: var(--ease-apex);
 }
 
+/* `backwards`, not `both`: once the entrance ends the wrapper must carry no transform, otherwise it becomes the containing block for
+   position: fixed descendants (full-viewport overlays such as the race view's immersive mode would be trapped inside it). */
 @utility page-in {
-  animation: page-in var(--duration-base) var(--ease-apex) both;
+  animation: page-in var(--duration-base) var(--ease-apex) backwards;
 }
 
 /* Floating things (menus, tooltips) appear quickly. */

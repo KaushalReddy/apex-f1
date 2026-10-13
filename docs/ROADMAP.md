@@ -13,7 +13,7 @@ Each phase ends with a summary and a STOP for approval. Status as of Phase 0.
 | 2 | Data ingestion (providers, DTOs, Postgres schema, caching) | not started; **gated on spike** |
 | 3 | 3D circuit engine (one circuit) | not started; gated on spike |
 | 4 | Multi-team procedural 3D car system and aerodynamics explorer (`/cars/[team]`) | **implemented, awaiting approval** (see 3D_ENGINE.md section 10) |
-| 5 | Live race experience (WebSocket, leaderboard, glowing team-coloured driver markers, interpolation) | not started |
+| 5 | Live race experience at `/live`: glowing team-coloured driver markers on the 3D circuit, race order, events, DEMO (simulated) and REPLAY sources; LIVE provider interface only | **implemented, awaiting approval** (see 3D_ENGINE.md section 11). No live provider is configured. |
 | 6-9 | Driver, team, car lab, circuit explorer pages | not started; mostly independent |
 | 10-15 | Telemetry lab, replay, weather/race control, strategy, AI engineer, Race Rewind | not started |
 | 16-19 | Performance, tests, deploy, docs | not started |

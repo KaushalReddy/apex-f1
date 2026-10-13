@@ -10,7 +10,7 @@ export interface NavItem {
 }
 
 export const NAV_ITEMS: readonly NavItem[] = [
-  { href: "/live", label: "Live", group: "primary", phase: 5, summary: "Interactive 3D circuit with real driver positions, leaderboard and gaps." },
+  { href: "/live", label: "Live", group: "primary", phase: 5, summary: "3D race view with driver markers, race order and events: simulated demo and stored replay; live once a provider is connected." },
   { href: "/drivers", label: "Drivers", group: "primary", phase: 6, summary: "Profiles, results, recent form and teammate comparison." },
   { href: "/teams", label: "Teams", group: "primary", phase: 7, summary: "Constructor identity, line-ups, results and history." },
   { href: "/cars", label: "Cars", group: "primary", phase: 8, summary: "Interactive 3D car lab with component hotspots and exploded view." },

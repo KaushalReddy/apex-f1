@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useId, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useCallback, useEffect, useId, useMemo, useState, type ReactNode } from "react";
 import { ErrorBoundary } from "@/components/circuit/ErrorBoundary";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import type { SpecStatus } from "@/lib/car/specs";
 import { NEUTRAL_LIVERY, type CarDriver } from "@/lib/car/teams";
 import type { ComponentId, Livery, SetupProfileId, ViewName } from "@/lib/car/types";
 import { cn } from "@/lib/cn";
+import { useReducedMotion, useWebGL } from "@/lib/use-client-env";
 import { AERO_COLORS, type AeroLayers } from "./Airflow";
 import type { CarViewPreset } from "./CarCamera";
 
@@ -40,30 +41,6 @@ function Unavailable({ reason }: { reason: string }) {
     </div>
   );
 }
-
-const subscribeReducedMotion = (cb: () => void) => {
-  const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-  mq.addEventListener("change", cb);
-  return () => mq.removeEventListener("change", cb);
-};
-const useReducedMotion = () =>
-  useSyncExternalStore(subscribeReducedMotion, () => window.matchMedia("(prefers-reduced-motion: reduce)").matches, () => false);
-
-let webglSupport: boolean | undefined;
-function detectWebGL(): boolean {
-  if (webglSupport === undefined) {
-    try {
-      const c = document.createElement("canvas");
-      webglSupport = !!(c.getContext("webgl2") ?? c.getContext("webgl"));
-    } catch {
-      webglSupport = false;
-    }
-  }
-  return webglSupport;
-}
-const noSubscribe = () => () => {};
-/** null while server-rendering / before hydration; then whether a WebGL context can be created. */
-const useWebGL = () => useSyncExternalStore(noSubscribe, detectWebGL, () => null);
 
 /** Toggle button: pressed state uses the design system's red for selected/active. */
 function Toggle({ pressed, onClick, children, disabled }: { pressed: boolean; onClick: () => void; children: ReactNode; disabled?: boolean }) {

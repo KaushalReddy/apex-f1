@@ -1,8 +1,8 @@
 # APEX F1: 3D engine design
 
 **Status (Phase 3): the circuit engine is implemented** (`apps/web/src/lib/circuit`, `apps/web/src/components/circuit`).
-**Phase 4 built the procedural car viewer** (section 10), a separate experience from the live circuit. Live driver positions,
-interpolation and follow cameras (sections 3 and 4) belong to **Phase 5 and are not implemented**. Section 6 onward documents what was
+**Phase 4 built the procedural car viewer** (section 10), a separate experience from the live circuit. **Phase 5 built the race view**
+(section 11): driver markers, interpolation, progress projection and a follow camera on the Phase 3 circuit. Section 6 onward documents what was
 built; sections 1 to 5 are the design it follows.
 
 ## 1. Coordinate pipeline
@@ -202,3 +202,62 @@ labels; aero mode; tap selection on mobile; reduced motion; WebGL disabled. Fram
 
 **Known limitations.** Generic geometry only; no bargeboards, brake-duct winglets or bodywork cooling louvres; wing angles are illustrative; the
 flow field is a teaching model, not CFD; exploded labels are DOM overlays, hidden on narrow canvases, and may overlap at some angles.
+
+
+---
+
+# Phase 5 implementation (race experience)
+
+## 11. Race view (`/live`)
+**Reuse.** The scene is the unchanged Phase 3 `CircuitScene` (track, fitted camera, lighting) with a `DriverLayer` child inside the circuit's
+coordinate frame. Driver identities and team colours come from `domain/demo.ts` (the team UI colours used by cards and markers) and the
+sourced 2026 race numbers from the car system; nothing is duplicated. The reduced-motion and WebGL hooks are shared with the car viewer
+(`lib/use-client-env.ts`).
+
+**Positioning.** `lib/race/track.ts` builds a path from `centerlineToWorld(geometry, transform)`, the same buffer the road mesh is drawn from.
+Progress is the lap fraction along it from vertex 0 (start/finish). `pointAt` maps progress to world, `project` maps world back to progress
+with a windowed search around the previous value (safe at crossovers). `lerpProgress` interpolates forward through the line and holds on
+backwards noise. `SnapshotBuffer` renders one update interval behind real time so there are two snapshots to interpolate between, and clears
+on a new epoch (reset/seek) so cars jump instead of sweeping round the lap.
+
+**Markers.** Compact core plus additive halo in the team colour, kept at a constant on-screen size; thin rings for the selected driver
+(white), the leader (gold) and a focused battle (blue); a larger invisible pick target for touch. Transforms are written in `useFrame` (no
+React renders per frame); the on-demand scene keeps requesting frames only while playing or following. Labels are DOM elements positioned by
+projecting each marker and decluttered by priority (selected, focused, leader, race order). Follow mode moves the existing orbit target with
+the selected car.
+
+**Data.** `lib/race/types.ts` is the model every source fills; unavailable values are `null`. `lib/race/providers.ts`:
+- `DemoProvider`: the deterministic simulator (`lib/race/demo.ts`). Race distance is a pure function of race time, built from a pace profile
+  derived from the centerline's curvature, seeded per-lap noise and one pit stop per car (the car waits on the centerline; the pit lane is not
+  modelled). Gaps are exact: the time between the other car and this car passing the same point. Labelled "Demo · simulated" everywhere.
+- `ReplayProvider`: stored OpenF1 location frames from the existing API (`/api/sessions/{key}/replay/timeline`), validated
+  (`parseReplayFrames`), projected onto the path. Identity is the car number only; race order and timing are shown as unavailable.
+- LIVE: the interface is ready (mode `LIVE`, no playback). No provider is configured, so the source switch shows "Live · not connected"
+  (disabled) and the header indicator keeps saying "No live session".
+Events (`lib/race/events.ts`: overtakes, laps, pit entry/exit, finishes, new battles, session changes) are derived by diffing consecutive
+snapshots of the same state, so they always agree with the leaderboard and markers.
+
+**Framing (5.1).** "Fit circuit" (`lib/race/fit.ts`) reuses the Phase 3 `frameCircuit` solver with room for markers and labels, and fits
+the circuit into the rectangle left free by any floating panels (`fitInSafeArea`: fit for the safe aspect, scale the distance to the safe
+height, shift camera and target together so the circuit centres there). It runs on load, on request, on fullscreen changes and on resize
+until the user moves the camera; telemetry never moves the camera. Tested by projecting the real Monaco centerline.
+
+**Labels (5.1).** `placeLabels` (`lib/race/declutter.ts`) is deterministic and draws no leader lines: every label touches its own marker
+(right, left, above, below or a corner). In priority order (selected, focused battle, leader, race order) each label keeps last frame's spot
+if it is still free (so labels do not hop sides through corners), else takes the first free spot; failing that it tries a compact code-only
+form, then hides until there is room. The selected driver's label is never hidden. Spots must stay inside the canvas and clear every marker
+core and placed label. Markers are projected with the render camera every frame, so labels cannot drift.
+
+**Events (5.1).** Generated by the provider on a fixed 1 s session-time grid (identical at every playback speed), with battle hysteresis
+(start at 0.8 s, end above 1.2 s; none on lap 1). A reset, seek or restart rebuilds the history to that moment instead of appending.
+
+**Immersive mode (5.1).** "Fullscreen" puts the race theater container into native fullscreen (Fullscreen API), or a fixed full-viewport
+in-page layer when the API is unavailable or refused (Escape leaves it; page scroll is locked meanwhile). The 3D stage is always the
+container's first child, so switching never remounts the scene or creates a second WebGL context. Floating translucent panels (session,
+toolbar, race order, driver details, events, playback) sit in a pointer-transparent layer so the circuit can be dragged between them; on
+phones they become one bottom sheet at a time. The app-wide `page-in` entrance animation now uses `backwards` fill so its wrapper keeps no
+transform afterwards (a transform made it the containing block for fixed overlays).
+
+**Known limitations.** Only Monaco has geometry. The replay window is the existing 10-second sample, needs the API running, and the API's CORS
+configuration must allow the web origin. Pit lane, track limits, sector times, tyres and weather are not modelled. Labels can still crowd when
+many cars are nose to tail; the selected and leading drivers always keep theirs.
