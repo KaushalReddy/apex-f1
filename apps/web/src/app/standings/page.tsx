@@ -1,72 +1,43 @@
 import Link from "next/link";
+import { StandingsView } from "@/components/drivers/StandingsView";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
-import { getNavItem } from "@/domain/navigation";
+import { loadSeasons } from "@/lib/drivers/load";
+import { seasonStandings } from "@/lib/drivers/standings";
 
 export const metadata = { title: "Standings" };
 
-/**
- * Standings are an unfinished feature, not a loading table: no provider feeds championship data yet. The page says so plainly
- * instead of showing placeholder rows, which read as an endless skeleton.
- */
-export default function StandingsPage() {
-  const { phase } = getNavItem("/standings");
+export default async function StandingsPage() {
+  const { seasons } = await loadSeasons();
+  const tables = seasons.map((s) => seasonStandings(s, seasons)).filter((t) => t.drivers.length);
   return (
     <PageContainer>
       <PageHeader
         eyebrow="Standings"
         title="Championship standings"
-        description="Driver and constructor tables will appear here once a championship data source is connected."
-        badges={<Badge tone="info">Planned · Phase {phase}</Badge>}
+        description="Drivers' and constructors' championships as published after each race, for the seasons APEX F1 has exported."
+        badges={tables.length ? <Badge tone="info">Published standings · OpenF1</Badge> : <Badge tone="warning">Not available</Badge>}
+        actions={
+          <ButtonLink href="/drivers/compare" variant="secondary" size="sm">
+            Compare drivers
+          </ButtonLink>
+        }
       />
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section aria-labelledby="drivers-standings">
-          <h2 id="drivers-standings" className="sr-only">
-            Drivers&apos; championship
-          </h2>
-          <EmptyState
-            headingLevel="h3"
-            title="Drivers' championship: no data connected"
-            status="Not available"
-            statusTone="warning"
-            action={
-              <ButtonLink href="/drivers" variant="secondary" size="sm">
-                Browse drivers
-              </ButtonLink>
-            }
-          >
-            No provider is configured for championship points, so no positions are shown. No positions or points are estimated or invented.
-          </EmptyState>
-        </section>
-        <section aria-labelledby="constructors-standings">
-          <h2 id="constructors-standings" className="sr-only">
-            Constructors&apos; championship
-          </h2>
-          <EmptyState
-            headingLevel="h3"
-            title="Constructors' championship: no data connected"
-            status="Not available"
-            statusTone="warning"
-            action={
-              <ButtonLink href="/teams" variant="secondary" size="sm">
-                Browse teams
-              </ButtonLink>
-            }
-          >
-            Constructor tables follow the driver standings. Team pages already exist as a static preview of the layout.
-          </EmptyState>
-        </section>
-      </div>
-      <p className="mt-6 text-sm text-muted">
-        Session data that is available today (laps, positions, weather) comes from imported races; see{" "}
-        <Link href="/analysis" className="text-fg underline decoration-line-strong underline-offset-4 hover:decoration-accent">
-          the analysis tools
-        </Link>
-        .
-      </p>
+      {tables.length ? (
+        <StandingsView seasons={tables} />
+      ) : (
+        <EmptyState title="No results dataset in this build" status="Not available" statusTone="warning" headingLevel="h2">
+          Standings come from exported season snapshots (tools/openf1-results; see src/data/results/README.md). None are present, so no positions
+          or points are shown. See{" "}
+          <Link href="/drivers" className="text-fg underline underline-offset-4">
+            drivers
+          </Link>
+          .
+        </EmptyState>
+      )}
     </PageContainer>
   );
 }

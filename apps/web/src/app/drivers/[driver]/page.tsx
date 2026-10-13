@@ -1,35 +1,52 @@
 import { notFound } from "next/navigation";
+import { DriverProfile } from "@/components/drivers/DriverProfile";
 import { ComingSoon } from "@/components/ui/coming-soon";
+import { PageContainer } from "@/components/ui/page-container";
 import { DEMO_DRIVERS, findDriver, findTeam } from "@/domain/demo";
 import { getNavItem } from "@/domain/navigation";
+import { driverRegistry } from "@/lib/drivers/identity";
+import { loadSeasons } from "@/lib/drivers/load";
+import { profile } from "@/lib/drivers/views";
 
 export const dynamicParams = false;
-export const generateStaticParams = () => DEMO_DRIVERS.map((d) => ({ driver: d.slug }));
+
+/** Every driver in the exported seasons, plus the project's existing slugs (so their links never break even without a dataset). */
+export async function generateStaticParams() {
+  const { seasons } = await loadSeasons();
+  const slugs = new Set([...driverRegistry(seasons).map((d) => d.slug), ...DEMO_DRIVERS.map((d) => d.slug)]);
+  return [...slugs].map((driver) => ({ driver }));
+}
 
 type Props = { params: Promise<{ driver: string }> };
 
 export async function generateMetadata({ params }: Props) {
-  const driver = findDriver((await params).driver);
-  return { title: driver?.name ?? "Driver" };
+  const slug = (await params).driver;
+  const { seasons } = await loadSeasons();
+  return { title: driverRegistry(seasons).find((d) => d.slug === slug)?.name ?? findDriver(slug)?.name ?? "Driver" };
 }
 
 export default async function DriverPage({ params }: Props) {
-  const driver = findDriver((await params).driver);
-  if (!driver) notFound();
-  const team = findTeam(driver.teamSlug);
+  const slug = (await params).driver;
+  const { seasons } = await loadSeasons();
+  const p = profile(seasons, slug);
+  if (p && p.seasons.length) {
+    return (
+      <PageContainer className="lg:py-10">
+        <DriverProfile profile={p} />
+      </PageContainer>
+    );
+  }
+  const demo = findDriver(slug);
+  if (!demo) notFound();
+  const team = findTeam(demo.teamSlug);
   return (
     <ComingSoon
-      eyebrow={`Driver · ${driver.code}${team ? ` · ${team.name}` : ""}`}
-      title={driver.name}
-      description="The full profile is not built yet. Only the name, code and team are shown, as a static preview."
+      eyebrow={`Driver · ${demo.code}${team ? ` · ${team.name}` : ""}`}
+      title={demo.name}
+      description="No exported season results include this driver yet, so only the name and team are shown. Nothing is estimated."
       phase={getNavItem("/drivers").phase}
       preview
-      planned={[
-        "Championship position, points, wins, podiums and poles",
-        "Race and qualifying results, recent form",
-        "Teammate comparison",
-        "Follow driver in the live 3D race",
-      ]}
+      planned={["Generate season results with tools/openf1-results (see src/data/results/README.md)"]}
       back={{ href: "/drivers", label: "All drivers" }}
     />
   );

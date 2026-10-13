@@ -62,13 +62,21 @@ const FRESHNESS_COPY = {
   disconnected: { tone: "danger", text: "Source unavailable" },
 } as const;
 
+function initialDriverFromUrl(): string | null {
+  if (typeof window === "undefined") return null;
+  const slug = new URLSearchParams(window.location.search).get("driver");
+  return slug && demoEntries().some((e) => e.id === slug) ? slug : null;
+}
+
 export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExperienceProps) {
   const reducedMotion = useReducedMotion();
   const webgl = useWebGL();
   const [source, setSource] = useState<SourceChoice>("DEMO");
   const [update, setUpdate] = useState<ProviderUpdate | null>(null);
   const [events, setEvents] = useState<RaceEvent[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
+  // `/live?driver=<slug>` (e.g. from a driver profile) opens with that driver selected. Driver ids in the demo are the project's driver slugs,
+  // the same identity the driver pages use. Read once on the client; on the server there is no URL and no snapshot, so nothing differs.
+  const [selected, setSelected] = useState<string | null>(() => initialDriverFromUrl());
   const [hovered, setHovered] = useState<string | null>(null);
   const [focus, setFocus] = useState<readonly string[]>([]);
   const [follow, setFollow] = useState(false);

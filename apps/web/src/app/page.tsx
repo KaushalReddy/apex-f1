@@ -13,6 +13,8 @@ import { SectionHeader, SectionMarker } from "@/components/ui/section-header";
 import { StatusDot } from "@/components/ui/status-dot";
 import { DEMO_CIRCUITS, DEMO_DRIVERS, DEMO_TEAMS } from "@/domain/demo";
 import { getNavItem } from "@/domain/navigation";
+import { loadSeasons } from "@/lib/drivers/load";
+import { seasonStandings } from "@/lib/drivers/standings";
 
 const CAPABILITIES = [
   { href: "/live", title: "Live Race" },
@@ -34,7 +36,10 @@ function PreviewNote() {
   );
 }
 
-export default function Home() {
+export default async function Home() {
+  // Latest exported season's published standings (build time); null when no snapshot is present.
+  const { seasons } = await loadSeasons();
+  const top = seasons.length ? seasonStandings(seasons[0], seasons) : null;
   return (
     <>
       <section aria-labelledby="hero-heading" className="relative overflow-hidden border-b border-line">
@@ -89,7 +94,10 @@ export default function Home() {
                 items={[
                   { label: "Live session", value: <><StatusDot /> None</> },
                   { label: "Replay", value: <><StatusDot tone="success" /> Table view</> },
-                  { label: "Championship data", value: <><StatusDot tone="warning" /> Not connected</> },
+                  {
+                    label: "Championship data",
+                    value: top ? <><StatusDot tone="success" /> Published standings · {top.season}</> : <><StatusDot tone="warning" /> Not available</>,
+                  },
                   { label: "Other content", value: <><StatusDot tone="info" /> Static preview</> },
                 ]}
               />
@@ -105,18 +113,44 @@ export default function Home() {
             <EmptyState title="Race calendar not connected" status="Not available" statusTone="warning">
               Session times and a countdown will appear here once a schedule provider is connected. Nothing is estimated in the meantime.
             </EmptyState>
-            <EmptyState
-              title="Championship standings not connected"
-              status="Not available"
-              statusTone="warning"
-              action={
-                <ButtonLink href="/standings" variant="secondary" size="sm">
-                  View standings status
-                </ButtonLink>
-              }
-            >
-              Driver and constructor tables are planned. No positions or points are shown until real data exists.
-            </EmptyState>
+            {top ? (
+              <Panel>
+                <div className="flex items-baseline justify-between gap-3">
+                  <h3 className="eyebrow">Drivers&apos; championship {top.season}</h3>
+                  <span className="text-xs text-subtle">{top.complete ? "Final" : `After round ${top.afterRound}`}</span>
+                </div>
+                <ol className="mt-3 divide-y divide-line text-sm tabular-nums">
+                  {top.drivers.slice(0, 5).map((d) => (
+                    <li key={d.acronym} className="flex items-center gap-3 py-2">
+                      <span className="w-5 font-semibold text-muted">{d.position}</span>
+                      <span aria-hidden="true" className="h-4 w-1 rounded-sm" style={{ backgroundColor: d.teamColour }} />
+                      <span className="flex-1">
+                        <span className="font-semibold">{d.acronym}</span> <span className="text-muted">{d.name}</span>
+                      </span>
+                      <span className="font-semibold">{d.points}</span>
+                    </li>
+                  ))}
+                </ol>
+                <div className="mt-4">
+                  <ButtonLink href="/standings" variant="secondary" size="sm">
+                    Full standings
+                  </ButtonLink>
+                </div>
+              </Panel>
+            ) : (
+              <EmptyState
+                title="Championship standings not available"
+                status="Not available"
+                statusTone="warning"
+                action={
+                  <ButtonLink href="/standings" variant="secondary" size="sm">
+                    View standings status
+                  </ButtonLink>
+                }
+              >
+                No season results are in this build, so no positions or points are shown.
+              </EmptyState>
+            )}
           </div>
         </section>
 
