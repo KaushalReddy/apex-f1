@@ -17,7 +17,7 @@ export default function DriversPage() {
         description="Full profiles with results, form and teammate comparison arrive with the driver experience. The names below are a static preview of the layout."
         badges={<><Badge tone="info">Phase {phase}</Badge><DemoBadge /></>}
       />
-      <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+      <ul className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
         {DEMO_DRIVERS.map((d) => (
           <li key={d.slug}><DriverCard driver={d} /></li>
         ))}

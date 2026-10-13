@@ -22,7 +22,7 @@ export function InfoTip({ label, children }: { label: string; children: ReactNod
         aria-describedby={open ? id : undefined}
         onFocus={() => setOpen(true)}
         onBlur={() => setOpen(false)}
-        className="inline-flex size-5 items-center justify-center rounded-full border border-line-strong font-mono text-[0.6875rem] text-muted hover:text-fg"
+        className="motion-interactive inline-flex size-6 items-center justify-center rounded-full border border-line-strong text-xs font-semibold text-muted hover:border-muted/50 hover:text-fg"
       >
         i
       </button>
@@ -30,7 +30,7 @@ export function InfoTip({ label, children }: { label: string; children: ReactNod
         <span
           role="tooltip"
           id={id}
-          className="absolute left-1/2 top-full z-50 mt-2 w-64 -translate-x-1/2 rounded-md border border-line-strong bg-surface-3 p-3 text-xs leading-relaxed text-fg shadow-2"
+          className="pop-in absolute left-1/2 top-full z-50 mt-2 w-64 -translate-x-1/2 rounded-md border border-line-strong bg-surface-3 p-3 text-xs leading-relaxed text-fg shadow-2"
         >
           {children}
         </span>

@@ -8,7 +8,7 @@ const PORT = process.env.VERIFY_PORT ?? "3101";
 const BASE = `http://127.0.0.1:${PORT}`;
 const REQUIRED = [
   "/", "/live", "/drivers", "/drivers/norris", "/teams", "/teams/ferrari", "/cars", "/cars/mclaren",
-  "/circuits", "/circuits/monza", "/standings", "/replay", "/strategy", "/telemetry", "/race-engineer",
+  "/circuits", "/circuits/monza", "/standings", "/analysis", "/replay", "/strategy", "/telemetry", "/race-engineer",
 ];
 const EXPECT_404 = ["/does-not-exist", "/drivers/not-a-driver", "/teams/nope", "/cars/nope", "/circuits/nope"];
 

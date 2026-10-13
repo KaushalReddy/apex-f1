@@ -12,11 +12,12 @@ const tones: Record<Tone, string> = {
   info: "border-info/40 text-info",
 };
 
+/** Compact status label. The words carry the meaning; colour only reinforces it. */
 export function Badge({ tone = "neutral", children, className }: { tone?: Tone; children: ReactNode; className?: string }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-sm border px-1.5 py-0.5 font-mono text-[0.6875rem] uppercase leading-4 tracking-[0.12em]",
+        "inline-flex items-center rounded-sm border px-1.5 py-0.5 text-xs font-semibold uppercase leading-4 tracking-[0.08em]",
         tones[tone],
         className,
       )}

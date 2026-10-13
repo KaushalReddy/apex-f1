@@ -9,12 +9,13 @@ export function BrandMark({ className }: { className?: string }) {
   );
 }
 
+/** Wordmark: Barlow Condensed SemiBold with a red "F1"; the mark is an apex with a racing-line arc. Original, not derived from any series or team. */
 export function Brand() {
   return (
-    <Link href="/" className="flex items-center gap-2.5 text-fg" aria-label="APEX F1, home">
-      <BrandMark className="size-7" />
-      <span className="text-[1.0625rem] font-semibold tracking-[0.18em]">
-        APEX<span className="text-accent"> F1</span>
+    <Link href="/" className="motion-interactive group flex items-center gap-2.5 text-fg" aria-label="APEX F1, home">
+      <BrandMark className="size-7 transition-transform duration-[var(--duration-base)] ease-[var(--ease-apex)] group-hover:-translate-y-px" />
+      <span className="font-display text-[1.5rem] font-semibold leading-none tracking-[0.08em]">
+        APEX<span className="text-accent-strong"> F1</span>
       </span>
     </Link>
   );

@@ -1,18 +1,24 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { CardArrow } from "@/components/ui/card-arrow";
 import type { NavItem } from "@/domain/navigation";
 
-export function CapabilityCard({ item, title }: { item: NavItem; title: string }) {
+/** An indexed row (01, 02, ...) in the platform capability list; the whole row is the link. */
+export function CapabilityCard({ item, title, index }: { item: NavItem; title: string; index: number }) {
   return (
     <Link
       href={item.href}
-      className="group flex h-full flex-col rounded-lg border border-line bg-surface p-5 shadow-1 transition-colors hover:border-line-strong hover:bg-surface-2"
+      className="group motion-interactive grid grid-cols-[2.5rem_1fr_auto] items-start gap-x-4 gap-y-1 border-t border-line px-1 py-5 hover:bg-surface/60 sm:grid-cols-[3rem_1fr_auto]"
     >
-      <div className="flex items-start justify-between gap-3">
-        <h3 className="text-base font-semibold group-hover:text-accent-strong">{title}</h3>
+      <span className="font-display text-2xl leading-none text-subtle tabular-nums">{String(index).padStart(2, "0")}</span>
+      <span>
+        <span className="block text-lg font-medium leading-snug">{title}</span>
+        <span className="mt-1 block max-w-prose text-sm leading-relaxed text-muted">{item.summary}</span>
+      </span>
+      <span className="flex items-center gap-3 pt-1">
         <Badge tone="info">Phase {item.phase}</Badge>
-      </div>
-      <p className="mt-3 text-sm leading-relaxed text-muted">{item.summary}</p>
+        <CardArrow />
+      </span>
     </Link>
   );
 }

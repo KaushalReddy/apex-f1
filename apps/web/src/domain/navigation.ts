@@ -34,3 +34,16 @@ export function getNavItem(href: string): NavItem {
 export function isActivePath(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
+
+/**
+ * "Analysis" heads the secondary navigation. It is a real destination (an index of the analysis tools), so it is a link like its
+ * siblings and never a bare label that looks clickable but is not.
+ */
+export const ANALYSIS_HUB = {
+  href: "/analysis",
+  label: "Analysis",
+  summary: "Replay, telemetry, strategy and the AI race engineer, and where each one stands.",
+} as const;
+
+/** Every top-level destination once, in display order: primary, then the Analysis hub, then the four tools. */
+export const ALL_NAV_LINKS: ReadonlyArray<{ href: string; label: string }> = [...PRIMARY_NAV, ANALYSIS_HUB, ...PRODUCT_NAV];

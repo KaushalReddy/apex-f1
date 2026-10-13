@@ -8,13 +8,13 @@ const copy: Record<SessionStatus, { label: string; tone: "neutral" | "accent" | 
   replay: { label: "Replay", tone: "info" },
 };
 
-/** Header slot for LIVE / REPLAY mode. Always "none" until the live pipeline exists (Phase 5). */
+/** Header slot for LIVE / REPLAY mode. Always "none" until the live pipeline exists (Phase 5). Text, not just a dot, carries the state. */
 export function LiveIndicator({ status = "none" }: { status?: SessionStatus }) {
   const { label, tone } = copy[status];
   return (
     <Link
       href="/live"
-      className="inline-flex items-center gap-2 rounded-md border border-line px-2.5 py-1.5 font-mono text-[0.6875rem] uppercase tracking-[0.12em] text-muted hover:text-fg"
+      className="motion-interactive inline-flex h-9 items-center gap-2 rounded-md border border-line px-3 text-xs font-medium text-muted hover:border-line-strong hover:bg-surface-2 hover:text-fg"
     >
       <StatusDot tone={tone} pulse={status === "live"} />
       {label}
