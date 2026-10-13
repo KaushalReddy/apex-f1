@@ -19,3 +19,8 @@ tools/openf1-spike/.cache/
 
 # generated
 *.tsbuildinfo
+# Playwright CLI output (may contain credentials)
+.playwright-cli/
+
+# Local 3D reference assets (large binary models, never committed)
+apps/web/public/models/cars/*.glb
