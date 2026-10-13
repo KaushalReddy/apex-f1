@@ -14,8 +14,8 @@ export default function CarsPage() {
       <PageHeader
         eyebrow="Cars"
         title="Car Lab"
-        description="An interactive 3D car viewer with component hotspots and an exploded view. Cars will be generic open-wheel models in team colours, not official assets."
-        badges={<><Badge tone="info">Phase {phase}</Badge><DemoBadge /></>}
+        description="An interactive 3D viewer for a generic, procedurally generated open-wheel car: camera presets, component inspection, an exploded view and an illustrative aerodynamics mode. Each team's page shows the same car in that team's colours, not the team's real car."
+        badges={<><Badge tone="info">Phase 4 foundation · full lab Phase {phase}</Badge><DemoBadge /></>}
       />
       <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {DEMO_TEAMS.map((t) => (

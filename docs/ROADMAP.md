@@ -12,8 +12,8 @@ Each phase ends with a summary and a STOP for approval. Status as of Phase 0.
 | 1 | Design system + app shell (+ CI/Docker already in place) | **implemented, awaiting approval** (see DESIGN_SYSTEM.md) |
 | 2 | Data ingestion (providers, DTOs, Postgres schema, caching) | not started; **gated on spike** |
 | 3 | 3D circuit engine (one circuit) | not started; gated on spike |
-| 4 | 3D car system (interpolation, orientation) | not started |
-| 5 | Live race experience (WebSocket, leaderboard) | not started |
+| 4 | Multi-team procedural 3D car system and aerodynamics explorer (`/cars/[team]`) | **implemented, awaiting approval** (see 3D_ENGINE.md section 10) |
+| 5 | Live race experience (WebSocket, leaderboard, glowing team-coloured driver markers, interpolation) | not started |
 | 6-9 | Driver, team, car lab, circuit explorer pages | not started; mostly independent |
 | 10-15 | Telemetry lab, replay, weather/race control, strategy, AI engineer, Race Rewind | not started |
 | 16-19 | Performance, tests, deploy, docs | not started |

@@ -1,8 +1,9 @@
 # APEX F1: 3D engine design
 
 **Status (Phase 3): the circuit engine is implemented** (`apps/web/src/lib/circuit`, `apps/web/src/components/circuit`).
-Cars, interpolation and car cameras (sections 3 and 4) are **Phase 4 and are not implemented**. Section 6 onward documents
-what was built; sections 1 to 5 are the design it follows.
+**Phase 4 built the procedural car viewer** (section 10), a separate experience from the live circuit. Live driver positions,
+interpolation and follow cameras (sections 3 and 4) belong to **Phase 5 and are not implemented**. Section 6 onward documents what was
+built; sections 1 to 5 are the design it follows.
 
 ## 1. Coordinate pipeline
 
@@ -27,14 +28,15 @@ provider coords (x, y, z in provider units)
   null, use a clearly named default constant and show it in the debug overlay (no silent invention).
 - Kerbs, pit lane, grandstands: later, only from sourced geometry or obviously generic props.
 
-## 3. Cars
+## 3. Cars on the circuit (Phase 5)
+- **Product decision:** drivers on the live circuit are small, translucent, glowing, team-coloured markers (soft glow, brighter core,
+  selection ring, hover tooltip, tap-to-select on mobile), never full 3D cars. The procedural cars of section 10 are only for the car viewer.
 - State per car: previous sample, next sample, render time. Render time lags real time by a
   configurable buffer (start at 500 ms) so there are always two samples to interpolate between.
 - Position: linear interpolation by `sampleT`. Heading: from the interpolated velocity, smoothed
   (slerp) and held when speed is near zero. Stale cars freeze and are visibly marked.
 - Never extrapolate beyond the last sample for more than the buffer; show `stale` instead.
-- Components planned: `Car3D` (geometry/materials), `CarMarker` (number/abbr), `DriverCar`
-  (wires state to a car), `CarCamera` (follow/orbit). Domain logic stays in `src/domain/`.
+- Components planned: `DriverMarker` (glowing marker + number/abbr), `DriverLayer` (wires state to markers), a follow camera. Domain logic stays in `src/domain/`.
 
 ## 4. Track progress
 Needed for sector/gap displays and for stitching 2D charts to the 3D scene. Project each car to
@@ -121,3 +123,82 @@ CircuitScene   -> <Canvas frameloop="demand"> -> CircuitWorld [ CircuitEnvironme
 - Self-crossing circuits (Suzuka) draw correctly as a flat figure-eight but z-fight at the crossing, and the exported z is unreliable there.
   Progress-aware projection is not implemented (not needed until Phase 4+ needs lap progress).
 - Index 0 is the timing line only approximately (spike aligns laps within a few points).
+
+
+---
+
+# Phase 4 implementation (procedural car viewer)
+
+## 10. Car system
+**Scope.** A foundational viewer at `/cars/[team]` for a generic, procedural, F1-inspired car: camera presets, component inspection,
+exploded view, an illustrative aerodynamics mode and educational setup profiles. The live circuit (Phase 3 code) is untouched. The full
+Car Lab is Phase 8.
+
+**Layers** (`apps/web/src/lib/car`, pure and unit-tested; `apps/web/src/components/car`, React Three Fiber):
+| Concern | Where |
+|---|---|
+| Geometry: lofted superellipse sections (spline-interpolated between authored sections, so surfaces do not kink) with separate top/bottom widths (V-keel chassis, undercut sidepods, airbox), NACA-style wing elements lofted through spanwise stations (curved, twisted front wing; spoon rear wing), lathe tyres with covers, tube halo and swan neck, aerofoil-section suspension links; returned as data-driven mesh specs per assembly | `lib/car/geometry.ts` |
+| Illustrative surface pressure (baked vertex colours) | `lib/car/pressure.ts` |
+| Component metadata, explodable parts, explode math | `lib/car/components.ts` |
+| Team car config + livery, sourced race numbers | `lib/car/teams.ts` (identity reused from `domain/demo.ts`) |
+| Specification schema + sourced values | `lib/car/specs.ts` |
+| Educational setup profiles, circuit context | `lib/car/setup.ts` |
+| Camera presets and fitting | `lib/car/camera.ts` |
+| Illustrative flow field, traced streamlines, tip vortices | `lib/car/airflow.ts` |
+| Scene, model, aero layer, camera, UI | `components/car/{CarScene,CarModel,Airflow,CarCamera,CarViewer}.tsx` |
+
+**Car space:** metres, Y up, +X forward, origin on the ground at mid-wheelbase. Proportions follow side-view reference renders of the 2026
+cars (Red Bull Racing, McLaren, Ferrari, Mercedes) supplied by the project owner, measured at the 3.4 m wheelbase: about 5.0 m long (nose tip
+0.94 m ahead of the front axle, rear wing 0.63 m behind the rear axle), a high engine-cover spine (about 0.99 m behind the airbox, 0.87 m at
+x = -1.33), a floor edge about 0.1 m up with a large side panel under each sidepod inlet, a tall airbox pod (about 1.1 m), open 8-spoke 18-inch
+wheels. The four references share one silhouette (same template), so they justify a better shared body and per-team colour schemes, not
+team-specific geometry; every team's provenance stays `generic-procedural`. The reference images are not stored in the repository or bundle. It is not any team's CAD and is not aerodynamically exact.
+
+**Geometry vs livery vs specs.** Every team uses `geometry.variant: "apex-generic-base"` with provenance `generic-procedural`; only colours
+and the race number change. A `Livery` has flat colour zones (primary body, engine cover, number fin, wings, airbox pod, halo, rim ring, number),
+approximated from the references; no logos, sponsor names or graphics are reproduced (design-system rule). `GeometryProvenance` reserves `configurable-variant` and `team-specific-verified` so real team geometry can be
+added later without changing the viewer. Specifications (`CarSpecSheet`) carry status `verified | reported | conflicting | unavailable`, a
+source and a season per value; a test rejects any value without a source and any "unavailable" entry with a value. Populated so far:
+2026 regulation limits (width, wheelbase, mass, rim diameter; status `reported`, from the FIA's June 2024 announcement) and each team's car
+name and power unit (`reported`; Red Bull's power-unit naming is `conflicting`). Everything else is `unavailable`.
+
+**Selection and highlighting.** Each explodable part is one group tagged with its component id; a test asserts every metadata entry is a
+real group with meshes and every mesh belongs to exactly one part. Highlighting draws the same geometry again with one shared overlay
+material, so no buffers are duplicated. Drags that orbit the camera do not select.
+
+**Exploded view.** One `useFrame` loop moves part groups by `explode * smoothstep(progress)`; base geometry is never mutated. Reduced motion
+jumps. The floor and diffuser stay on the ground and the body lifts above them (a part moved below the ground would vanish under the ground
+disc; a test forbids negative vertical offsets). Toggling re-fits the camera. Airflow layers are hidden while exploded because the flow is
+modelled around the assembled car. A test toggles three times and checks exact reassembly.
+
+**Aerodynamics (illustrative).** Streamlines are traced (RK2) through a hand-built velocity field: potential flow around ellipsoids that stand in
+for the nose, chassis, engine cover, sidepods and wheels (doublets, kinematically mapped so lines never enter a body, mirrored in the ground
+plane), plus labelled effects for what each device is known to do (front-wing upwash/outwash, faster flow under the front wing and floor,
+diffuser and rear-wing upwash, sidepod downwash, a slow wake). Lines are coloured by speed relative to the oncoming air; comet particles move by
+travel time, so they visibly speed up under the floor and slow ahead of the nose. Optional layers: surface pressure (vertex colours from textbook
+rules: stagnation in front, suction under wings and floor, recovery along the diffuser), helical wing-tip vortices and conceptual force arrows.
+Profiles and a conceptual low-drag wing mode change both the drawn wing angles and the field. Everything is labelled illustrative; no
+pressures, forces or coefficients are computed or shown. Tests check: free stream far away, no line through bodywork or ground, faster air under
+the floor, slower air ahead of the nose, more upwash with more downforce and less in low-drag mode.
+
+**Layout (configurator).** A full-width 3D stage (height `clamp(420px, 100svh - 170px, 780px)` on desktop, width-based on phones) with mode
+toggles and camera presets floating over it on larger screens and placed above/below it on phones; a key-figures strip (season, car, power
+unit with sourcing status, body, livery); a responsive grid of component cards whose images are renders of the procedural model's own
+assemblies, captured in the browser into an offscreen target once per livery/wing change (no image files); a detail row (Inspector + Livery,
+Aerodynamics, Setup profile) sized to content; then the specification and regulation tables as expandable panels. A team switcher sits next to
+the page heading. Grids use `items-start` so short panels are not padded to the tallest one.
+
+**Rendering.** On-demand frames while static; a continuous loop only during auto-rotate or playing airflow. Lighting is a generated
+`RoomEnvironment` (no HDR download) plus a shadow-casting key light and fills, clearcoat paint and soft ground shadows. Camera presets are
+solved numerically against a sample of the car's real vertices (assembled or exploded) so every view fills about 90% of the frame at any
+aspect (tested); the race number is a small canvas texture (no font download). Geometry, materials and
+textures are disposed on change and unmount. WebGL is detected before the scene loads, and an error boundary catches render failures.
+
+**Reference asset.** A local, git-ignored model (`apps/web/public/models/cars/2026_redbull_rb22.glb`, "2026 Redbull RB22" by Dave Love,
+Sketchfab, CC-BY-4.0) was used only to sanity-check overall proportions (bounding box). It is not loaded, copied or committed.
+
+**Verified in a real browser (Chromium, Playwright):** desktop 1440x900 and mobile 390x844; three-quarter, side and top presets; exploded view with
+labels; aero mode; tap selection on mobile; reduced motion; WebGL disabled. Frame rate was not measured.
+
+**Known limitations.** Generic geometry only; no bargeboards, brake-duct winglets or bodywork cooling louvres; wing angles are illustrative; the
+flow field is a teaching model, not CFD; exploded labels are DOM overlays, hidden on narrow canvases, and may overlap at some angles.
