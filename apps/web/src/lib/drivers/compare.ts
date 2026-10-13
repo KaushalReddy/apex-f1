@@ -1,4 +1,5 @@
-import { domainTeam, driverRegistry, teamColour } from "./identity";
+import { teamFor } from "@/lib/teams/registry";
+import { driverRegistry, teamColour } from "./identity";
 import { headToHead, leader, pointsProgression, seasonLineup, seasonStats, type Leader } from "./stats";
 import type { SeasonResults } from "./types";
 
@@ -61,7 +62,7 @@ export function compare(seasons: readonly SeasonResults[], q: { season?: string;
     name: l.ref!.name,
     team: l.team,
     teamColour: teamColour(season!, l.team),
-    teamSlug: domainTeam(l.team)?.slug ?? null,
+    teamSlug: teamFor(l.team)?.slug ?? null,
     number: l.number,
   });
   const sa = seasonStats(season, la.acronym);

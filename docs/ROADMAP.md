@@ -14,8 +14,9 @@ Each phase ends with a summary and a STOP for approval. Status as of Phase 0.
 | 3 | 3D circuit engine (one circuit) | not started; gated on spike |
 | 4 | Multi-team procedural 3D car system and aerodynamics explorer (`/cars/[team]`) | **implemented, awaiting approval** (see 3D_ENGINE.md section 10) |
 | 5 | Live race experience at `/live`: glowing team-coloured driver markers on the 3D circuit, race order, events, DEMO (simulated) and REPLAY sources; LIVE provider interface only | **implemented, awaiting approval** (see 3D_ENGINE.md section 11). No live provider is configured. |
-| 6 | Driver experience and standings: directory, profiles, season trends, head-to-head, drivers' and constructors' championships (`/drivers`, `/drivers/[driver]`, `/drivers/compare`, `/standings`) from OpenF1 season snapshots | **implemented, awaiting approval** (see `apps/web/src/data/results/README.md`) |
-| 7-9 | Team, car lab, circuit explorer pages | not started; mostly independent |
+| 6 | Driver experience and standings: directory, profiles, season trends, head-to-head, drivers' and constructors' championships (`/drivers`, `/drivers/[driver]`, `/drivers/compare`, `/standings`) from OpenF1 season snapshots | done (see `apps/web/src/data/results/README.md`) |
+| 7 | Team experience: eleven-team directory with livery cards, team profiles (line-up, constructors' standing, results, trends), team head-to-head (`/teams`, `/teams/[team]`, `/teams/compare`) from the same OpenF1 snapshots | implemented, awaiting approval |
+| 8-9 | Car lab, circuit explorer pages | not started; mostly independent |
 | 10-15 | Telemetry lab, replay, weather/race control, strategy, AI engineer, Race Rewind | not started |
 | 16-19 | Performance, tests, deploy, docs | not started |
 

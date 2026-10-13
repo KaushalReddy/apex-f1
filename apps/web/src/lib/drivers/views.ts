@@ -1,4 +1,5 @@
 import { DEMO_DRIVERS } from "@/domain/demo";
+import { teamFor } from "@/lib/teams/registry";
 import { circuitPage, domainTeam, driverRegistry, teamColour, type DriverRef } from "./identity";
 import { driverRounds, finishingTrend, pointsProgression, qualifyingVsRace, seasonLineup, seasonStats, type DriverRound, type SeasonStats } from "./stats";
 import type { SeasonResults } from "./types";
@@ -76,6 +77,8 @@ export interface ProfileSeason {
   team: string | null;
   teamColour: string;
   teamSlug: string | null;
+  /** Set only when the team has a Phase 4 3D car (/cars/<slug>). */
+  carSlug: string | null;
   rounds: Array<DriverRound & { circuitSlug: string | null }>;
   progression: ReturnType<typeof pointsProgression>;
   trend: ReturnType<typeof finishingTrend>;
@@ -104,7 +107,8 @@ export function profile(seasons: readonly SeasonResults[], slug: string): Profil
         stats,
         team: stats.team,
         teamColour: teamColour(s, stats.team),
-        teamSlug: team?.slug ?? null,
+        teamSlug: teamFor(stats.team)?.slug ?? null,
+        carSlug: team?.slug ?? null,
         rounds: driverRounds(s, ref.acronym).map((r) => ({ ...r, circuitSlug: circuitPage(r.circuitShortName) ?? null })),
         progression: pointsProgression(s, ref.acronym),
         trend: finishingTrend(s, ref.acronym),

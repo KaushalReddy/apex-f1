@@ -1,4 +1,5 @@
-import { domainTeam, driverRegistry, teamColour } from "./identity";
+import { teamFor } from "@/lib/teams/registry";
+import { driverRegistry, teamColour } from "./identity";
 import { seasonStats } from "./stats";
 import type { SeasonResults } from "./types";
 
@@ -88,7 +89,7 @@ export function seasonStandings(season: SeasonResults, allSeasons: readonly Seas
           position: t.position,
           team: t.team,
           teamColour: teamColour(season, t.team),
-          teamSlug: domainTeam(t.team)?.slug ?? null,
+          teamSlug: teamFor(t.team)?.slug ?? null,
           points: t.points,
           gapToLeader: leaderT != null && t.points != null ? leaderT - t.points : null,
           change: before != null && t.position != null ? before - t.position : null,
