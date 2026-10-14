@@ -48,6 +48,10 @@ const LEADER = "#f5b83d"; // warning token: a quiet gold ring for P1
 const FOCUS = "#5cb8ff"; // info token: battle focus
 const SELECTED = "#f3f5f7"; // fg token
 
+/** Halo sprite size relative to the marker core: normal views, and the straight-down view where markers are small and packed. */
+const HALO = 6;
+const HALO_TOP_DOWN = 3;
+
 /** Soft round glow drawn once on a small canvas (no texture download). */
 function glowTexture() {
   if (typeof document === "undefined") return null;
@@ -149,6 +153,9 @@ export function DriverLayer({ geometry, drivers, buffer, labels, showLabels, sel
     const screen = new Map<string, { mx: number; my: number }>();
     const container = labels.current;
     let markerPx = 6;
+    // Looking (almost) straight down, the camera is far away and markers sit close together on screen: a full-size glow would merge
+    // into one blob over the track, so the halo is drawn at half size there.
+    const halo = camera.getWorldDirection(v).y < -0.9 ? HALO_TOP_DOWN : HALO;
     for (const d of drivers) {
       const g = groups.current.get(d.id);
       if (!g) continue;
@@ -157,8 +164,12 @@ export function DriverLayer({ geometry, drivers, buffer, labels, showLabels, sel
       if (p == null) continue;
       path.pointAt(p, tmp);
       const dist = camera.position.distanceTo(v.set(tmp[0], tmp[1], tmp[2]));
-      const s = Math.max(1.2, dist * 0.0072);
+      // Constant on-screen size: scale with distance AND the lens (the top-down view uses a narrower field of view than the 40° the
+      // factor was tuned for, which would otherwise make markers about twice as large there).
+      const lens = Math.tan((((camera as unknown as { fov?: number }).fov ?? 40) * Math.PI) / 360) / Math.tan((40 * Math.PI) / 360);
+      const s = Math.max(1.2, dist * 0.0072 * lens);
       g.scale.setScalar(s);
+      g.children[0]?.scale.set(halo, halo, 1); // the halo sprite (first child)
       g.position.set(tmp[0], tmp[1] + s * 0.9 + 0.5, tmp[2]);
       // Marker core radius on screen, so labels clear the marker at any zoom.
       const fov = (camera as unknown as { fov?: number }).fov ?? 40;
@@ -244,7 +255,7 @@ export function DriverLayer({ geometry, drivers, buffer, labels, showLabels, sel
             }}
             onPointerOut={() => onHover(null)}
           >
-            <sprite scale={[6, 6, 1]} material={d.stale ? m.haloStale : m.halo} raycast={() => null} renderOrder={5} />
+            <sprite scale={[HALO, HALO, 1]} material={d.stale ? m.haloStale : m.halo} raycast={() => null} renderOrder={5} />
             <mesh geometry={shared.core} material={m.core} renderOrder={6} raycast={() => null} />
             {ring && <mesh geometry={shared.ring} material={ring} renderOrder={7} raycast={() => null} />}
             {/* Invisible, larger pick target so small markers stay easy to tap. */}

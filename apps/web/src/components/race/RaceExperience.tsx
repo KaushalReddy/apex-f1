@@ -1,12 +1,13 @@
 "use client";
 
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ViewPreset } from "@/components/circuit/CircuitCamera";
 import { ErrorBoundary } from "@/components/circuit/ErrorBoundary";
+import { ImmersiveNav } from "@/components/layout/ImmersiveNav";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { SectionMarker } from "@/components/ui/section-header";
 import { StatusDot } from "@/components/ui/status-dot";
 import { findTeam } from "@/domain/demo";
 import { centerlineToWorld, createWorldTransform } from "@/lib/circuit/transform";
@@ -17,6 +18,7 @@ import { demoEntries, teamColor } from "@/lib/race/entries";
 import { appendEvents, type RaceEvent } from "@/lib/race/events";
 import { DemoProvider, PLAYBACK_SPEEDS, ReplayProvider, realScheduler, type ProviderUpdate, type RaceProvider } from "@/lib/race/providers";
 import { MODE_LABEL, SnapshotBuffer, battles, formatGap, formatLapTime, freshness, sortByRaceOrder, toggleSelection } from "@/lib/race/session";
+import type { RaceView } from "@/lib/race/fit";
 import { createTrackPath } from "@/lib/race/track";
 import { fetchReplayTimeline } from "@/lib/replay/api";
 import { useReducedMotion, useWebGL } from "@/lib/use-client-env";
@@ -82,13 +84,15 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
   const [follow, setFollow] = useState(false);
   const [labelsOn, setLabelsOn] = useState(true);
   const [gapMode, setGapMode] = useState<"leader" | "ahead">("leader");
-  const [preset, setPreset] = useState<ViewPreset>({ name: "overview", nonce: 0 });
+  const [preset] = useState<ViewPreset>({ name: "overview", nonce: 0 });
   const [fitNonce, setFitNonce] = useState(0);
-  // Immersive mode: native fullscreen on the theater container, or an in-page fixed layer when the Fullscreen API is unavailable/refused.
+  const [fitView, setFitView] = useState<RaceView>("overview");
+  // The race view is full-window only: a fixed layer over the whole tab. Browser fullscreen (which also hides the browser's toolbars) is
+  // an optional extra on top of it, since browsers only allow it after a click; it never changes the layout. "Exit" leaves the page.
   const theater = useRef<HTMLDivElement | null>(null);
+  const router = useRouter();
   const [nativeFs, setNativeFs] = useState(false);
-  const [fallbackFs, setFallbackFs] = useState(false);
-  const immersive = nativeFs || fallbackFs;
+  const [fsSupported, setFsSupported] = useState(false);
   const [showOrder, setShowOrder] = useState(true);
   const [showEvents, setShowEvents] = useState(false);
   const [viewportW, setViewportW] = useState(1440);
@@ -152,6 +156,11 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
     };
     const onResize = () => setViewportW(window.innerWidth);
     onResize();
+    // Phones start with the circuit unobstructed (the race order is one tap away).
+    void Promise.resolve().then(() => {
+      if (window.innerWidth < 768) setShowOrder(false);
+      setFsSupported(!!document.documentElement.requestFullscreen && document.fullscreenEnabled !== false);
+    });
     document.addEventListener("fullscreenchange", onFs);
     window.addEventListener("resize", onResize);
     return () => {
@@ -160,42 +169,28 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
     };
   }, []);
 
-  // In-page fallback: Escape leaves it (native fullscreen handles Escape itself) and the page behind it does not scroll.
+  // The layer covers the page, so the page behind it must not scroll.
   useEffect(() => {
-    if (!fallbackFs) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setFallbackFs(false);
-        setFitNonce((n) => n + 1);
-      }
-    };
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    document.addEventListener("keydown", onKey);
     return () => {
       document.body.style.overflow = overflow;
-      document.removeEventListener("keydown", onKey);
     };
-  }, [fallbackFs]);
+  }, []);
 
-  const enterImmersive = async () => {
-    if (window.innerWidth < 768) setShowOrder(false); // phones: start with the circuit unobstructed
-    const el = theater.current;
-    if (el?.requestFullscreen && document.fullscreenEnabled !== false) {
-      try {
-        await el.requestFullscreen({ navigationUI: "hide" });
-        return; // fullscreenchange updates the state and refits
-      } catch {
-        // refused (permissions, iframe, user agent): fall through to the in-page layout
-      }
+  const toggleBrowserFullscreen = async (on: boolean) => {
+    try {
+      if (on && theater.current?.requestFullscreen && !document.fullscreenElement) await theater.current.requestFullscreen({ navigationUI: "hide" });
+      if (!on && document.fullscreenElement) await document.exitFullscreen();
+    } catch {
+      // refused (permissions, iframe, user agent): the full-window layer stays as it is
     }
-    setFallbackFs(true);
-    setFitNonce((n) => n + 1);
   };
-  const exitImmersive = () => {
-    if (document.fullscreenElement) void document.exitFullscreen();
-    setFallbackFs(false);
-    setFitNonce((n) => n + 1);
+  /** Leaves the race view: back to where the visitor came from on this site, or to the home page. */
+  const leave = () => {
+    void toggleBrowserFullscreen(false);
+    if (document.referrer.startsWith(window.location.origin) && window.history.length > 1) router.back();
+    else router.push("/");
   };
 
   const snapshot = update?.snapshot ?? null;
@@ -221,6 +216,7 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
   };
   const fitCircuit = () => {
     setFollow(false);
+    setFitView("overview");
     setFitNonce((n) => n + 1);
   };
   const select = useCallback((id: string | null) => {
@@ -346,11 +342,12 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
     "rounded-lg border border-white/10 bg-surface/70 shadow-2 backdrop-blur-xl [box-shadow:inset_0_1px_0_rgb(255_255_255/0.06),var(--shadow-2)] supports-[not(backdrop-filter:blur(1px))]:bg-surface/95";
   const phone = viewportW < 768;
   // Space the floating panels take, so the circuit is framed in what is left (desktop: side panels; phone: top bar and bottom stack).
-  const insets = immersive
-    ? phone
-      ? { top: 64, right: 8, bottom: sel || showOrder ? 300 : 120, left: 8 }
-      : { top: 84, right: sel || showEvents ? 316 : 16, bottom: 92, left: 344 }
-    : undefined;
+  // Space the floating panels take (below the site bar and HUD row, above the playback bar). Desktop side insets are symmetric so the
+  // circuit stays centred on screen; they shrink when no side panel is open.
+  const sidePanels = showOrder || !!sel || showEvents;
+  const insets = phone
+    ? { top: 112, right: 8, bottom: sel || showOrder ? 300 : 120, left: 8 }
+    : { top: 196, right: sidePanels ? 344 : 24, bottom: 92, left: sidePanels ? 344 : 24 };
 
   const modeBadge = <Badge tone={mode === "LIVE" ? "accent" : mode === "REPLAY" ? "info" : "warning"}>{MODE_LABEL[mode].label}</Badge>;
   const statusText = finished
@@ -384,9 +381,13 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
       {label}
     </Button>
   );
+  /** Straight-down view of the whole circuit, framed in the clear area; the side panels fold away so nothing sits over the track. */
   const topDown = () => {
     setFollow(false);
-    setPreset((v) => ({ name: "topDown", nonce: v.nonce + 1 }));
+    setShowOrder(false);
+    setShowEvents(false);
+    setFitView("topDown");
+    setFitNonce((n) => n + 1);
   };
 
   const orderPanel = (
@@ -501,57 +502,27 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
   );
 
   return (
-    <div>
-      <header className="mb-3 border-b border-line pb-3">
-        <div className="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-            <p className="eyebrow flex items-center">
-              <SectionMarker />
-              Race experience
-            </p>
-            <h1 className="font-display text-2xl font-semibold leading-none tracking-[0.01em] sm:text-3xl">{circuit.name} · Race</h1>
-          </div>
-          {sourceSwitch}
-        </div>
-        <div className="mt-2">{statusChips}</div>
-        <p className="mt-2 text-xs leading-relaxed text-muted">
-          {mode === "DEMO" && "Simulated race on the Monaco geometry with the project's driver line-up. Positions, gaps, lap times and pit stops are generated by the simulator; they are not real results."}
-          {mode === "REPLAY" && `${replay.label}. Stored OpenF1 location samples served by the APEX F1 API: car numbers and positions only, so race order and timing are not available.`}
-          {mode === "LIVE" && MODE_LABEL.LIVE.description}
-          {update?.source.detail && update.source.status !== "error" && <span className="ml-1 text-subtle">{update.source.detail}</span>}
-        </p>
-      </header>
-
-      <div className={cn(!immersive && "grid gap-4 lg:grid-cols-[minmax(0,1fr)_21rem]")}>
-        <div className="relative min-w-0">
-          {!immersive && (
-            <div className="pointer-events-none mb-2 flex justify-end sm:absolute sm:right-3 sm:top-3 sm:z-20 sm:mb-0">
-              <div className="pointer-events-auto flex flex-wrap gap-1 rounded-lg border border-line bg-surface/90 p-1 shadow-2">
-                {toolButton("Fit circuit", fitCircuit)}
-                {toolButton("Top-down", topDown)}
-                {toolButton("Labels", () => setLabelsOn((l) => !l), labelsOn)}
-                <Button size="sm" variant="ghost" className="h-8 px-2.5 text-fg" onClick={() => void enterImmersive()}>
-                  Fullscreen
+    // Full-window: the theater is the whole view; browser fullscreen, when chosen, is requested on this element.
+    <div ref={theater} className="fixed inset-0 z-[70] bg-bg">
+      <ImmersiveNav
+        actions={
+          <>
+            {fsSupported && (
+              <span className="hidden sm:contents">
+                <Button size="sm" variant="ghost" aria-pressed={nativeFs} className="h-8 px-2.5" onClick={() => void toggleBrowserFullscreen(!nativeFs)}>
+                  {nativeFs ? "Exit browser fullscreen" : "Browser fullscreen"}
                 </Button>
-              </div>
-            </div>
-          )}
-
-          {/* The theater: the 3D stage is always its FIRST child, so entering or leaving immersive mode never remounts the scene (no new
-              WebGL context, no lost camera); in immersive mode it becomes the fullscreen element (or a fixed in-page layer). */}
-          <div
-            ref={theater}
-            className={cn(immersive ? "fixed inset-0 z-[70] bg-bg" : "relative")}
-            role={immersive ? "dialog" : undefined}
-            aria-modal={immersive || undefined}
-            aria-label={immersive ? `${circuit.name} race, immersive view` : undefined}
-          >
+              </span>
+            )}
+            <Button size="sm" variant="secondary" className="h-8 px-2.5" onClick={leave} title="Leave the race view">
+              Exit
+            </Button>
+          </>
+        }
+      />
             <section
               aria-label={`3D circuit of ${circuit.name} with driver markers`}
-              className={cn(
-                "overflow-hidden bg-bg",
-                immersive ? "absolute inset-0" : "relative h-[clamp(300px,78vw,520px)] rounded-lg border border-line lg:h-[clamp(360px,calc(100svh_-_344px),820px)]",
-              )}
+              className="absolute inset-0 overflow-hidden bg-bg"
             >
               {webgl === null ? (
                 <StageMessage>Loading the 3D circuit…</StageMessage>
@@ -564,6 +535,7 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
                     preset={preset}
                     fitNonce={fitNonce}
                     insets={insets}
+                    view={fitView}
                     drivers={markerDrivers}
                     buffer={buffer}
                     labels={labels}
@@ -606,18 +578,30 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
                 ))}
               </div>
 
-              {!immersive && errorBox}
             </section>
 
-            {immersive && (
-              // Floating glass HUD. The layer itself ignores the pointer so the circuit can be dragged and zoomed between panels.
-              <div className="pointer-events-none absolute inset-0 z-10 p-2 sm:p-4">
+            {/* Floating glass HUD. The layer itself ignores the pointer so the circuit can be dragged and zoomed between panels. */}
+              <div className="pointer-events-none absolute inset-0 z-10 p-2 pt-14 sm:p-4 sm:pt-16">
                 <div className="flex items-start justify-between gap-2">
                   <div className={cn("pointer-events-auto min-w-0 px-3 py-2 md:w-[20rem]", GLASS)}>
                     <p className="eyebrow hidden sm:block">Race experience</p>
-                    <p className="truncate font-display text-lg font-semibold leading-tight sm:text-xl">{circuit.name} · Race</p>
+                    <h1 className="truncate font-display text-lg font-semibold leading-tight sm:text-xl">{circuit.name} · Race</h1>
                     <div className="mt-1 hidden sm:block">{statusChips}</div>
                     <div className="mt-1 sm:hidden">{modeBadge}</div>
+                    <details className="mt-1.5 text-xs">
+                      <summary className="cursor-pointer text-muted hover:text-fg">Source and data</summary>
+                      <div className="mt-2 [&_button]:h-8 [&_button]:px-2 [&_button]:text-xs">{sourceSwitch}</div>
+                      <p className="mt-2 leading-relaxed text-muted">
+                        {mode === "DEMO" && "Simulated race on the Monaco geometry with the project's driver line-up. Positions, gaps, lap times and pit stops are generated by the simulator; they are not real results."}
+                        {mode === "REPLAY" && `${replay.label}. Stored OpenF1 location samples served by the APEX F1 API: car numbers and positions only, so race order and timing are not available.`}
+                        {mode === "LIVE" && MODE_LABEL.LIVE.description}
+                        {update?.source.detail && update.source.status !== "error" && <span className="ml-1 text-subtle">{update.source.detail}</span>}
+                      </p>
+                      <p className="mt-2 text-subtle">
+                        Drag to orbit, right-drag or arrow keys to pan, scroll or pinch to zoom. Tap a marker, label or row to select a driver.
+                        {reducedMotion && " Reduced motion is on: the demo starts paused."}
+                      </p>
+                    </details>
                   </div>
                   <div className={cn("pointer-events-auto flex flex-wrap justify-end gap-1 p-1", GLASS)}>
                     <span className="hidden items-center px-1 text-xs text-muted lg:inline-flex">{freshnessChip}</span>
@@ -626,9 +610,6 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
                     {toolButton("Labels", () => setLabelsOn((l) => !l), labelsOn)}
                     {toolButton("Order", () => setShowOrder((o) => !o), showOrder)}
                     <span className="hidden sm:contents">{toolButton("Events", () => setShowEvents((o) => !o), showEvents)}</span>
-                    <Button size="sm" variant="secondary" className="h-8 px-2.5" onClick={exitImmersive}>
-                      {nativeFs ? "Exit fullscreen" : "Exit"}
-                    </Button>
                   </div>
                 </div>
 
@@ -640,7 +621,7 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
                     className={cn(
                       "pointer-events-auto absolute flex flex-col overflow-hidden",
                       GLASS,
-                      phone ? "inset-x-2 bottom-[4.75rem] max-h-[42vh]" : "left-4 top-[8.25rem] w-[20rem] max-h-[calc(100%-14.25rem)]",
+                      phone ? "inset-x-2 bottom-[4.75rem] max-h-[42vh]" : "left-4 top-[11.25rem] w-[20rem] max-h-[calc(100%-17.25rem)]",
                     )}
                     style={phone ? undefined : { height: "fit-content" }}
                   >
@@ -648,7 +629,7 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
                   </div>
                 )}
                 {!phone && (sel || showEvents) && (
-                  <div className="pointer-events-none absolute bottom-[5.75rem] right-4 top-[5.5rem] flex w-[18.5rem] flex-col gap-2">
+                  <div className="pointer-events-none absolute bottom-[5.75rem] right-4 top-[8.5rem] flex w-[18.5rem] flex-col gap-2">
                     {sel && <div className="pointer-events-auto shrink-0 [&>div]:border-white/10 [&>div]:bg-surface/70 [&>div]:backdrop-blur-xl">{selectedCard}</div>}
                     {showEvents && <div className={cn("pointer-events-auto flex min-h-0 flex-col overflow-hidden", GLASS)}>{eventsPanel}</div>}
                   </div>
@@ -659,35 +640,6 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
                   <div className="pointer-events-auto w-full max-w-3xl [&>div]:border-white/10 [&>div]:bg-surface/70 [&>div]:backdrop-blur-xl">{playbackBar}</div>
                 </div>
               </div>
-            )}
-          </div>
-
-          {!immersive && (
-            <>
-              {/* Controls and details sit outside the stage so they never cover the track. */}
-              <div className="mt-2">{playbackBar}</div>
-              {selectedCard && <div className="mt-2 lg:hidden">{selectedCard}</div>}
-              <p className="mt-2 text-xs text-subtle">
-                Drag to orbit, right-drag or arrow keys to pan, scroll or pinch to zoom. Tap a marker, label or row to select a driver. Fullscreen opens an
-                immersive view; Escape leaves it.
-                {reducedMotion && " Reduced motion is on: the demo starts paused."}
-              </p>
-            </>
-          )}
-        </div>
-
-        {!immersive && (
-          // Desktop: the sidebar is absolutely filled into the row, so the row height comes from the circuit column alone (no blank
-          // space under the playback bar); the event list takes the remaining height and scrolls. Smaller screens: normal flow.
-          <div className="relative min-w-0">
-            <aside className="flex min-w-0 flex-col gap-3 lg:absolute lg:inset-0 lg:overflow-y-auto" aria-label="Race information">
-              {selectedCard && <div className="hidden shrink-0 lg:block">{selectedCard}</div>}
-              <div className="shrink-0 overflow-hidden rounded-lg border border-line bg-surface">{orderPanel}</div>
-              <div className="flex min-h-[9rem] flex-col overflow-hidden rounded-lg border border-line bg-surface lg:flex-1">{eventsPanel}</div>
-            </aside>
-          </div>
-        )}
-      </div>
     </div>
   );
 }

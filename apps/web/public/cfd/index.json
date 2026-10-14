@@ -1,0 +1,197 @@
+[
+ {
+  "caseId": "e133f962-18e9-4f5f-996b-97d216e58ed7",
+  "kind": "benchmark-naca0012",
+  "label": "NACA 0012, \u03b1 = 10\u00b0, grid 113\u00d733",
+  "createdAt": "2026-10-14T10:24:09.076899+00:00",
+  "conditions": {
+   "mach": 0.15,
+   "reynolds": 6000000,
+   "aoaDeg": 10
+  },
+  "derived": {
+   "reynolds": 6000000,
+   "mach": 0.15
+  },
+  "coefficients": {
+   "CL": 1.00875269,
+   "CD": 0.03850320269,
+   "CMz": -0.0003546121028
+  },
+  "forcesPerSpan": null,
+  "status": {
+   "solverCompleted": true,
+   "converged": true,
+   "validated": false
+  },
+  "origin": "shipped",
+  "meshLevel": "113x33",
+  "solverVersion": "8.5.0",
+  "pipeline": "apexcfd-3",
+  "geometry": {
+   "id": "tmr-naca0012",
+   "description": "NACA 0012 (NASA TMR definition, sharp trailing edge, unit chord)",
+   "simplified": false
+  }
+ },
+ {
+  "caseId": "5eb9564b-c9bb-4c3d-b700-c33a5575165f",
+  "kind": "benchmark-naca0012",
+  "label": "NACA 0012, \u03b1 = 10\u00b0, grid 225\u00d765",
+  "createdAt": "2026-10-14T10:25:20.457873+00:00",
+  "conditions": {
+   "mach": 0.15,
+   "reynolds": 6000000,
+   "aoaDeg": 10
+  },
+  "derived": {
+   "reynolds": 6000000,
+   "mach": 0.15
+  },
+  "coefficients": {
+   "CL": 1.080345861,
+   "CD": 0.01838468918,
+   "CMz": -0.004020306236
+  },
+  "forcesPerSpan": null,
+  "status": {
+   "solverCompleted": true,
+   "converged": true,
+   "validated": false
+  },
+  "origin": "shipped",
+  "meshLevel": "225x65",
+  "solverVersion": "8.5.0",
+  "pipeline": "apexcfd-3",
+  "geometry": {
+   "id": "tmr-naca0012",
+   "description": "NACA 0012 (NASA TMR definition, sharp trailing edge, unit chord)",
+   "simplified": false
+  }
+ },
+ {
+  "caseId": "adc54395-41c6-4d0e-901d-069a64bc4a42",
+  "kind": "benchmark-naca0012",
+  "label": "NACA 0012, \u03b1 = 10\u00b0, grid 449\u00d7129",
+  "createdAt": "2026-10-14T10:49:58.185139+00:00",
+  "conditions": {
+   "mach": 0.15,
+   "reynolds": 6000000,
+   "aoaDeg": 10
+  },
+  "derived": {
+   "reynolds": 6000000,
+   "mach": 0.15
+  },
+  "coefficients": {
+   "CL": 1.096104923,
+   "CD": 0.01361354129,
+   "CMz": -0.0045561789
+  },
+  "forcesPerSpan": null,
+  "status": {
+   "solverCompleted": true,
+   "converged": false,
+   "validated": false
+  },
+  "origin": "shipped",
+  "meshLevel": "449x129",
+  "solverVersion": "8.5.0",
+  "pipeline": "apexcfd-3",
+  "geometry": {
+   "id": "tmr-naca0012",
+   "description": "NACA 0012 (NASA TMR definition, sharp trailing edge, unit chord)",
+   "simplified": false
+  }
+ },
+ {
+  "caseId": "a8f7bdc3-cf43-4bb2-8cd5-ac4bffe95cb7",
+  "kind": "rear-wing-section",
+  "label": "Balanced (9\u00b0 / 30\u00b0)",
+  "createdAt": "2026-10-14T10:21:41.043340+00:00",
+  "conditions": {
+   "speedMps": 50,
+   "densityKgM3": 1.225,
+   "temperatureK": 288.15,
+   "viscosityPaS": 1.7894e-05
+  },
+  "derived": {
+   "reynolds": 1916843.6347379014,
+   "mach": 0.1469325104620875,
+   "dynamicPressurePa": 1531.25
+  },
+  "coefficients": {
+   "CL": -2.616509397,
+   "CD": 0.1552422651,
+   "CMz": 0.311478191
+  },
+  "forcesPerSpan": {
+   "liftNPerM": -2243.6568079275003,
+   "dragNPerM": 133.12024232325,
+   "downforceNPerM": 2243.6568079275003
+  },
+  "status": {
+   "solverCompleted": true,
+   "converged": false,
+   "validated": false
+  },
+  "origin": "shipped",
+  "meshLevel": "coarse",
+  "solverVersion": "8.5.0",
+  "pipeline": "apexcfd-3",
+  "geometry": {
+   "id": "apex-rear-wing-section",
+   "description": "Procedural rear wing, 2D section at z = 0.44 m: main plane 9\u00b0, flap 30\u00b0",
+   "wings": {
+    "rearMainDeg": 9,
+    "rearFlapDeg": 30
+   },
+   "simplified": true
+  }
+ },
+ {
+  "caseId": "249f1ceb-1a7e-45f0-bde4-8d9765c835ab",
+  "kind": "rear-wing-section",
+  "label": "Low drag (4\u00b0 / 14\u00b0)",
+  "createdAt": "2026-10-14T10:39:42.439110+00:00",
+  "conditions": {
+   "speedMps": 50,
+   "densityKgM3": 1.225,
+   "temperatureK": 288.15,
+   "viscosityPaS": 1.7894e-05
+  },
+  "derived": {
+   "reynolds": 1916843.6347379014,
+   "mach": 0.1469325104620875,
+   "dynamicPressurePa": 1531.25
+  },
+  "coefficients": {
+   "CL": -1.785821108,
+   "CD": 0.05085237011,
+   "CMz": 0.2128545322
+  },
+  "forcesPerSpan": {
+   "liftNPerM": -1531.34160011,
+   "dragNPerM": 43.60590736932501,
+   "downforceNPerM": 1531.34160011
+  },
+  "status": {
+   "solverCompleted": true,
+   "converged": false,
+   "validated": false
+  },
+  "origin": "shipped",
+  "meshLevel": "coarse",
+  "solverVersion": "8.5.0",
+  "pipeline": "apexcfd-3",
+  "geometry": {
+   "id": "apex-rear-wing-section",
+   "description": "Procedural rear wing, 2D section at z = 0.44 m: main plane 4\u00b0, flap 14\u00b0",
+   "wings": {
+    "rearMainDeg": 4,
+    "rearFlapDeg": 14
+   },
+   "simplified": true
+  }
+ }
+]

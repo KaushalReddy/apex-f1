@@ -112,10 +112,10 @@ export const easeExplode = (t: number) => {
 };
 
 /**
- * Advances explode progress towards the target (0 assembled, 1 exploded) by dt seconds over `duration` seconds.
+ * Advances explode progress towards the target (0 assembled, 1 exploded, or any amount between) by dt seconds over `duration` seconds.
  * A non-positive duration (reduced motion) jumps straight to the target. Progress is always clamped to [0, 1].
  */
-export function stepExplode(current: number, target: 0 | 1, dt: number, duration: number): number {
+export function stepExplode(current: number, target: number, dt: number, duration: number): number {
   if (duration <= 0) return target;
   const step = Math.max(0, dt) / duration;
   return target > current ? Math.min(current + step, target) : Math.max(current - step, target);

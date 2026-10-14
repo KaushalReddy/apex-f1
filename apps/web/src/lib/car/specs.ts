@@ -102,6 +102,8 @@ export const CAR_SPECS: readonly CarSpecSheet[] = [
     status: "conflicting",
     note: "Some sources name the supplier Red Bull Powertrains rather than Red Bull Ford.",
   }),
+  // Not yet sourced: the car name and power unit stay unavailable until checked against a source (as above), rather than filled in from memory.
+  ...["racing-bulls", "alpine", "haas", "audi", "williams", "aston-martin", "cadillac"].map((slug) => sheet(slug, unavailable("Car"), unavailable("Power unit"))),
 ];
 
 export const specsFor = (teamSlug: string) => CAR_SPECS.find((s) => s.teamSlug === teamSlug);

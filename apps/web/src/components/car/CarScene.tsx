@@ -6,11 +6,15 @@ import { Box3, CanvasTexture, Color, PMREMGenerator, PerspectiveCamera, Sphere, 
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import type { FlowSettings } from "@/lib/car/airflow";
 import { CAR_FOV, cameraPreset } from "@/lib/car/camera";
-import { buildCarGeometry, disposeCarGeometry, type WingAngles } from "@/lib/car/geometry";
+import { assembleCar, buildBodyGeometry, buildWingGeometry, disposeCarGeometry, type WingAngles } from "@/lib/car/geometry";
 import { COMPONENTS } from "@/lib/car/components";
 import type { ComponentId, Livery } from "@/lib/car/types";
 import { Airflow, type AeroLayers } from "./Airflow";
-import { CarCamera, type CarViewPreset } from "./CarCamera";
+import { CarCamera, type CarFocus, type CarViewPreset } from "./CarCamera";
+import type { AeroFocus, PartMode } from "@/lib/car/lab";
+import type { CfdResult } from "@/lib/cfd/model";
+import type { FieldName } from "./cfdPaint";
+import { CfdSlice } from "./CfdSlice";
 import { CarModel } from "./CarModel";
 
 export interface CarSceneProps {
@@ -32,6 +36,14 @@ export interface CarSceneProps {
   onHover: (id: ComponentId | null) => void;
   /** Receives a small render of each component (PNG data URLs) whenever the livery or wing geometry changes. */
   onThumbnails?: (thumbs: Partial<Record<ComponentId, string>>) => void;
+  /** Car Lab extensions (all optional; the Phase 4 viewer does not pass them). */
+  explode?: number;
+  modes?: Readonly<Record<string, PartMode>>;
+  annotate?: boolean;
+  focus?: CarFocus | null;
+  aeroFocus?: AeroFocus;
+  /** A computed SU2 flow-field slice to draw at its section (replaces the conceptual airflow while shown). */
+  cfdSlice?: { result: CfdResult; field: FieldName } | null;
 }
 
 const THUMB_W = 320;
@@ -205,10 +217,15 @@ function Ground() {
  * (auto-rotate or playing airflow). The explode transition and camera glides request frames themselves.
  */
 export default function CarScene(p: CarSceneProps) {
-  const geometry = useMemo(() => buildCarGeometry(p.wings), [p.wings]);
-  useEffect(() => () => void disposeCarGeometry(geometry), [geometry]);
+  // The body is built once; a setup change rebuilds only the wings (and disposes the old wing buffers).
+  const body = useMemo(() => buildBodyGeometry(), []);
+  const wingGeometry = useMemo(() => buildWingGeometry(p.wings), [p.wings]);
+  useEffect(() => () => void disposeCarGeometry(body), [body]);
+  useEffect(() => () => void disposeCarGeometry(wingGeometry), [wingGeometry]);
+  const geometry = useMemo(() => assembleCar(body, wingGeometry), [body, wingGeometry]);
   const initial = useMemo(() => cameraPreset("threeQuarter", 1.6).position, []);
-  const continuous = p.autoRotate || (p.aero && p.aeroPlaying && !p.exploded);
+  const exploded = p.explode !== undefined ? p.explode > 0 : p.exploded;
+  const continuous = p.autoRotate || (p.aero && p.aeroPlaying && !exploded && !p.cfdSlice);
 
   return (
     <Canvas
@@ -232,10 +249,14 @@ export default function CarScene(p: CarSceneProps) {
         pressure={p.aero && p.pressure}
         onSelect={p.onSelect}
         onHover={p.onHover}
+        explode={p.explode}
+        modes={p.modes}
+        annotate={p.annotate}
       />
       {/* The flow is modelled around the assembled car; drawing it through exploded parts would mislead. */}
-      {p.aero && !p.exploded && <Airflow settings={p.flow} layers={p.aeroLayers} playing={p.aeroPlaying} />}
-      <CarCamera preset={p.preset} exploded={p.exploded} autoRotate={p.autoRotate} reducedMotion={p.reducedMotion} />
+      {p.aero && !exploded && !p.cfdSlice && <Airflow settings={p.flow} layers={p.aeroLayers} playing={p.aeroPlaying} focus={p.aeroFocus} />}
+      {p.cfdSlice && <CfdSlice result={p.cfdSlice.result} field={p.cfdSlice.field} />}
+      <CarCamera preset={p.preset} exploded={exploded} autoRotate={p.autoRotate} reducedMotion={p.reducedMotion} focus={p.focus} />
       <ThumbnailCapture livery={p.livery} wings={p.wings} onThumbnails={p.onThumbnails} />
     </Canvas>
   );

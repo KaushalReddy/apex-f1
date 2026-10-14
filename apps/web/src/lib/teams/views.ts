@@ -16,7 +16,6 @@ export interface TeamCardData {
   colour: string;
   shade: string;
   image: Team["image"];
-  carViewer: boolean;
   drivers: Array<{ acronym: string; name: string }>;
   /** Further drivers who raced for the team that season (mid-season changes, stand-ins). */
   otherDrivers: number;
@@ -37,7 +36,7 @@ export function teamDirectory(seasons: readonly SeasonResults[]): Array<{ meta: 
       const colour = teamColour(s, name);
       return [{
         slug: t.slug, order, name: t.name, racedAs: name !== t.name ? name : null, code: t.code, colour, shade: cardShade(colour),
-        image: t.image, carViewer: t.carViewer,
+        image: t.image,
         drivers: lineup.slice(0, 2).map((d) => ({ acronym: d.acronym, name: d.name })),
         otherDrivers: Math.max(0, lineup.length - 2),
         position: st.championship?.position ?? null, points: st.championship?.points ?? null, wins: st.wins,

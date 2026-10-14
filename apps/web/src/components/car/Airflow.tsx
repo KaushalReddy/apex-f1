@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import { useFrame } from "@react-three/fiber";
 import { BufferAttribute, BufferGeometry, Color, ConeGeometry, CylinderGeometry, LineBasicMaterial, MeshBasicMaterial } from "three";
-import { buildStreamlines, pointAtTime, speedColor, vortices, type FlowSettings, type Streamline } from "@/lib/car/airflow";
+import { buildStreamlines, pointAtTime, seeds, speedColor, vortices, type FlowSettings, type Streamline } from "@/lib/car/airflow";
+import { keepStreamline, keepVortex, type AeroFocus } from "@/lib/car/lab";
 import type { Vec3 } from "@/lib/car/types";
 
 /** Data-viz colours shared with the legend (WebGL cannot read CSS variables). */
@@ -107,10 +108,15 @@ function Particles({ lines, perLine, playing }: { lines: Streamline[]; perLine: 
  * speed, wing-tip vortices and conceptual force arrows. Not a fluid simulation. Animation writes buffers in useFrame (no React renders);
  * nothing here is pickable, so the car stays selectable underneath.
  */
-export function Airflow({ settings, layers, playing }: { settings: FlowSettings; layers: AeroLayers; playing: boolean }) {
+export function Airflow({ settings, layers, playing, focus = "overall" }: { settings: FlowSettings; layers: AeroLayers; playing: boolean; focus?: AeroFocus }) {
   const { downforce, drag, lowDragWings } = settings;
-  const lines = useMemo(() => buildStreamlines({ downforce, drag, lowDragWings }), [downforce, drag, lowDragWings]);
-  const vortexLines = useMemo(() => vortices({ downforce, drag, lowDragWings }), [downforce, drag, lowDragWings]);
+  // Streamlines are traced in seed order, so seeds()[i] describes lines[i]; a focus keeps the lines that pass that area.
+  const lines = useMemo(() => {
+    const all = buildStreamlines({ downforce, drag, lowDragWings });
+    const meta = seeds();
+    return all.filter((_, i) => keepStreamline(focus, meta[i]));
+  }, [downforce, drag, lowDragWings, focus]);
+  const vortexLines = useMemo(() => vortices({ downforce, drag, lowDragWings }).filter((_, i) => keepVortex(focus, i)), [downforce, drag, lowDragWings, focus]);
   const guides = useMemo(() => lineGeometry(lines), [lines]);
   const vortexGuides = useMemo(() => lineGeometry(vortexLines), [vortexLines]);
   const guideMat = useMemo(() => new LineBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.32, depthWrite: false }), []);

@@ -25,3 +25,8 @@ tools/openf1-spike/.cache/
 # Local 3D reference assets (large binary models, never committed)
 apps/web/public/models/cars/*.glb
 tools/openf1-results/.cache/
+
+# CFD toolchain (SU2 binary, venv, grids) and local CFD job runs
+tools/cfd/.local/
+apps/web/.cfd/
+__pycache__/

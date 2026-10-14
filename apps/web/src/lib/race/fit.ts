@@ -8,8 +8,10 @@ import { frameCircuit, type CameraPreset } from "@/lib/circuit/camera";
 export const RACE_FIT_PADDING = 0.14;
 export const MARKER_MARGIN_M = 25;
 
-export function raceFraming(centerline: Float32Array, aspect: number, drawnWidthMeters: number): CameraPreset {
-  return frameCircuit(centerline, aspect, { marginMeters: drawnWidthMeters / 2 + MARKER_MARGIN_M, padding: RACE_FIT_PADDING }).overview;
+export type RaceView = "overview" | "topDown";
+
+export function raceFraming(centerline: Float32Array, aspect: number, drawnWidthMeters: number, view: RaceView = "overview"): CameraPreset {
+  return frameCircuit(centerline, aspect, { marginMeters: drawnWidthMeters / 2 + MARKER_MARGIN_M, padding: RACE_FIT_PADDING })[view];
 }
 
 export interface Insets {
@@ -24,10 +26,10 @@ export interface Insets {
  * render target. The circuit is fitted for the safe rectangle's aspect, moved back so that rectangle's height spans the fit (the camera's
  * vertical lens is fixed), then camera and target are shifted together so the circuit centres in the safe rectangle instead of the canvas.
  */
-export function fitInSafeArea(centerline: Float32Array, size: { width: number; height: number }, insets: Insets, drawnWidthMeters: number) {
+export function fitInSafeArea(centerline: Float32Array, size: { width: number; height: number }, insets: Insets, drawnWidthMeters: number, view: RaceView = "overview") {
   const safeW = Math.max(120, size.width - insets.left - insets.right);
   const safeH = Math.max(120, size.height - insets.top - insets.bottom);
-  const base = raceFraming(centerline, safeW / safeH, drawnWidthMeters);
+  const base = raceFraming(centerline, safeW / safeH, drawnWidthMeters, view);
   const distance = base.distance * (size.height / safeH);
   const dir = [0, 1, 2].map((k) => (base.position[k] - base.target[k]) / base.distance);
   // Camera basis for a Y-up lookAt: forward f = -dir, right = f x up, up' = right x f.

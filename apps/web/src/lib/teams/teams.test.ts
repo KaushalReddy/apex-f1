@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { carConfigFor } from "@/lib/car/teams";
 import { profile } from "@/lib/drivers/views";
 import { seasonStandings } from "@/lib/drivers/standings";
 import { parseSeasonResults } from "@/lib/drivers/parse";
@@ -55,7 +56,7 @@ describe("team registry", () => {
     expect(teamFor("Kick Sauber")?.slug).toBe("audi");
     expect(teamFor("haas f1 team")?.slug).toBe("haas");
     expect(teamFor("Toro Rosso")).toBeUndefined();
-    expect(TEAMS.filter((t) => t.carViewer).map((t) => t.slug).sort()).toEqual(["ferrari", "mclaren", "mercedes", "red-bull-racing"]);
+    for (const t of TEAMS) expect(carConfigFor(t.slug), t.slug).toBeDefined(); // every team has a 3D car
   });
 
   it("maps every team to its own car image, present on disk with the declared size", () => {
@@ -182,9 +183,9 @@ describe("real snapshots", () => {
       }
   });
 
-  it("driver pages and standings link to every team page; the car viewer link only where a 3D car exists", () => {
-    expect(profile(seasons, "norris")!.seasons[0]).toMatchObject({ teamSlug: "mclaren", carSlug: "mclaren" });
-    expect(profile(seasons, "albon")!.seasons[0]).toMatchObject({ teamSlug: "williams", carSlug: null });
+  it("driver pages and standings link to every team page (and so to its car)", () => {
+    expect(profile(seasons, "norris")!.seasons[0]).toMatchObject({ teamSlug: "mclaren" });
+    expect(profile(seasons, "albon")!.seasons[0]).toMatchObject({ teamSlug: "williams" });
     expect(seasonStandings(seasons[0], seasons).teams!.every((t) => t.teamSlug)).toBe(true);
   });
 });

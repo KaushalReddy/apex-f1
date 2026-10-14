@@ -91,11 +91,9 @@ export function TeamProfile({ profile }: { profile: Profile }) {
               <ButtonLink href={`/teams/compare?season=${season}&a=${team.slug}`} size="sm" variant="secondary">
                 Compare
               </ButtonLink>
-              {team.carViewer && (
-                <ButtonLink href={`/cars/${team.slug}`} size="sm" variant="secondary">
-                  Explore the 3D car
-                </ButtonLink>
-              )}
+              <ButtonLink href={`/cars/${team.slug}/lab`} size="sm" variant="secondary">
+                Open the Car Lab
+              </ButtonLink>
               <ButtonLink href="/standings" size="sm" variant="secondary">
                 Standings
               </ButtonLink>
@@ -373,17 +371,17 @@ export function TeamProfile({ profile }: { profile: Profile }) {
         </div>
         <div className="rounded-lg border border-line bg-surface p-4 text-xs leading-relaxed text-muted">
           <h2 className="eyebrow">Car</h2>
-          {team.carViewer ? (
-            <p className="mt-2">
-              <Link href={`/cars/${team.slug}`} className="font-medium text-fg underline decoration-line-strong underline-offset-4 hover:text-accent-strong">
-                Open the 3D car viewer
+          <p className="mt-2">
+              <Link href={`/cars/${team.slug}/lab`} className="font-medium text-fg underline decoration-line-strong underline-offset-4 hover:text-accent-strong">
+                Open the Car Lab
               </Link>{" "}
-              to explore components, camera views and airflow. It is a procedural visual model in this team&apos;s colours, not an engineering
+              to inspect and isolate components, explore airflow and compare wing setups, or see the{" "}
+              <Link href={`/cars/${team.slug}`} className="underline decoration-line-strong underline-offset-4 hover:text-accent-strong">
+                showcase view
+              </Link>
+              . It is a procedural visual model in this team&apos;s colours, not an engineering
               representation of the actual car; technical figures there are marked with their sources.
             </p>
-          ) : (
-            <p className="mt-2">No 3D model of this team&apos;s car yet; the procedural car viewer covers McLaren, Ferrari, Mercedes and Red Bull Racing.</p>
-          )}
           {team.image && <p className="mt-2 text-subtle">The side view above is a livery image, shown for identification.</p>}
         </div>
         <div className="rounded-lg border border-line bg-surface p-4 text-xs leading-relaxed text-muted">

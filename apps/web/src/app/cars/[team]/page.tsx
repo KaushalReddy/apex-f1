@@ -1,23 +1,23 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { CarViewer, type KeySpec } from "@/components/car/CarViewer";
-import { TeamMarker } from "@/components/data/team-marker";
+import { CarTeamSwitch } from "@/components/car/CarTeamSwitch";
 import { KeyValueList } from "@/components/data/key-value-list";
 import { Badge, type Tone } from "@/components/ui/badge";
+import { ButtonLink } from "@/components/ui/button";
 import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
-import { DEMO_TEAMS, findTeam } from "@/domain/demo";
-import { cn } from "@/lib/cn";
+import { loadSeasons } from "@/lib/drivers/load";
+import { findTeamBySlug } from "@/lib/teams/registry";
 import { REGULATION_SPECS, allSpecValues, specsFor, type SpecStatus, type SpecValue } from "@/lib/car/specs";
-import { carConfigFor, carDriversOf, DRIVER_NUMBERS_SOURCE } from "@/lib/car/teams";
+import { CAR_CONFIGS, carConfigFor, carDriversFor, DRIVER_NUMBERS_SOURCE } from "@/lib/car/teams";
 
 export const dynamicParams = false;
-export const generateStaticParams = () => DEMO_TEAMS.map((t) => ({ team: t.slug }));
+export const generateStaticParams = () => CAR_CONFIGS.map((c) => ({ team: c.teamSlug }));
 
 type Props = { params: Promise<{ team: string }> };
 
 export async function generateMetadata({ params }: Props) {
-  const team = findTeam((await params).team);
+  const team = findTeamBySlug((await params).team);
   return { title: team ? `${team.name} car` : "Car" };
 }
 
@@ -50,7 +50,7 @@ function SpecCell({ v }: { v: SpecValue }) {
 }
 
 export default async function CarPage({ params }: Props) {
-  const team = findTeam((await params).team);
+  const team = findTeamBySlug((await params).team);
   const config = team && carConfigFor(team.slug);
   const specs = team && specsFor(team.slug);
   if (!team || !config || !specs) notFound();
@@ -66,35 +66,24 @@ export default async function CarPage({ params }: Props) {
   return (
     <PageContainer>
       <PageHeader
-        eyebrow="Car Lab · Foundation viewer"
+        eyebrow="Car · Showcase"
         title={`${team.name} car`}
         description={`APEX F1's shared procedural car in ${team.name} colours. The body is the same for every team; it is not ${team.name}'s ${specs.designation.value ?? "car"} and does not reproduce its real geometry.`}
         badges={
           <>
-            <Badge tone="info">Phase 4 foundation</Badge>
             <Badge tone="warning">Shared geometry, team colours</Badge>
           </>
         }
         actions={
-          <nav aria-label="Team cars" className="flex flex-wrap gap-2">
-            {DEMO_TEAMS.map((t) => (
-              <Link
-                key={t.slug}
-                href={`/cars/${t.slug}`}
-                aria-current={t.slug === team.slug ? "page" : undefined}
-                className={cn(
-                  "motion-interactive inline-flex h-9 items-center gap-2 rounded-md border px-3 text-sm font-medium",
-                  t.slug === team.slug ? "border-accent/70 bg-surface-2 text-fg" : "border-line text-muted hover:border-line-strong hover:text-fg",
-                )}
-              >
-                <TeamMarker color={t.color} />
-                {t.name}
-              </Link>
-            ))}
-          </nav>
+          <div className="flex flex-wrap gap-2">
+            <ButtonLink href={`/cars/${team.slug}/lab`} size="sm" className="h-9">
+              Open Car Lab
+            </ButtonLink>
+            <CarTeamSwitch current={team.slug} teams={CAR_CONFIGS.map((c) => ({ slug: c.teamSlug, name: findTeamBySlug(c.teamSlug)!.name }))} />
+          </div>
         }
       />
-      <CarViewer teamName={team.name} livery={config.livery} drivers={carDriversOf(team.slug)} keySpecs={keySpecs} />
+      <CarViewer teamName={team.name} livery={config.livery} drivers={carDriversFor(team.slug, (await loadSeasons()).seasons)} keySpecs={keySpecs} />
 
       <section aria-labelledby="specs-heading" className="mt-8">
         <h2 id="specs-heading" className="mb-3 font-display text-2xl font-semibold tracking-[0.01em]">

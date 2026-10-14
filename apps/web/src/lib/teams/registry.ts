@@ -1,5 +1,3 @@
-import { DEMO_TEAMS } from "@/domain/demo";
-
 /**
  * The eleven constructors in their canonical directory order (the order of the supplied reference page; not alphabetical, not by
  * standings). A team's identity is its slug; `aliases` are the names the results source publishes for the same entry in earlier
@@ -8,7 +6,7 @@ import { DEMO_TEAMS } from "@/domain/demo";
  *
  * Car images: side-view livery renders supplied by the project owner (public/teams/cars). Their origin and reuse rights are NOT verified;
  * they are team and sponsor artwork, so confirm the rights before any public deployment. `image: null` falls back to a colour panel.
- * `carViewer`: the team has a Phase 4 procedural 3D car (/cars/<slug>).
+ * Every team has a procedural 3D car (/cars/<slug>, lib/car/teams.ts); tested.
  */
 export interface Team {
   slug: string;
@@ -17,13 +15,11 @@ export interface Team {
   code: string;
   aliases: readonly string[];
   image: { src: string; width: number; height: number } | null;
-  carViewer: boolean;
 }
 
 const img = (slug: string, width = 1018, height = 224) => ({ src: `/teams/cars/${slug}.png`, width, height });
-const hasCar = (slug: string) => DEMO_TEAMS.some((t) => t.slug === slug);
 const team = (slug: string, name: string, code: string, aliases: string[] = [], image = img(slug)): Team => ({
-  slug, name, code, aliases: [name, ...aliases], image, carViewer: hasCar(slug),
+  slug, name, code, aliases: [name, ...aliases], image,
 });
 
 export const TEAMS: readonly Team[] = [

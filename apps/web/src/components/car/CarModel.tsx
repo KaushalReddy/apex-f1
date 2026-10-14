@@ -18,6 +18,7 @@ import {
 } from "three";
 import { COMPONENTS, PARTS, explodeOffsetInto, stepExplode } from "@/lib/car/components";
 import { DECALS, PART_ASSEMBLY, type CarGeometry, type MaterialKey, type MeshSpec } from "@/lib/car/geometry";
+import type { PartMode } from "@/lib/car/lab";
 import type { ComponentId, Livery, Vec3 } from "@/lib/car/types";
 
 const EXPLODE_SECONDS = 0.7;
@@ -27,6 +28,8 @@ interface Highlight {
   hovered: ComponentId | null;
   pressure: boolean;
 }
+/** How the enclosing part is drawn (Car Lab isolation, hiding and x-ray). */
+const ModeCtx = createContext<PartMode>("solid");
 const HighlightCtx = createContext<Highlight>({ selected: null, hovered: null, pressure: false });
 const ComponentCtx = createContext<ComponentId | null>(null);
 
@@ -65,6 +68,8 @@ function makeMaterials(livery: Livery) {
     // Design-system accent (accent-strong) for selection; a quieter fg tint for hover.
     selected: overlay("#ff6b63", 0.42),
     hovered: overlay("#f3f5f7", 0.16),
+    // Ghosted parts (isolation, x-ray): a faint see-through shell that keeps the context of where the selected part sits.
+    ghost: new MeshBasicMaterial({ color: "#8a94a2", transparent: true, opacity: 0.1, depthWrite: false }),
   };
 }
 
@@ -73,11 +78,12 @@ function Piece({ spec }: { spec: MeshSpec }) {
   const component = useContext(ComponentCtx);
   const { selected, hovered, pressure } = useContext(HighlightCtx);
   const mats = useContext(MatsCtx)!;
-  const overlay = component && selected === component ? mats.selected : component && hovered === component ? mats.hovered : null;
-  const material = pressure && spec.material !== "dark" && spec.material !== "visor" ? mats.pressure : mats.surfaces[spec.material];
+  const ghost = useContext(ModeCtx) === "ghost";
+  const overlay = ghost ? null : component && selected === component ? mats.selected : component && hovered === component ? mats.hovered : null;
+  const material = ghost ? mats.ghost : pressure && spec.material !== "dark" && spec.material !== "visor" ? mats.pressure : mats.surfaces[spec.material];
   return (
     <group position={spec.position} rotation={spec.rotation} quaternion={spec.quaternion} scale={spec.scale}>
-      <mesh geometry={spec.geometry} material={material} castShadow receiveShadow />
+      <mesh geometry={spec.geometry} material={material} castShadow={!ghost} receiveShadow={!ghost} />
       {overlay && <mesh geometry={spec.geometry} material={overlay} renderOrder={2} raycast={() => null} />}
     </group>
   );
@@ -108,10 +114,10 @@ interface PartApi {
 const PartCtx = createContext<PartApi | null>(null);
 
 /** One explodable part: a group registered with the explode loop, carrying its component id for picking and highlighting. */
-function Part({ partKey, children }: { partKey: string; children: ReactNode }) {
+function Part({ partKey, mode, children }: { partKey: string; mode: PartMode; children: ReactNode }) {
   const api = useContext(PartCtx)!;
   const component = PARTS.find((p) => p.key === partKey)!.component;
-  const label = api.showLabels ? LABEL_AT[partKey] : undefined;
+  const label = api.showLabels && mode !== "hidden" ? LABEL_AT[partKey] : undefined;
   const { parts } = api;
   const ref = useCallback(
     (el: Group | null) => {
@@ -136,7 +142,12 @@ function Part({ partKey, children }: { partKey: string; children: ReactNode }) {
       }}
       onPointerOut={() => api.onHover(null)}
     >
-      <ComponentCtx.Provider value={component}>{children}</ComponentCtx.Provider>
+      {/* A hidden part keeps its (empty) group so the explode loop and picking stay consistent; nothing is drawn or pickable. */}
+      {mode !== "hidden" && (
+        <ModeCtx.Provider value={mode}>
+          <ComponentCtx.Provider value={component}>{children}</ComponentCtx.Provider>
+        </ModeCtx.Provider>
+      )}
       {label && (
         <Html position={label[1]} center zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
           <span aria-hidden="true" className="whitespace-nowrap rounded-sm border border-line-strong bg-surface-3/90 px-1.5 py-0.5 text-xs font-medium text-fg">
@@ -162,6 +173,10 @@ interface Props {
   onHover: (id: ComponentId | null) => void;
   /** Name labels while exploded (DOM overlays; off in headless tests). */
   labels?: boolean;
+  /** Car Lab: explode amount 0-1 (overrides `exploded`), per-part draw modes, and labels regardless of explode. */
+  explode?: number;
+  modes?: Readonly<Record<string, PartMode>>;
+  annotate?: boolean;
 }
 
 /**
@@ -169,25 +184,25 @@ interface Props {
  * geometry is never mutated, and mirrored parts reuse the left-side buffers with a negative Z scale. Picking uses the real meshes, so
  * an exploded part is selected where it is drawn.
  */
-export function CarModel({ geometry: g, livery, number, selected, hovered, exploded, reducedMotion, pressure = false, onSelect, onHover, labels = true }: Props) {
+export function CarModel({ geometry: g, livery, number, selected, hovered, exploded, reducedMotion, pressure = false, onSelect, onHover, labels = true, explode, modes, annotate = false }: Props) {
+  const target = explode ?? (exploded ? 1 : 0);
   const mats = useMemo(() => makeMaterials(livery), [livery]);
   useEffect(
     () => () => {
       Object.values(mats.surfaces).forEach((m) => m.dispose());
-      [mats.pressure, mats.selected, mats.hovered].forEach((m) => m.dispose());
+      [mats.pressure, mats.selected, mats.hovered, mats.ghost].forEach((m) => m.dispose());
     },
     [mats],
   );
 
   const [parts] = useState(() => new Map<string, Group>());
-  const progress = useRef(exploded ? 1 : 0);
+  const progress = useRef(target);
   const invalidate = useThree((s) => s.invalidate);
   // Floating labels crowd a narrow canvas; there the component list below the view names every part instead.
   const roomForLabels = useThree((s) => s.size.width >= 560);
-  useEffect(() => invalidate(), [exploded, invalidate]);
+  useEffect(() => invalidate(), [target, invalidate]);
 
   useFrame((_, dt) => {
-    const target = exploded ? 1 : 0;
     // Clamp dt: on-demand rendering can report a long delta after an idle period.
     progress.current = stepExplode(progress.current, target, Math.min(dt, 1 / 30), reducedMotion ? 0 : EXPLODE_SECONDS);
     for (const p of PARTS) {
@@ -198,14 +213,14 @@ export function CarModel({ geometry: g, livery, number, selected, hovered, explo
   });
 
   return (
-    <PartCtx.Provider value={{ parts, showLabels: exploded && labels && roomForLabels, onSelect, onHover }}>
+    <PartCtx.Provider value={{ parts, showLabels: (target > 0 || annotate) && labels && roomForLabels, onSelect, onHover }}>
       <MatsCtx.Provider value={mats}>
         <HighlightCtx.Provider value={{ selected, hovered, pressure }}>
           <group name="car">
             {PARTS.map((p) => {
               const layout = PART_ASSEMBLY[p.key];
               return (
-                <Part key={p.key} partKey={p.key}>
+                <Part key={p.key} partKey={p.key} mode={modes?.[p.key] ?? "solid"}>
                   <group position={layout.position} scale={layout.mirror ? MIRROR : undefined}>
                     {g.assemblies[layout.assembly].map((s, i) => (
                       <Piece key={i} spec={s} />

@@ -2,15 +2,15 @@ import { describe, expect, it } from "vitest";
 import type { TeamCardData } from "@/lib/teams/views";
 import { filterTeams } from "./TeamDirectory";
 
-const card = (slug: string, order: number, name: string, code: string, position: number | null, wins: number, carViewer: boolean, drivers: string[], racedAs: string | null = null): TeamCardData => ({
-  slug, order, name, racedAs, code, colour: "#fff", shade: "#333", image: null, carViewer, otherDrivers: 0, points: null, wins, position,
+const card = (slug: string, order: number, name: string, code: string, position: number | null, wins: number, drivers: string[], racedAs: string | null = null): TeamCardData => ({
+  slug, order, name, racedAs, code, colour: "#fff", shade: "#333", image: null, otherDrivers: 0, points: null, wins, position,
   drivers: drivers.map((n) => ({ acronym: n.slice(0, 3).toUpperCase(), name: n })),
 });
 const teams = [
-  card("mercedes", 0, "Mercedes", "MER", 1, 11, true, ["Antonelli", "Russell"]),
-  card("ferrari", 1, "Ferrari", "FER", 2, 2, true, ["Hamilton", "Leclerc"]),
-  card("audi", 7, "Audi", "AUD", 8, 0, false, ["Hülkenberg", "Bortoleto"], "Kick Sauber"),
-  card("aston-martin", 9, "Aston Martin", "AMR", null, 0, false, ["Alonso", "Stroll"]),
+  card("mercedes", 0, "Mercedes", "MER", 1, 11, ["Antonelli", "Russell"]),
+  card("ferrari", 1, "Ferrari", "FER", 2, 2, ["Hamilton", "Leclerc"]),
+  card("audi", 7, "Audi", "AUD", 8, 0, ["Hülkenberg", "Bortoleto"], "Kick Sauber"),
+  card("aston-martin", 9, "Aston Martin", "AMR", null, 0, ["Alonso", "Stroll"]),
 ];
 const all = { query: "", show: "all" as const, sort: "default" as const };
 
@@ -28,8 +28,7 @@ describe("filterTeams", () => {
     expect(filterTeams(teams, { ...all, query: "zzz" })).toEqual([]);
   });
 
-  it("filters to race winners or teams with a 3D car", () => {
+  it("filters to race winners", () => {
     expect(filterTeams(teams, { ...all, show: "winners" }).map((t) => t.slug)).toEqual(["mercedes", "ferrari"]);
-    expect(filterTeams(teams, { ...all, show: "car" }).map((t) => t.slug)).toEqual(["mercedes", "ferrari"]);
   });
 });

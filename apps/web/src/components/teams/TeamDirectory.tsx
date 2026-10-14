@@ -7,7 +7,7 @@ import type { TeamCardData } from "@/lib/teams/views";
 import { TeamShowcaseCard } from "./TeamShowcaseCard";
 
 type Sort = "default" | "championship" | "name";
-type Show = "all" | "winners" | "car";
+type Show = "all" | "winners";
 
 /** Team directory, one season at a time. The default order is the canonical eleven-team order; other orders only when chosen. */
 export function TeamDirectory({ seasons }: { seasons: Array<{ meta: SeasonMeta; teams: TeamCardData[] }> }) {
@@ -48,7 +48,6 @@ export function TeamDirectory({ seasons }: { seasons: Array<{ meta: SeasonMeta; 
           <select value={show} onChange={(e) => setShow(e.target.value as Show)} className={select}>
             <option value="all">All teams</option>
             <option value="winners">Race winners this season</option>
-            <option value="car">Teams with a 3D car</option>
           </select>
         </label>
         <label className="flex flex-col gap-1 text-sm">
@@ -67,7 +66,7 @@ export function TeamDirectory({ seasons }: { seasons: Array<{ meta: SeasonMeta; 
       {list.length === 0 ? (
         <EmptyState title="No teams match" status="No results" headingLevel="h2">
           Nothing in the {current.meta.season} grid matches{query ? ` “${query}”` : ""}
-          {show === "winners" ? " among race winners" : show === "car" ? " among teams with a 3D car" : ""}. Clear the search or change the filter.
+          {show === "winners" ? " among race winners" : ""}. Clear the search or change the filter.
         </EmptyState>
       ) : (
         <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:gap-5">
@@ -87,7 +86,7 @@ export function filterTeams(teams: readonly TeamCardData[], o: { query: string; 
   const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
   const q = norm(o.query.trim());
   return teams
-    .filter((t) => o.show === "all" || (o.show === "winners" ? t.wins > 0 : t.carViewer))
+    .filter((t) => o.show === "all" || t.wins > 0)
     .filter((t) => !q || [t.name, t.racedAs ?? "", t.code, ...t.drivers.flatMap((d) => [d.name, d.acronym])].some((s) => norm(s).includes(q)))
     .sort((a, b) =>
       o.sort === "name" ? a.name.localeCompare(b.name) : o.sort === "championship" ? (a.position ?? 99) - (b.position ?? 99) || a.order - b.order : a.order - b.order,

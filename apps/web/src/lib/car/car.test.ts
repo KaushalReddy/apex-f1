@@ -1,6 +1,6 @@
 import { Box3, BufferGeometry, Vector3 } from "three";
 import { describe, expect, it } from "vitest";
-import { DEMO_DRIVERS, DEMO_TEAMS } from "@/domain/demo";
+import { DEMO_DRIVERS } from "@/domain/demo";
 import { FLOW_BODIES, buildStreamlines, flowField, insideBody, pointAtTime, velocityAt, vortices } from "./airflow";
 import { CAR_TARGET, FILL, cameraPreset, carHull, maxNdc, zoomLimits } from "./camera";
 import { COMPONENTS, PARTS, easeExplode, explodeOffsetInto, partExplode, partsOf, stepExplode } from "./components";
@@ -8,7 +8,8 @@ import { PART_ASSEMBLY, airfoilPoints, buildCarGeometry, disposeCarGeometry, lin
 import { illustrativePressure } from "./pressure";
 import { CIRCUIT_CONTEXTS, SETUP_PROFILES, lowDragWings, setupProfile } from "./setup";
 import { CAR_SPECS, REGULATION_SPECS, allSpecValues, specProblems } from "./specs";
-import { CAR_CONFIGS, DRIVER_NUMBERS, carConfigFor, carDriversOf } from "./teams";
+import { TEAMS } from "@/lib/teams/registry";
+import { CAR_CONFIGS, DRIVER_NUMBERS, carConfigFor, carDriversFor, carDriversOf } from "./teams";
 
 const bounds = (g: BufferGeometry) => {
   g.computeBoundingBox();
@@ -239,9 +240,9 @@ describe("setup profiles", () => {
 });
 
 describe("team configuration", () => {
-  it("every domain team has a car config: shared generic geometry, a complete colour-only livery", () => {
-    expect(CAR_CONFIGS.map((c) => c.teamSlug)).toEqual(DEMO_TEAMS.map((t) => t.slug));
-    for (const t of DEMO_TEAMS) {
+  it("every team has a car config: shared generic geometry, a complete colour-only livery", () => {
+    expect(CAR_CONFIGS.map((c) => c.teamSlug)).toEqual(TEAMS.map((t) => t.slug));
+    for (const t of TEAMS) {
       const c = carConfigFor(t.slug)!;
       expect(c.geometry.provenance).toBe("generic-procedural");
       for (const [zone, colour] of Object.entries(c.livery)) expect(colour, `${t.slug}.${zone}`).toMatch(/^#[0-9a-f]{6}$/);
@@ -253,6 +254,23 @@ describe("team configuration", () => {
     const slugs = DEMO_DRIVERS.map((d) => d.slug);
     for (const k of Object.keys(DRIVER_NUMBERS)) expect(slugs).toContain(k);
     expect(carDriversOf("mclaren").map((d) => d.number)).toEqual([1, 81]);
+  });
+
+  it("every team uses the latest season's line-up; sourced numbers win over published ones", () => {
+    const row = (acronym: string, number: number, team: string) => ({ acronym, number, team, position: 1, status: "FIN" as const, points: 0, laps: 1 });
+    const season = {
+      schema: "apex-f1/season-results@1", season: 2026, scheduledRaces: 1, complete: false,
+      drivers: [{ acronym: "NOR", fullName: "Lando NORRIS", firstName: "Lando", lastName: "Norris", countryCode: "GBR", numbers: [4], teams: [] }],
+      source: { name: "OpenF1", url: "https://openf1.org", endpoints: [], fetchedOn: "2026-10-14", note: "" },
+      events: [{ round: 1, meetingKey: 1, name: "R1", location: null, countryCode: null, circuitShortName: null, date: "2026-03-01",
+        race: { sessionKey: 1, date: "", results: [row("ALB", 23, "Williams"), row("SAI", 55, "Williams"), row("NOR", 4, "McLaren")] },
+        sprint: null, qualifying: null, standings: null }],
+    } as const;
+    expect(carDriversFor("williams", [season as never]).map((d) => [d.code, d.number])).toEqual([["ALB", 23], ["SAI", 55]]);
+    // The fixture publishes NOR as 4; the formula1.com-sourced 1 wins.
+    expect(carDriversFor("mclaren", [season as never]).map((d) => [d.code, d.number])).toEqual([["NOR", 1]]);
+    expect(carDriversFor("mclaren", []).map((d) => d.number)).toEqual([1, 81]); // no season data: race-demo line-up
+    expect(carDriversFor("williams", [])).toEqual([]);
   });
 });
 
@@ -269,7 +287,9 @@ describe("specifications schema", () => {
   });
 
   it("covers every team", () => {
-    expect(CAR_SPECS.map((s) => s.teamSlug).sort()).toEqual(DEMO_TEAMS.map((t) => t.slug).sort());
+    expect(CAR_SPECS.map((s) => s.teamSlug).sort()).toEqual(TEAMS.map((t) => t.slug).sort());
+    // Teams added without a source keep their car name and power unit unavailable.
+    expect(CAR_SPECS.find((s) => s.teamSlug === "cadillac")).toMatchObject({ designation: { value: null, status: "unavailable" }, powerUnit: { value: null, status: "unavailable" } });
   });
 });
 

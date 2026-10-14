@@ -3,17 +3,19 @@
 import { useLayoutEffect, useMemo, useRef, type ComponentRef } from "react";
 import { OrbitControls } from "@react-three/drei";
 import { useFrame, useStore, useThree } from "@react-three/fiber";
-import { Vector3 } from "three";
-import { CAR_TARGET, cameraPreset, zoomLimits } from "@/lib/car/camera";
-import type { ViewName } from "@/lib/car/types";
+import { Box3, Sphere, Vector3 } from "three";
+import { CAR_TARGET, cameraPreset, fitSphere, zoomLimits } from "@/lib/car/camera";
+import type { ComponentId, ViewName } from "@/lib/car/types";
 
 export type CarViewPreset = { name: ViewName; nonce: number };
+/** Car Lab: glide to frame one component (as currently drawn, including any explode offset), keeping the viewing angle. */
+export type CarFocus = { id: ComponentId; nonce: number };
 
 /**
  * Orbit / pan / zoom around the car. Choosing a preset glides the camera there (or jumps, with reduced motion); touching the controls
  * cancels a glide. Presets are fitted to the canvas aspect and leave room for the exploded car. Arrow keys pan when the canvas has focus.
  */
-export function CarCamera({ preset, exploded, autoRotate, reducedMotion }: { preset: CarViewPreset; exploded: boolean; autoRotate: boolean; reducedMotion: boolean }) {
+export function CarCamera({ preset, exploded, autoRotate, reducedMotion, focus }: { preset: CarViewPreset; exploded: boolean; autoRotate: boolean; reducedMotion: boolean; focus?: CarFocus | null }) {
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
   const store = useStore();
   const aspect = useThree((s) => s.size.width / Math.max(s.size.height, 1));
@@ -52,6 +54,30 @@ export function CarCamera({ preset, exploded, autoRotate, reducedMotion }: { pre
     invalidate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aspect]);
+
+  useLayoutEffect(() => {
+    if (!focus) return;
+    const { camera, scene, invalidate } = store.getState();
+    const box = new Box3();
+    scene.getObjectByName("car")?.children.forEach((g) => {
+      if (g.userData.componentId === focus.id) box.expandByObject(g);
+    });
+    const c = controls.current;
+    if (box.isEmpty() || !c) return;
+    const sphere = box.getBoundingSphere(new Sphere());
+    const dir = camera.position.clone().sub(c.target).normalize();
+    const position = sphere.center.clone().addScaledVector(dir, fitSphere(sphere.radius, aspect));
+    goal.current = { position, target: sphere.center.clone() };
+    if (reducedMotion) {
+      camera.position.copy(position);
+      c.target.copy(sphere.center);
+      goal.current = null;
+      c.update();
+    }
+    interacted.current = true; // a focused view is a deliberate framing: resizes must not snap it back to the preset
+    invalidate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focus]);
 
   useLayoutEffect(() => {
     const el = store.getState().gl.domElement;

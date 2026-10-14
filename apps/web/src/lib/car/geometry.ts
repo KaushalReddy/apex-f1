@@ -197,15 +197,23 @@ export interface WingStation {
  * Inverted camber (negative) pushes the car down.
  */
 export function sweptWing(stations: readonly WingStation[], thickness = 0.1, camber = -0.07): BufferGeometry {
-  const rings = stations.map((s) => {
-    const a = (s.aoaDeg * Math.PI) / 180;
-    const out: number[] = [];
-    for (const [u, v] of airfoilPoints(s.chord, thickness * (s.t ?? 1), camber)) {
-      out.push(s.x - u * Math.cos(a) + v * Math.sin(a), s.y + u * Math.sin(a) + v * Math.cos(a), s.z);
-    }
-    return out;
-  });
-  return loftRings(rings);
+  return loftRings(stations.map((s) => sectionOutline(s, thickness, camber).flatMap(([x, y]) => [x, y, s.z])));
+}
+
+/** One station's aerofoil outline in car space (X, Y), as drawn. `n` points per surface: the drawing uses 12; CFD samples it finer. */
+export function sectionOutline(s: WingStation, thickness = 0.1, camber = -0.07, n = 12): Array<[number, number]> {
+  const a = (s.aoaDeg * Math.PI) / 180;
+  return airfoilPoints(s.chord, thickness * (s.t ?? 1), camber, n).map(([u, v]) => [s.x - u * Math.cos(a) + v * Math.sin(a), s.y + u * Math.sin(a) + v * Math.cos(a)]);
+}
+
+/** Rear-wing element layout: half span, spanwise stations, and the main plane and flap station at a given z (shared with the CFD section). */
+export const REAR_WING = { half: 0.5, stations: [0, 0.4, 0.7, 0.88, 0.96, 1], mainThickness: 0.12, flapThickness: 0.1 } as const;
+export function rearWingElements(a: WingAngles, z: number): { main: WingStation; flap: WingStation } {
+  const f = Math.abs(z) / REAR_WING.half;
+  const t = f > 0.99 ? 0.4 : 1;
+  const main: WingStation = { z, x: -1.82, y: 0.8 - 0.07 * f ** 4, chord: 0.33, aoaDeg: a.rearMainDeg, t };
+  const te = trailingEdge([main.x, main.y, main.z], main.chord, main.aoaDeg);
+  return { main, flap: { z, x: te[0] + 0.045, y: te[1] + 0.025, chord: 0.23, aoaDeg: a.rearFlapDeg, t } };
 }
 
 /** A flat plate from an outline in the X/Y plane, `thickness` thick, centred on z. */
@@ -431,16 +439,10 @@ function interpolateStation(st: readonly WingStation[], z: number): WingStation 
 
 /** Rear wing: spoon-shaped main plane and flap whose tips droop into rounded endplates, beam wings, swan-neck pillar, rain light. */
 function rearWing(a: WingAngles): MeshSpec[] {
-  const half = 0.5;
-  const zs = span(half, [0, 0.4, 0.7, 0.88, 0.96, 1]);
-  const f = (z: number) => Math.abs(z) / half;
-  const droop = (z: number) => -0.07 * f(z) ** 4;
-  const tip = (z: number) => (f(z) > 0.99 ? 0.4 : 1);
-  const main: WingStation[] = zs.map((z) => ({ z, x: -1.82, y: 0.8 + droop(z), chord: 0.33, aoaDeg: a.rearMainDeg, t: tip(z) }));
-  const flap: WingStation[] = main.map((m) => {
-    const te = trailingEdge([m.x, m.y, m.z], m.chord, m.aoaDeg);
-    return { z: m.z, x: te[0] + 0.045, y: te[1] + 0.025, chord: 0.23, aoaDeg: a.rearFlapDeg, t: tip(m.z) };
-  });
+  const half = REAR_WING.half;
+  const elements = span(half, REAR_WING.stations).map((z) => rearWingElements(a, z));
+  const main: WingStation[] = elements.map((e) => e.main);
+  const flap: WingStation[] = elements.map((e) => e.flap);
   const flapTe = trailingEdge([flap[0].x, flap[0].y, 0], flap[0].chord, flap[0].aoaDeg);
   const top = Math.max(0.97, flapTe[1] + 0.05);
   const endplate = plate(
@@ -461,8 +463,8 @@ function rearWing(a: WingAngles): MeshSpec[] {
   const beam = (y: number, x: number, chord: number, aoaDeg: number) =>
     sweptWing(span(0.4, [0, 0.6, 0.95, 1]).map((z) => ({ z, x, y, chord, aoaDeg, t: Math.abs(z) > 0.399 ? 0.4 : 1 })), 0.1);
   return [
-    spec(sweptWing(main, 0.12), "wing", "wing"),
-    spec(sweptWing(flap, 0.1), "carbon", "wing"),
+    spec(sweptWing(main, REAR_WING.mainThickness), "wing", "wing"),
+    spec(sweptWing(flap, REAR_WING.flapThickness), "carbon", "wing"),
     spec(beam(0.44, -1.8, 0.15, 8), "carbon", "wing"),
     spec(beam(0.5, -1.97, 0.12, 24), "carbon", "wing"),
     spec(endplate, "wing", "body"),
@@ -797,17 +799,16 @@ export const DECALS: ReadonlyArray<{ part: string; position: Vec3; rotation: Vec
 ];
 
 /** Every geometry buffer the car needs, grouped by assembly. Built once per wing setting; dispose with `disposeCarGeometry`. */
-export function buildCarGeometry(angles: WingAngles) {
+/** Everything except the wings: independent of the setup, so it is built once per scene. */
+export function buildBodyGeometry() {
   // Flattened (aerofoil-like) link: elliptical section, thin edge to the airflow after linkTransform.
   const link = new CylinderGeometry(0.014, 0.014, 1, 10).scale(1.7, 1, 0.55);
   const upright = new CylinderGeometry(0.03, 0.03, 0.34, 10);
-  const assemblies: Record<AssemblyKey, MeshSpec[]> = {
+  const assemblies: Omit<Record<AssemblyKey, MeshSpec[]>, "frontWing" | "rearWing"> = {
     chassis: [spec(loft(smoothSections(CHASSIS)), "paint", "body")],
     cockpit: cockpitAssembly(),
     engineCover: engineCoverAssembly(),
     sidepod: sidepodAssembly(link),
-    frontWing: frontWing(angles),
-    rearWing: rearWing(angles),
     floor: floorAssembly(),
     diffuser: diffuserAssembly(),
     frontWheel: wheelAssembly(LAYOUT.front.tyreWidth),
@@ -816,6 +817,18 @@ export function buildCarGeometry(angles: WingAngles) {
     rearSuspension: suspensionAssembly("rear", link, upright),
   };
   return { assemblies, decal: new PlaneGeometry(1, 1) };
+}
+
+/** The two wing assemblies: the only geometry the setup angles change, so a setup change rebuilds just these. */
+export const buildWingGeometry = (angles: WingAngles) => ({ frontWing: frontWing(angles), rearWing: rearWing(angles) });
+
+export const assembleCar = (body: ReturnType<typeof buildBodyGeometry>, wings: ReturnType<typeof buildWingGeometry>) => ({
+  assemblies: { ...body.assemblies, ...wings } as Record<AssemblyKey, MeshSpec[]>,
+  decal: body.decal,
+});
+
+export function buildCarGeometry(angles: WingAngles) {
+  return assembleCar(buildBodyGeometry(), buildWingGeometry(angles));
 }
 
 export type CarGeometry = ReturnType<typeof buildCarGeometry>;

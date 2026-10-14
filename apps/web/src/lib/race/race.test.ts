@@ -516,12 +516,19 @@ describe("fit into the area left free by floating panels", async () => {
 
   it("keeps every centerline point inside the safe rectangle, centred there, at desktop and phone fullscreen sizes", () => {
     const cases = [
-      { size: { width: 1440, height: 900 }, insets: { top: 80, right: 312, bottom: 88, left: 328 } },
-      { size: { width: 1440, height: 900 }, insets: { top: 80, right: 16, bottom: 88, left: 16 } },
-      { size: { width: 390, height: 844 }, insets: { top: 64, right: 8, bottom: 140, left: 8 } },
+      { size: { width: 1440, height: 900 }, insets: { top: 80, right: 312, bottom: 88, left: 328 }, view: "overview" as const },
+      { size: { width: 1440, height: 900 }, insets: { top: 80, right: 16, bottom: 88, left: 16 }, view: "overview" as const },
+      { size: { width: 390, height: 844 }, insets: { top: 64, right: 8, bottom: 140, left: 8 }, view: "overview" as const },
+      // The race view's top-down: straight down, side panels folded away, below the site bar and HUD row.
+      { size: { width: 1440, height: 900 }, insets: { top: 196, right: 24, bottom: 92, left: 24 }, view: "topDown" as const },
+      { size: { width: 390, height: 844 }, insets: { top: 112, right: 8, bottom: 120, left: 8 }, view: "topDown" as const },
     ];
-    for (const { size, insets } of cases) {
-      const p = fitInSafeArea(mw, size, insets, 20);
+    for (const { size, insets, view } of cases) {
+      const p = fitInSafeArea(mw, size, insets, 20, view);
+      if (view === "topDown") {
+        const d = Math.hypot(p.position[0] - p.target[0], p.position[1] - p.target[1], p.position[2] - p.target[2]);
+        expect((p.position[1] - p.target[1]) / d).toBeGreaterThan(0.99); // looking straight down
+      }
       const cam = new PerspectiveCamera(p.fov, size.width / size.height, 1, 1e6);
       cam.position.set(...p.position);
       cam.lookAt(...p.target);

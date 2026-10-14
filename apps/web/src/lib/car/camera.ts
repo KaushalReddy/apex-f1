@@ -120,3 +120,13 @@ export function zoomLimits(aspect: number) {
   const far = Math.max(...(Object.keys(DIRECTIONS) as ViewName[]).map((v) => cameraPreset(v, aspect, true).distance));
   return { min: 1.4, max: far * 1.5 };
 }
+
+/**
+ * Distance at which a bounding sphere fits the frame on both axes (with the FILL border), never closer than the sphere itself plus a
+ * margin (so the camera cannot end up inside the part). Used to focus the camera on one component.
+ */
+export function fitSphere(radius: number, aspect: number, fovDeg = CAR_FOV): number {
+  const v = (fovDeg * Math.PI) / 360;
+  const h = Math.atan(Math.tan(v) * Math.max(aspect, 0.2));
+  return Math.max(radius / Math.sin(Math.min(v, h)) / FILL, radius + 0.3);
+}

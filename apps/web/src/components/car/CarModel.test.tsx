@@ -103,3 +103,49 @@ describe("CarModel scene graph (headless R3F)", () => {
     await r.unmount();
   });
 });
+
+describe("CarModel Car Lab modes (headless R3F)", () => {
+  const meshesIn = (root: Object3D, name: string) => {
+    let n = 0;
+    groups(root).get(name)!.traverse((o) => {
+      if ((o as Mesh).isMesh) n++;
+    });
+    return n;
+  };
+  const lab = (props: { explode?: number; modes?: Record<string, "solid" | "ghost" | "hidden"> }) => (
+    <CarModel geometry={geometry} livery={NEUTRAL_LIVERY} selected={null} hovered={null} exploded={false} reducedMotion onSelect={noop} onHover={noop} labels={false} {...props} />
+  );
+
+  it("draws nothing for a hidden part but keeps its group; ghosted parts use one shared transparent material", async () => {
+    const r = await ReactThreeTestRenderer.create(lab({ modes: { "rear-wing": "hidden", floor: "ghost" } }));
+    expect(groups(r.scene.instance).get("rear-wing")).toBeDefined();
+    expect(meshesIn(r.scene.instance, "rear-wing")).toBe(0);
+    const ghostMats = new Set<unknown>();
+    groups(r.scene.instance).get("floor")!.traverse((o) => {
+      if ((o as Mesh).isMesh) ghostMats.add((o as Mesh).material);
+    });
+    expect(ghostMats.size).toBe(1);
+    expect([...ghostMats][0]).toMatchObject({ transparent: true, depthWrite: false });
+    expect(meshesIn(r.scene.instance, "diffuser")).toBeGreaterThan(0);
+    await r.unmount();
+  });
+
+  it("restores a hidden part when its mode returns to solid", async () => {
+    const r = await ReactThreeTestRenderer.create(lab({ modes: { "rear-wing": "hidden" } }));
+    await r.update(lab({ modes: {} }));
+    expect(meshesIn(r.scene.instance, "rear-wing")).toBeGreaterThan(0);
+    await r.unmount();
+  });
+
+  it("applies a partial explode amount to each part, and returns to assembled", async () => {
+    const r = await ReactThreeTestRenderer.create(lab({ explode: 0.5 }));
+    await r.advanceFrames(2, 1 / 60);
+    const wing = groups(r.scene.instance).get("rear-wing")!;
+    const full = PARTS.find((p) => p.key === "rear-wing")!.explode;
+    expect(wing.position.x).toBeCloseTo(full[0] * 0.5, 5); // smoothstep(0.5) = 0.5
+    await r.update(lab({ explode: 0 }));
+    await r.advanceFrames(2, 1 / 60);
+    expect(wing.position.length()).toBe(0);
+    await r.unmount();
+  });
+});

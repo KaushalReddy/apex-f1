@@ -8,7 +8,7 @@ import { dynamicClip, worldBounds } from "@/lib/circuit/camera";
 import { circuitExtentMeters, resolveTrackWidth } from "@/lib/circuit/geometry";
 import { centerlineToWorld } from "@/lib/circuit/transform";
 import type { CircuitGeometry } from "@/lib/circuit/types";
-import { fitInSafeArea, type Insets } from "@/lib/race/fit";
+import { fitInSafeArea, type Insets, type RaceView } from "@/lib/race/fit";
 
 type Controls = { target: { set(x: number, y: number, z: number): void }; update(): void; addEventListener(t: string, fn: () => void): void; removeEventListener(t: string, fn: () => void): void };
 
@@ -19,7 +19,7 @@ type Controls = { target: { set(x: number, y: number, z: number): void }; update
  */
 const NO_INSETS: Insets = { top: 0, right: 0, bottom: 0, left: 0 };
 
-export function RaceFit({ geometry, nonce, insets = NO_INSETS }: { geometry: CircuitGeometry; nonce: number; insets?: Insets }) {
+export function RaceFit({ geometry, nonce, insets = NO_INSETS, view = "overview" }: { geometry: CircuitGeometry; nonce: number; insets?: Insets; view?: RaceView }) {
   const transform = useCircuitTransform();
   const centerline = useMemo(() => centerlineToWorld(geometry, transform), [geometry, transform]);
   const drawn = useMemo(() => resolveTrackWidth(geometry.widthMeters, circuitExtentMeters(geometry.points, geometry.unitMeters)).drawnMeters, [geometry]);
@@ -54,7 +54,7 @@ export function RaceFit({ geometry, nonce, insets = NO_INSETS }: { geometry: Cir
       interacted.current = false;
     }
     if (!fitRequested && interacted.current) return;
-    const p = fitInSafeArea(centerline, { width, height: Math.max(height, 1) }, insets, drawn);
+    const p = fitInSafeArea(centerline, { width, height: Math.max(height, 1) }, insets, drawn, view);
     const cam = camera as PerspectiveCamera;
     cam.position.set(p.position[0], p.position[1], p.position[2]);
     if (cam instanceof PerspectiveCamera) {
@@ -70,7 +70,7 @@ export function RaceFit({ geometry, nonce, insets = NO_INSETS }: { geometry: Cir
     invalidate();
     // insets are compared by value (insetKey), not identity.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nonce, width, height, insetKey, centerline, drawn, extent, hasControls, store]);
+  }, [nonce, width, height, insetKey, centerline, drawn, extent, hasControls, store, view]);
 
   return null;
 }
