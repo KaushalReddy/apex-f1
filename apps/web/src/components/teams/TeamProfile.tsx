@@ -193,7 +193,7 @@ export function TeamProfile({ profile }: { profile: Profile }) {
                     </ButtonLink>
                   )}
                   {d.inRaceDemo && (
-                    <ButtonLink href={`/live?driver=${d.slug}`} size="sm" variant="secondary" title="Opens the simulated demo race with this driver selected">
+                    <ButtonLink href={`/circuits/monaco/race?driver=${d.slug}`} size="sm" variant="secondary" title="Opens the simulated demo race with this driver selected">
                       Race view (demo)
                     </ButtonLink>
                   )}

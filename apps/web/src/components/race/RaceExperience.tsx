@@ -1,13 +1,13 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { ViewPreset } from "@/components/circuit/CircuitCamera";
 import { ErrorBoundary } from "@/components/circuit/ErrorBoundary";
+import Link from "next/link";
 import { ImmersiveNav } from "@/components/layout/ImmersiveNav";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { StatusDot } from "@/components/ui/status-dot";
 import { findTeam } from "@/domain/demo";
 import { centerlineToWorld, createWorldTransform } from "@/lib/circuit/transform";
@@ -22,6 +22,7 @@ import type { RaceView } from "@/lib/race/fit";
 import { createTrackPath } from "@/lib/race/track";
 import { fetchReplayTimeline } from "@/lib/replay/api";
 import { useReducedMotion, useWebGL } from "@/lib/use-client-env";
+import { useImmersive } from "@/lib/use-immersive";
 import { Leaderboard } from "./Leaderboard";
 
 const RaceScene = dynamic(() => import("./RaceScene"), {
@@ -45,13 +46,20 @@ function Unavailable({ reason }: { reason: string }) {
   );
 }
 
-type SourceChoice = "DEMO" | "REPLAY";
-
 export interface RaceExperienceProps {
   geometry: CircuitGeometry;
   circuit: { slug: string; name: string };
-  replay: { sessionKey: number; from: number; to: number; label: string };
-  totalLaps: number;
+  /**
+   * Fixed per page, never switched in the view: `/live` shows only real data (a stored replay, or live once connected); the simulated race
+   * lives under the circuit explorer (`/circuits/[circuit]/race`), so simulated and real data are never mixed on one page.
+   */
+  source:
+    | { kind: "demo"; totalLaps: number; /** Simulated base lap time (s), chosen per circuit by the page. */ baseLapS: number }
+    | { kind: "replay"; sessionKey: number; from: number; to: number; label: string };
+  /** Where Exit goes when there is no previous page on this site. */
+  exitHref: string;
+  /** Page-specific line under the status chips (Live: no live race, and the previous-race option). */
+  notice?: ReactNode;
 }
 
 const FRESHNESS_COPY = {
@@ -70,13 +78,12 @@ function initialDriverFromUrl(): string | null {
   return slug && demoEntries().some((e) => e.id === slug) ? slug : null;
 }
 
-export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExperienceProps) {
+export function RaceExperience({ geometry, circuit, source, exitHref, notice }: RaceExperienceProps) {
   const reducedMotion = useReducedMotion();
   const webgl = useWebGL();
-  const [source, setSource] = useState<SourceChoice>("DEMO");
   const [update, setUpdate] = useState<ProviderUpdate | null>(null);
   const [events, setEvents] = useState<RaceEvent[]>([]);
-  // `/live?driver=<slug>` (e.g. from a driver profile) opens with that driver selected. Driver ids in the demo are the project's driver slugs,
+  // `?driver=<slug>` (e.g. from a driver profile) opens with that driver selected. Driver ids in the demo are the project's driver slugs,
   // the same identity the driver pages use. Read once on the client; on the server there is no URL and no snapshot, so nothing differs.
   const [selected, setSelected] = useState<string | null>(() => initialDriverFromUrl());
   const [hovered, setHovered] = useState<string | null>(null);
@@ -90,9 +97,7 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
   // The race view is full-window only: a fixed layer over the whole tab. Browser fullscreen (which also hides the browser's toolbars) is
   // an optional extra on top of it, since browsers only allow it after a click; it never changes the layout. "Exit" leaves the page.
   const theater = useRef<HTMLDivElement | null>(null);
-  const router = useRouter();
-  const [nativeFs, setNativeFs] = useState(false);
-  const [fsSupported, setFsSupported] = useState(false);
+  const { nativeFs, fsSupported, toggleBrowserFullscreen, leave } = useImmersive(theater, exitHref, () => setFitNonce((n) => n + 1)); // re-frame on resize
   const [showOrder, setShowOrder] = useState(true);
   const [showEvents, setShowEvents] = useState(false);
   const [viewportW, setViewportW] = useState(1440);
@@ -110,22 +115,22 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
   }, [geometry]);
 
   useEffect(() => {
-    const session = { id: source === "DEMO" ? "apex-demo" : `openf1-${replay.sessionKey}`, type: "Race", circuitSlug: circuit.slug, circuitName: circuit.name };
+    const session = { id: source.kind === "demo" ? "apex-demo" : `openf1-${source.sessionKey}`, type: "Race", circuitSlug: circuit.slug, circuitName: circuit.name };
     const p: RaceProvider =
-      source === "DEMO"
+      source.kind === "demo"
         ? new DemoProvider(
-            createDemoRace({ entries: demoEntries(), profile: frame.profile, session, totalLaps, seed: 2026, baseLapS: 74 }),
+            createDemoRace({ entries: demoEntries(), profile: frame.profile, session, totalLaps: source.totalLaps, seed: 2026, baseLapS: source.baseLapS }),
             realScheduler,
             // Read the preference directly: during hydration the hook still reports the server value (false).
             { autoplay: !window.matchMedia("(prefers-reduced-motion: reduce)").matches, speed: 4 },
           )
         : new ReplayProvider({
-            load: () => fetchReplayTimeline(replay.sessionKey, replay.from, replay.to),
+            load: () => fetchReplayTimeline(source.sessionKey, source.from, source.to),
             coordinateSystem: geometry.coordinateSystem,
             toWorld: frame.transform.toWorld,
             path: frame.path,
             session,
-            sourceName: replay.label,
+            sourceName: source.label,
           });
     provider.current = p;
     buffer.current = new SnapshotBuffer(p.updateIntervalMs);
@@ -142,7 +147,7 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
       p.dispose();
       provider.current = null;
     };
-  }, [source, frame, geometry.coordinateSystem, circuit, replay, totalLaps]);
+  }, [source, frame, geometry.coordinateSystem, circuit]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(performance.now()), 1000);
@@ -150,48 +155,15 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
   }, []);
 
   useEffect(() => {
-    const onFs = () => {
-      setNativeFs(!!theater.current && document.fullscreenElement === theater.current);
-      setFitNonce((n) => n + 1); // the canvas changed size: frame the whole circuit again
-    };
     const onResize = () => setViewportW(window.innerWidth);
     onResize();
     // Phones start with the circuit unobstructed (the race order is one tap away).
     void Promise.resolve().then(() => {
       if (window.innerWidth < 768) setShowOrder(false);
-      setFsSupported(!!document.documentElement.requestFullscreen && document.fullscreenEnabled !== false);
     });
-    document.addEventListener("fullscreenchange", onFs);
     window.addEventListener("resize", onResize);
-    return () => {
-      document.removeEventListener("fullscreenchange", onFs);
-      window.removeEventListener("resize", onResize);
-    };
+    return () => window.removeEventListener("resize", onResize);
   }, []);
-
-  // The layer covers the page, so the page behind it must not scroll.
-  useEffect(() => {
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = overflow;
-    };
-  }, []);
-
-  const toggleBrowserFullscreen = async (on: boolean) => {
-    try {
-      if (on && theater.current?.requestFullscreen && !document.fullscreenElement) await theater.current.requestFullscreen({ navigationUI: "hide" });
-      if (!on && document.fullscreenElement) await document.exitFullscreen();
-    } catch {
-      // refused (permissions, iframe, user agent): the full-window layer stays as it is
-    }
-  };
-  /** Leaves the race view: back to where the visitor came from on this site, or to the home page. */
-  const leave = () => {
-    void toggleBrowserFullscreen(false);
-    if (document.referrer.startsWith(window.location.origin) && window.history.length > 1) router.back();
-    else router.push("/");
-  };
 
   const snapshot = update?.snapshot ?? null;
   const drivers = useMemo(() => (snapshot ? sortByRaceOrder(snapshot.drivers) : []), [snapshot]);
@@ -201,19 +173,8 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
   const playing = update?.playback?.playing ?? false;
   const fresh = freshness({ snapshot, receivedAt: update?.at ?? null, now: Math.max(now, update?.at ?? 0), playing, sourceStatus: update?.source.status ?? "connecting" });
   const sel = selected ? byId.get(selected) ?? null : null;
-  const mode = snapshot?.mode ?? source;
+  const mode = snapshot?.mode ?? (source.kind === "demo" ? "DEMO" : "REPLAY");
   const name = (id: string) => byId.get(id)?.code ?? id;
-
-  const switchSource = (s: SourceChoice) => {
-    if (s === source) return;
-    setSource(s);
-    setUpdate(null);
-    setEvents([]);
-    setSelected(null);
-    setFocus([]);
-    setFollow(false);
-    setFitNonce((n) => n + 1);
-  };
   const fitCircuit = () => {
     setFollow(false);
     setFitView("overview");
@@ -381,11 +342,9 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
       {label}
     </Button>
   );
-  /** Straight-down view of the whole circuit, framed in the clear area; the side panels fold away so nothing sits over the track. */
+  /** Straight-down view of the whole circuit, framed beside whichever panels are open (top-down never opens or closes them). */
   const topDown = () => {
     setFollow(false);
-    setShowOrder(false);
-    setShowEvents(false);
     setFitView("topDown");
     setFitNonce((n) => n + 1);
   };
@@ -468,36 +427,24 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
     </section>
   );
 
-  const sourceSwitch = (
-    <div role="radiogroup" aria-label="Data source" className="flex flex-wrap gap-1.5">
-      {(["DEMO", "REPLAY"] as const).map((s) => (
-        <button
-          key={s}
-          type="button"
-          role="radio"
-          aria-checked={source === s}
-          onClick={() => switchSource(s)}
-          className={cn(
-            "motion-interactive h-9 rounded-md border px-3 text-sm font-medium",
-            source === s ? "border-accent/70 bg-surface-2 text-fg" : "border-line text-muted hover:border-line-strong hover:text-fg",
-          )}
-        >
-          {s === "DEMO" ? "Demo (simulated)" : "Replay"}
-        </button>
-      ))}
-      <button type="button" role="radio" aria-checked={false} disabled title="No live data provider is configured" className="h-9 rounded-md border border-line px-3 text-sm font-medium text-subtle">
-        Live · not connected
-      </button>
-    </div>
-  );
+  // Live page: what is connected. Simulated race: a pointer to where real data is shown instead.
+  const sourceLine =
+    source.kind === "demo" ? (
+      <Link href="/live" className="text-muted underline decoration-line underline-offset-2 hover:text-fg">
+        Real data (stored replay, live when connected) is on the Live page.
+      </Link>
+    ) : (
+      <span className="text-muted">Stored replay · live timing is not connected.</span>
+    );
 
   const errorBox = !snapshot && update?.source.status === "error" && (
-    <div className={cn("pointer-events-auto absolute inset-x-3 top-16 z-10 p-4 text-sm", GLASS, "border-danger/40")} role="alert">
+    // Top centre on desktop, clear of the header card (which carries the page's notice) and the toolbar.
+    <div className={cn("pointer-events-auto absolute inset-x-3 top-[7.5rem] z-10 p-4 text-sm md:left-1/2 md:right-auto md:w-[30rem] md:-translate-x-1/2", GLASS, "border-danger/40")} role="alert">
       <p className="font-medium text-danger">The replay source is unavailable</p>
-      <p className="mt-1 text-muted">{update.source.detail} The stored replay needs the APEX F1 API (port 8080) with session data ingested.</p>
-      <Button size="sm" variant="secondary" className="mt-3" onClick={() => switchSource("DEMO")}>
-        Switch to the demo
-      </Button>
+      <p className="mt-1 text-muted">{update.source.detail?.replace(/\.?$/, ".")} The stored replay needs the APEX F1 API (port 8080) with session data ingested.</p>
+      <ButtonLink href={`/circuits/${circuit.slug}/race`} size="sm" variant="secondary" className="mt-3">
+        Simulated race on this circuit
+      </ButtonLink>
     </div>
   );
 
@@ -583,17 +530,20 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
             {/* Floating glass HUD. The layer itself ignores the pointer so the circuit can be dragged and zoomed between panels. */}
               <div className="pointer-events-none absolute inset-0 z-10 p-2 pt-14 sm:p-4 sm:pt-16">
                 <div className="flex items-start justify-between gap-2">
-                  <div className={cn("pointer-events-auto min-w-0 px-3 py-2 md:w-[20rem]", GLASS)}>
+                  {/* Left column: the race order stacks under the header, so it follows the header's real height (chips wrap, details open). */}
+                  <div className="flex min-w-0 flex-col gap-2 md:max-h-[calc(100svh-9.75rem)] md:w-[20rem]">
+                  <div className={cn("pointer-events-auto min-w-0 shrink-0 px-3 py-2", GLASS)}>
                     <p className="eyebrow hidden sm:block">Race experience</p>
-                    <h1 className="truncate font-display text-lg font-semibold leading-tight sm:text-xl">{circuit.name} · Race</h1>
+                    <h1 className="truncate font-display text-lg font-semibold leading-tight sm:text-xl">{circuit.name} · {source.kind === "demo" ? "Simulated race" : "Race"}</h1>
                     <div className="mt-1 hidden sm:block">{statusChips}</div>
                     <div className="mt-1 sm:hidden">{modeBadge}</div>
+                    {notice && <p className="mt-1.5 text-xs leading-relaxed text-muted">{notice}</p>}
                     <details className="mt-1.5 text-xs">
                       <summary className="cursor-pointer text-muted hover:text-fg">Source and data</summary>
-                      <div className="mt-2 [&_button]:h-8 [&_button]:px-2 [&_button]:text-xs">{sourceSwitch}</div>
+                      <p className="mt-2">{sourceLine}</p>
                       <p className="mt-2 leading-relaxed text-muted">
-                        {mode === "DEMO" && "Simulated race on the Monaco geometry with the project's driver line-up. Positions, gaps, lap times and pit stops are generated by the simulator; they are not real results."}
-                        {mode === "REPLAY" && `${replay.label}. Stored OpenF1 location samples served by the APEX F1 API: car numbers and positions only, so race order and timing are not available.`}
+                        {mode === "DEMO" && `Simulated race on the ${circuit.name} layout with the project's driver line-up. Positions, gaps, lap times and pit stops are generated by the simulator (base lap time scaled from the circuit's published F1 race lap record); they are not real results.`}
+                        {mode === "REPLAY" && source.kind === "replay" && `${source.label}. Stored OpenF1 location samples served by the APEX F1 API: car numbers and positions only, so race order and timing are not available.`}
                         {mode === "LIVE" && MODE_LABEL.LIVE.description}
                         {update?.source.detail && update.source.status !== "error" && <span className="ml-1 text-subtle">{update.source.detail}</span>}
                       </p>
@@ -602,6 +552,8 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
                         {reducedMotion && " Reduced motion is on: the demo starts paused."}
                       </p>
                     </details>
+                  </div>
+                  {showOrder && !phone && <div className={cn("pointer-events-auto flex min-h-0 flex-col overflow-hidden", GLASS)}>{orderPanel}</div>}
                   </div>
                   <div className={cn("pointer-events-auto flex flex-wrap justify-end gap-1 p-1", GLASS)}>
                     <span className="hidden items-center px-1 text-xs text-muted lg:inline-flex">{freshnessChip}</span>
@@ -616,14 +568,12 @@ export function RaceExperience({ geometry, circuit, replay, totalLaps }: RaceExp
                 {errorBox}
 
                 {/* Desktop: race order floats on the left, driver details and events on the right. Phone: one bottom sheet at a time. */}
-                {showOrder && (!phone || !sel) && (
+                {showOrder && phone && !sel && (
                   <div
                     className={cn(
-                      "pointer-events-auto absolute flex flex-col overflow-hidden",
+                      "pointer-events-auto absolute inset-x-2 bottom-[4.75rem] flex max-h-[42vh] flex-col overflow-hidden",
                       GLASS,
-                      phone ? "inset-x-2 bottom-[4.75rem] max-h-[42vh]" : "left-4 top-[11.25rem] w-[20rem] max-h-[calc(100%-17.25rem)]",
                     )}
-                    style={phone ? undefined : { height: "fit-content" }}
                   >
                     {orderPanel}
                   </div>

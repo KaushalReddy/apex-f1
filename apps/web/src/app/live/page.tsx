@@ -1,35 +1,114 @@
+import Link from "next/link";
 import { RaceExperience } from "@/components/race/RaceExperience";
 import { ComingSoon } from "@/components/ui/coming-soon";
-import { PageContainer } from "@/components/ui/page-container";
-import { findCircuit } from "@/domain/demo";
 import { getNavItem } from "@/domain/navigation";
+import { circuitByShortName, findCircuitById } from "@/lib/circuit/catalog";
 import { loadCircuitGeometry } from "@/lib/circuit/load";
+import { loadSeasons } from "@/lib/drivers/load";
+import { previousRace } from "@/lib/race/previous";
 
 export const metadata = { title: "Live Race" };
 
-/** The only circuit with generated geometry so far (Phase 9 adds more). The stored replay window matches the Replay page. */
-const CIRCUIT = "monaco";
-const REPLAY = { sessionKey: 9523, from: 1716728400000, to: 1716728410000, label: "Monaco 2024 · Race · OpenF1 session 9523 (10 s window)" };
-/** Simulated race length: short enough to watch end to end, long enough for pit stops and battles. Not the real race distance. */
-const DEMO_LAPS = 12;
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+/** The stored sample replay (it matches the Replay page). Live is real data only; simulated races are under each circuit. */
+const SAMPLE = { circuit: "monaco", sessionKey: 9523, from: 1716728400000, to: 1716728410000, label: "Monaco 2024 · Race · OpenF1 session 9523 (10 s window)" };
+/** Length of the previous-race window replayed from its first ingested sample. */
+const PREVIOUS_WINDOW_MS = 60_000;
 
-export default async function Page() {
-  const circuit = findCircuit(CIRCUIT);
-  const result = await loadCircuitGeometry(CIRCUIT);
-  if (!circuit || result.status !== "ok") {
+/** Window searched for ingested positions, from the session start (formation lap and lights-out fall well inside it). */
+const SEARCH_MS = 30 * 60_000;
+const PROBE_MS = 5 * 60_000;
+
+/**
+ * Time of the first ingested position sample of a session in the APEX F1 API, or null (not ingested, or the API is not reachable).
+ * The replay starts there, so it begins wherever the ingested window begins (e.g. lights-out), not at the scheduled session start.
+ * shortcut: probes the first 30 min in 5-min windows (the API has no "data range" endpoint); add one if longer searches are needed.
+ */
+async function firstIngestedSample(sessionKey: number): Promise<number | null> {
+  try {
+    const s = await fetch(`${API_BASE_URL}/api/sessions/${sessionKey}`, { cache: "no-store", signal: AbortSignal.timeout(2000) });
+    if (!s.ok) return null;
+    const start = Date.parse((await s.json()).dateStart);
+    if (!Number.isFinite(start)) return null;
+    for (let from = start; from < start + SEARCH_MS; from += PROBE_MS) {
+      const t = await fetch(`${API_BASE_URL}/api/sessions/${sessionKey}/replay/timeline?from=${from}&to=${from + PROBE_MS}`, { cache: "no-store", signal: AbortSignal.timeout(4000) });
+      if (!t.ok) return null;
+      // Every frame lists each car's NEAREST sample (even minutes away), with that sample's own time: the earliest of those is where data begins.
+      const first = ((await t.json()) as { cars: { sampleT: number }[] }[]).find((f) => f.cars.length > 0);
+      if (first) return Math.min(...first.cars.map((c) => c.sampleT));
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+const day = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+
+type Props = { searchParams: Promise<{ replay?: string }> };
+
+/**
+ * `/live`: real data only. No live timing provider is connected, so there is never a live race here yet: the page says so and offers the
+ * previous race (latest in the results snapshots) by default when the API has its positions; otherwise, or with `?replay=sample`, the
+ * stored Monaco sample.
+ */
+export default async function Page({ searchParams }: Props) {
+  const wantSample = (await searchParams).replay === "sample";
+  const prev = previousRace((await loadSeasons()).seasons, new Date().toISOString().slice(0, 10));
+  const prevCircuit = prev?.circuitShortName ? circuitByShortName(prev.circuitShortName) : undefined;
+  const prevGeometry = prevCircuit ? await loadCircuitGeometry(prevCircuit.id) : null;
+  const prevStart = prev && prevGeometry?.status === "ok" ? await firstIngestedSample(prev.sessionKey) : null;
+  const prevTitle = prev ? `${prev.name} ${prev.season} (${day(prev.date)})` : null;
+  const showPrevious = !wantSample && prev && prevCircuit && prevGeometry?.status === "ok" && prevStart !== null;
+
+  const circuit = showPrevious ? prevCircuit : findCircuitById(SAMPLE.circuit);
+  const result = showPrevious ? prevGeometry : circuit ? await loadCircuitGeometry(circuit.id) : null;
+  if (!circuit || !result || result.status !== "ok") {
     return (
       <ComingSoon
         eyebrow="Live"
         title="Live Race"
-        description="The race view needs generated circuit geometry, and none is available in this build, so nothing is drawn rather than guessing a layout."
+        description="The replay needs the circuit's generated layout, and none is available in this build, so nothing is drawn rather than guessing a layout."
         phase={getNavItem("/live").phase}
         planned={["Generate geometry with tools/openf1-spike (see src/data/circuits/README.md)"]}
+        back={{ href: "/circuits", label: "All circuits" }}
       />
     );
   }
+
+  const link = "font-medium text-fg underline decoration-line underline-offset-2 hover:decoration-fg";
+  const notice = (
+    <>
+      <span className="font-medium text-fg">No live race right now.</span>{" "}
+      {showPrevious ? (
+        <>
+          Showing the previous race, {prevTitle}. <Link href="/live?replay=sample" className={link}>Stored Monaco sample</Link>
+        </>
+      ) : !prevTitle ? null : prevStart !== null ? (
+        <Link href="/live" className={link}>
+          Watch the previous race: {prevTitle}
+        </Link>
+      ) : (
+        <>
+          Previous race: {prevTitle}. Its replay is not available: {prevGeometry?.status !== "ok" ? "the circuit has no generated layout" : "its car positions are not in the APEX F1 API (not ingested, or the API is offline)"}.
+          {" Showing the stored Monaco sample instead."}
+        </>
+      )}
+    </>
+  );
+
   return (
-    <PageContainer className="lg:py-8">
-      <RaceExperience geometry={result.geometry} circuit={{ slug: circuit.slug, name: circuit.name }} replay={REPLAY} totalLaps={DEMO_LAPS} />
-    </PageContainer>
+    <RaceExperience
+      key={showPrevious ? "previous" : "sample"}
+      geometry={result.geometry}
+      circuit={{ slug: circuit.id, name: circuit.shortName }}
+      source={
+        showPrevious
+          ? { kind: "replay", sessionKey: prev.sessionKey, from: prevStart, to: prevStart + PREVIOUS_WINDOW_MS, label: `${prevTitle} · Race · OpenF1 session ${prev.sessionKey} (${PREVIOUS_WINDOW_MS / 1000} s from ${new Date(prevStart).toISOString().slice(11, 19)} UTC)` }
+          : { kind: "replay", ...SAMPLE }
+      }
+      exitHref="/"
+      notice={notice}
+    />
   );
 }

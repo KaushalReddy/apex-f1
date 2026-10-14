@@ -15,11 +15,6 @@ export interface DemoDriver {
   code: string;
   teamSlug: string;
 }
-export interface DemoCircuit {
-  slug: string;
-  name: string;
-  country: string;
-}
 
 export const DEMO_TEAMS: readonly DemoTeam[] = [
   { slug: "mclaren", name: "McLaren", color: "#ff8000" },
@@ -37,16 +32,7 @@ export const DEMO_DRIVERS: readonly DemoDriver[] = [
   { slug: "russell", name: "George Russell", code: "RUS", teamSlug: "mercedes" },
 ];
 
-/** Same circuits as the OpenF1 spike matrix (tools/openf1-spike/run_matrix.sh). */
-export const DEMO_CIRCUITS: readonly DemoCircuit[] = [
-  { slug: "monza", name: "Monza", country: "Italy" },
-  { slug: "spa-francorchamps", name: "Spa-Francorchamps", country: "Belgium" },
-  { slug: "suzuka", name: "Suzuka", country: "Japan" },
-  { slug: "silverstone", name: "Silverstone", country: "United Kingdom" },
-  { slug: "monaco", name: "Monaco", country: "Monaco" },
-];
 
 export const findDriver = (slug: string) => DEMO_DRIVERS.find((d) => d.slug === slug);
 export const findTeam = (slug: string) => DEMO_TEAMS.find((t) => t.slug === slug);
-export const findCircuit = (slug: string) => DEMO_CIRCUITS.find((c) => c.slug === slug);
 export const driversOf = (teamSlug: string) => DEMO_DRIVERS.filter((d) => d.teamSlug === teamSlug);

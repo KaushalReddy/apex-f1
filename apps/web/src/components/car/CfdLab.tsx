@@ -23,12 +23,12 @@ interface JobView {
   id: string;
   state: JobState;
   stages: Array<{ state: JobState; at: string }>;
-  progress: { iterations: number; maxIterations: number; elapsedS: number } | null;
+  progress: { iterations: number; maxIterations: number; elapsedS: number; } | null;
   message: string | null;
   resultId: string | null;
 }
 
-const fmt = (v: number | null | undefined, digits = 3) => (v == null || !Number.isFinite(v) ? "—" : v.toFixed(digits));
+const fmt = (v: number | null | undefined, digits = 3) =>v == null || !Number.isFinite(v) ? "—" : v.toFixed(digits);
 const sci = (v: number) => v.toExponential(3).replace("e+", " × 10^").replace("e-", " × 10^-");
 const signed = (v: number, d = 3) => `${v > 0 ? "+" : v < 0 ? "−" : "±"}${Math.abs(v).toFixed(d)}`;
 
@@ -45,7 +45,7 @@ function Row({ k, v, hint }: { k: string; v: ReactNode; hint?: string }) {
 }
 
 /** Computed field (2D), with computed streamlines and a legend carrying the field's unit and range. */
-function FieldView({ result, field, lines }: { result: CfdResult; field: FieldName; lines: boolean }) {
+function FieldView({ result, field, lines }: { result: CfdResult; field: FieldName; lines: boolean; }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const decoded = useMemo(() => decode(result.field), [result]);
   const traced = useMemo(() => (lines ? streamlines(decoded, 26) : []), [decoded, lines]);
@@ -77,8 +77,9 @@ function FieldView({ result, field, lines }: { result: CfdResult; field: FieldNa
           </span>
         </span>
         <span className="mt-1 block text-subtle">
-          Field min {fmt(meta.min)} · max {fmt(meta.max)} {meta.unit}; colours span the {field === "cp" ? "2nd–98th" : "0–99th"} percentile range, with values beyond it in the end colours. Flow left to right. Window {fmt((x1 - x0) / unitLen, 2)} × {fmt((y1 - y0) / unitLen, 2)} reference
-          chords, sampled on a {result.field.nx} × {result.field.ny} grid from the solver mesh.{lines && " White lines: streamlines traced through the computed velocity field."}
+          Field min {fmt(meta.min)} · max {fmt(meta.max)} {meta.unit}; colours span the {field === "cp" ? "2nd–98th" : "0–99th"} percentile range, with values beyond it in the end colours. Flow left to right. Window {" "}
+          {fmt((x1 - x0) / unitLen, 2)} × {fmt((y1 - y0) / unitLen, 2)}{" "} reference
+          chords, sampled on a {result.field.nx} × {result.field.ny}{" "} grid from the solver mesh.{lines && " White lines: streamlines traced through the computed velocity field."}
         </span>
       </figcaption>
     </figure>
@@ -86,7 +87,7 @@ function FieldView({ result, field, lines }: { result: CfdResult; field: FieldNa
 }
 
 /** Surface pressure coefficient vs x/c (negative up, the usual convention), with the published reference for the benchmark. */
-function CpPlot({ result, reference }: { result: CfdResult; reference: Array<[number, number]> | null }) {
+function CpPlot({ result, reference }: { result: CfdResult; reference: Array<[number, number]> | null; }) {
   const W = 360;
   const H = 200;
   const lref = result.reference.lengthM;
@@ -116,7 +117,8 @@ function CpPlot({ result, reference }: { result: CfdResult; reference: Array<[nu
             {fmt(hi, 1)}
           </text>
         )}
-        {reference?.map(([x, cp], i) => (i % 4 === 0 ? <circle key={i} cx={X(x)} cy={Y(cp)} r={1.2} fill="var(--color-muted)" /> : null))}
+        {reference?.map(([x, cp], i) =>i % 4 === 0 ? ( <circle key={i} cx={X(x)} cy={Y(cp)} r={1.2} fill="var(--color-muted)" />
+          ) : null)}
         {Object.entries(result.surface).map(([name, s], k) => (
           <g key={name}>
             {s.x.map((x, i) => (
@@ -147,6 +149,8 @@ function CpPlot({ result, reference }: { result: CfdResult; reference: Array<[nu
   );
 }
 
+type CfdTab = "flow" | "pressure" | "forces" | "run" | "case";
+
 interface Props {
   setups: { a: SetupParams; b: SetupParams };
   /** Show a computed slice on the 3D car (rear-wing results only), or null to remove it. */
@@ -168,8 +172,9 @@ export function CfdLab({ setups, onShowInCar }: Props) {
   const [field, setField] = useState<FieldName>("cp");
   const [lines, setLines] = useState(true);
   const [onCar, setOnCar] = useState(false);
+  const [tab, setTab] = useState<CfdTab>("forces");
   const [reference, setReference] = useState<Record<string, Array<[number, number]>> | null>(null);
-  const [form, setForm] = useState<{ config: "a" | "b"; speedMps: number; meshLevel: "coarse" | "medium" }>({ config: "a", speedMps: 50, meshLevel: "coarse" });
+  const [form, setForm] = useState<{ config: "a" | "b"; speedMps: number; meshLevel: "coarse" | "medium"; }>({ config: "a", speedMps: 50, meshLevel: "coarse" });
   const [job, setJob] = useState<JobView | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -272,75 +277,16 @@ export function CfdLab({ setups, onShowInCar }: Props) {
   const comparison = result && other ? compareResults(result, other) : null;
   const trust = result ? trustLevel(result) : null;
 
-  return (
-    <section aria-labelledby={`${id}-h`} className="@container rounded-lg border border-line bg-surface p-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 id={`${id}-h`} className="eyebrow">
-          CFD · SU2 {result?.solver.version ?? "8.5.0"}
-        </h2>
-        <div className="flex flex-wrap gap-1.5">
-          <Badge tone="info">Computed by a CFD solver</Badge>
-          <Badge tone="warning">2D sections only</Badge>
-        </div>
-      </div>
-      <p className="mb-4 max-w-4xl text-sm text-muted">
-        Reynolds-averaged Navier-Stokes solutions computed by the open-source SU2 solver for a two-dimensional section of this car&apos;s rear wing, plus the NACA 0012 benchmark
-        used to verify the pipeline. These are real solver results, but of a simplified 2D problem: they are not full-car aerodynamics and are not validated against
-        experiment. A full 3D car simulation is not available (see limitations).
-      </p>
-
-      <div className="grid items-start gap-4 @5xl:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-        <div className="space-y-4">
-          <div role="radiogroup" aria-label="CFD result" className="space-y-3">
-            {(
-              [
-                ["Rear-wing section", wings],
-                ["Verification benchmark (NACA 0012)", benchmarks],
-              ] as Array<[string, CfdSummary[]]>
-            ).map(([title, list]) => (
-              <div key={title}>
-                <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-subtle">{title}</p>
-                {list.length === 0 && <p className="text-xs text-subtle">No results yet.</p>}
-                <ul className="space-y-1">
-                  {list.map((s) => {
-                    const t = trustLevel({ status: s.status, verification: s.kind === "benchmark-naca0012" ? ({} as never) : null });
-                    return (
-                      <li key={s.caseId}>
-                        <button
-                          type="button"
-                          role="radio"
-                          aria-checked={s.caseId === current}
-                          onClick={() => setSelected(s.caseId)}
-                          className={cn(
-                            "motion-interactive w-full rounded-md border px-2.5 py-2 text-left text-sm",
-                            s.caseId === current ? "border-accent/70 bg-surface-2" : "border-line hover:border-line-strong hover:bg-surface-2",
-                          )}
-                        >
-                          <span className="block font-medium">{s.label ?? s.caseId.slice(0, 8)}</span>
-                          <span className="block text-xs text-muted">
-                            {s.kind === "rear-wing-section" ? `${s.conditions.speedMps} m/s · ${s.meshLevel} mesh` : `grid ${s.meshLevel}`} · C_L {fmt(s.coefficients.CL)} · C_D{" "}
-                            {fmt(s.coefficients.CD, 4)}
-                          </span>
-                          <span className="mt-1 flex flex-wrap gap-1">
-                            <Badge tone={t.tone}>{s.status.converged ? "Converged" : "Not converged"}</Badge>
-                            <Badge tone="neutral">{s.origin === "local" ? "Computed here" : "Shipped run"}</Badge>
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </div>
-            ))}
-          </div>
-
-          <div className="rounded-md border border-line p-3">
+  // "Runs": new solver runs (only where the solver is installed) and comparison of compatible results.
+  const runPanel = result && (
+    <div className="space-y-3">
+      <div className="rounded-md border border-white/10 p-3">
             <p className="eyebrow">Run a simulation</p>
             {runner === null ? (
               <p className="mt-2 text-sm text-muted">Checking for a solver…</p>
             ) : !runner.available ? (
               <p className="mt-2 text-sm text-muted">
-                The SU2 solver is not available on this server, so new cases cannot be run here. Install it with <code className="text-fg">tools/cfd/setup.sh</code> and start
+                The SU2 solver is not available on this server, so new cases cannot be run here. Install it with{" "} <code className="text-fg">tools/cfd/setup.sh</code> and start
                 the app with <code className="text-fg">APEX_CFD_RUNNER=1</code>. The results listed above were computed by SU2 and are shown as stored.
               </p>
             ) : (
@@ -405,7 +351,8 @@ export function CfdLab({ setups, onShowInCar }: Props) {
                       Job {job.state}
                       {job.progress && job.state === "solving" && ` · iteration ${job.progress.iterations} of at most ${job.progress.maxIterations} · ${job.progress.elapsedS} s`}
                     </p>
-                    {job.message && <p className="mt-1 text-muted">{job.message}</p>}
+                    {job.message && ( <p className="mt-1 text-muted">{job.message}</p>
+                )}
                     <ol className="mt-1 flex flex-wrap gap-x-2 text-subtle">
                       {job.stages.map((s, i) => (
                         <li key={i}>{s.state}</li>
@@ -420,132 +367,10 @@ export function CfdLab({ setups, onShowInCar }: Props) {
                 )}
               </div>
             )}
-            {error && (
-              <p className="mt-2 text-xs text-danger" role="alert">
-                {error}
-              </p>
-            )}
           </div>
-        </div>
-
-        {!result ? (
-          <p className="text-sm text-muted">{all.length ? "Loading result…" : "No CFD results are available in this build."}</p>
-        ) : (
-          <div className="min-w-0 space-y-4">
-            <div className="flex flex-wrap items-start justify-between gap-2">
-              <div>
-                <h3 className="font-display text-xl font-semibold leading-tight">{result.label}</h3>
-                <p className="text-xs text-muted">{String(result.geometry.description ?? "")}</p>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {trust && <Badge tone={trust.tone}>{trust.label}</Badge>}
-                <Badge tone="neutral">Not validated against experiment</Badge>
-              </div>
-            </div>
-            {!result.status.converged && (
-              <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-warning" role="status">
-                This run finished but did not meet the convergence rules: {result.convergence.reasons.join("; ")}. Treat its numbers as provisional.
-              </p>
-            )}
-
-            <div className="grid gap-4 @2xl:grid-cols-2">
-              <dl className="divide-y divide-line text-sm">
-                <Row
-                  k="Lift coefficient C_L (SU2, +y up)"
-                  v={fmt(result.coefficients.CL, 4)}
-                  hint={isWing ? `Downforce coefficient C_DF = −C_L = ${fmt(-result.coefficients.CL, 4)}` : undefined}
-                />
-                <Row k="Drag coefficient C_D" v={fmt(result.coefficients.CD, 5)} />
-                {result.forcesPerSpan && (
-                  <>
-                    <Row k="Downforce per metre of span" v={`${fmt(result.forcesPerSpan.downforceNPerM, 1)} N/m`} hint="= −C_L q c_ref × 1 m" />
-                    <Row k="Drag per metre of span" v={`${fmt(result.forcesPerSpan.dragNPerM, 1)} N/m`} />
-                  </>
-                )}
-                {result.perElement &&
-                  Object.entries(result.perElement).map(([n, c]) => (
-                    <Row key={n} k={`  ${n.replace("wing_", "")} element`} v={`C_L ${fmt(c.CL, 4)} · C_D ${fmt(c.CD, 5)}`} />
-                  ))}
-                <Row k="Reynolds number" v={sci(result.derived.reynolds)} hint={isWing ? `ρ U c_ref / μ, c_ref = ${result.reference.lengthM} m` : "per chord"} />
-                <Row k="Mach number" v={fmt(result.derived.mach, 3)} />
-                {isWing && (
-                  <Row
-                    k="Conditions"
-                    v={`${result.conditions.speedMps} m/s · ${result.conditions.densityKgM3} kg/m³`}
-                    hint={`${result.conditions.temperatureK} K · μ = ${result.conditions.viscosityPaS} Pa·s · q = ${fmt(result.derived.dynamicPressurePa, 1)} Pa`}
-                  />
-                )}
-                {!isWing && <Row k="Conditions" v={`α = ${result.conditions.aoaDeg}°`} hint="M = 0.15, Re = 6 × 10^6 (NASA TMR case)" />}
-              </dl>
-              <dl className="divide-y divide-line text-sm">
-                <Row k="Model" v={result.model.equations} hint={`Turbulence: ${result.model.turbulence}`} />
-                <Row
-                  k="Mesh"
-                  v={`${result.mesh.cells.toLocaleString()} cells · ${result.mesh.nodes.toLocaleString()} nodes`}
-                  hint={`${String(result.mesh.generator ?? "")} · ${result.mesh.level}${result.mesh.firstCellHeightM ? ` · first cell ${sci(Number(result.mesh.firstCellHeightM))} m` : ""}`}
-                />
-                {result.yPlus && <Row k="Wall y+" v={`mean ${fmt(result.yPlus.mean, 2)} · max ${fmt(result.yPlus.max, 2)}`} hint="Target ≈ 1 for the SA model without wall functions" />}
-                <Row
-                  k="Iterations"
-                  v={`${result.convergence.iterations}${result.convergence.maxIterations ? ` of ${result.convergence.maxIterations}` : ""}`}
-                  hint={`Stopped by: ${result.convergence.terminatedBy ?? "—"}`}
-                />
-                <Row
-                  k="Residual drop (orders)"
-                  v={Object.values(result.convergence.residualDropOrders ?? {}).length ? fmt(Math.min(...Object.values(result.convergence.residualDropOrders ?? {})), 1) : "—"}
-                  hint={`smallest over ${Object.keys(result.convergence.residualDropOrders ?? {}).join(", ")}`}
-                />
-                <Row
-                  k="Force stability"
-                  v={result.convergence.forceStability ? `C_L ${fmt(result.convergence.forceStability.CL.relativeRange ?? 0, 6)} · C_D ${fmt(result.convergence.forceStability.CD.relativeRange ?? 0, 6)}` : "—"}
-                  hint={`relative range over the last ${result.convergence.rules?.window ?? "—"} iterations (rule: ≤ ${result.convergence.rules?.relativeRange ?? "—"})`}
-                />
-                <Row k="Run time" v={`${Math.round(result.durationS)} s`} hint={result.solver.build} />
-              </dl>
-            </div>
-
-            <div className="grid gap-4 @3xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
-              <div>
-                <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                  <div role="radiogroup" aria-label="Field" className="flex gap-1">
-                    {(
-                      [
-                        ["cp", "Pressure coefficient"],
-                        ["speed", "Velocity magnitude"],
-                      ] as Array<[FieldName, string]>
-                    ).map(([k, label]) => (
-                      <button
-                        key={k}
-                        type="button"
-                        role="radio"
-                        aria-checked={field === k}
-                        onClick={() => setField(k)}
-                        className={cn("h-8 rounded-md border px-2.5 text-xs font-medium", field === k ? "border-accent/70 bg-surface-2 text-fg" : "border-line text-muted")}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                  <label className="flex items-center gap-1.5 text-xs text-muted">
-                    <input type="checkbox" checked={lines} onChange={(e) => setLines(e.target.checked)} className="size-3.5 accent-[var(--color-accent)]" />
-                    Streamlines
-                  </label>
-                  {isWing && (
-                    <label className="flex items-center gap-1.5 text-xs text-muted">
-                      <input type="checkbox" checked={onCar} onChange={(e) => setOnCar(e.target.checked)} className="size-3.5 accent-[var(--color-accent)]" />
-                      Show on the car (slice at z = {result.transform?.z} m)
-                    </label>
-                  )}
-                </div>
-                <FieldView result={result} field={field} lines={lines} />
-              </div>
-              <CpPlot result={result} reference={!isWing && reference ? (reference[String(Math.round(result.conditions.aoaDeg))] ?? null) : null} />
-            </div>
-
-            {!isWing && <BenchmarkStudy runs={benchmarks} cache={cache} load={load} />}
 
             {isWing && (
-              <div className="rounded-md border border-line p-3 text-sm">
+              <div className="rounded-md border border-white/10 p-3 text-sm">
                 <label className="flex flex-wrap items-center gap-2">
                   <span className="eyebrow">Compare with</span>
                   <select value={compareTo} onChange={(e) => setCompareTo(e.target.value)} className="h-8 rounded-md border border-line-strong bg-surface-2 px-2">
@@ -611,7 +436,69 @@ export function CfdLab({ setups, onShowInCar }: Props) {
               </div>
             )}
 
-            <details className="text-xs text-muted">
+            </div>
+  );
+  // "Case": how the result was produced and what it may claim.
+  const casePanel = result && (
+    <div className="space-y-3">
+      <dl className="divide-y divide-white/10 text-sm">
+        <Row
+          k="Model"
+          v={result.model.equations}
+          hint={`Turbulence: ${result.model.turbulence}`}
+        />
+        <Row
+          k="Mesh"
+          v={`${result.mesh.cells.toLocaleString()} cells · ${result.mesh.nodes.toLocaleString()} nodes`}
+          hint={`${String(result.mesh.generator ?? "")} · ${result.mesh.level}${result.mesh.firstCellHeightM ? ` · first cell ${sci(Number(result.mesh.firstCellHeightM))} m` : ""}`}
+        />
+        {result.yPlus && (
+          <Row
+            k="Wall y+"
+            v={`mean ${fmt(result.yPlus.mean, 2)} · max ${fmt(result.yPlus.max, 2)}`}
+            hint="Target ≈ 1 for the SA model without wall functions"
+          />
+        )}
+        <Row
+          k="Iterations"
+          v={`${result.convergence.iterations}${result.convergence.maxIterations ? ` of ${result.convergence.maxIterations}` : ""}`}
+          hint={`Stopped by: ${result.convergence.terminatedBy ?? "—"}`}
+        />
+        <Row
+          k="Residual drop (orders)"
+          v={
+            Object.values(result.convergence.residualDropOrders ?? {}).length
+              ? fmt(
+                  Math.min(
+                    ...Object.values(
+                      result.convergence.residualDropOrders ?? {},
+                    ),
+                  ),
+                  1,
+                )
+              : "—"
+          }
+          hint={`smallest over ${Object.keys(result.convergence.residualDropOrders ?? {}).join(", ")}`}
+        />
+        <Row
+          k="Force stability"
+          v={
+            result.convergence.forceStability
+              ? `C_L ${fmt(result.convergence.forceStability.CL.relativeRange ?? 0, 6)} · C_D ${fmt(result.convergence.forceStability.CD.relativeRange ?? 0, 6)}`
+              : "—"
+          }
+          hint={`relative range over the last ${result.convergence.rules?.window ?? "—"} iterations (rule: ≤ ${result.convergence.rules?.relativeRange ?? "—"})`}
+        />
+        <Row
+          k="Run time"
+          v={`${Math.round(result.durationS)} s`}
+          hint={result.solver.build}
+        />
+      </dl>
+      {!isWing && (
+        <BenchmarkStudy runs={benchmarks} cache={cache} load={load} />
+      )}
+      <details className="text-xs text-muted">
               <summary className="cursor-pointer hover:text-fg">Physical model, boundary conditions and limitations</summary>
               <ul className="mt-2 list-disc space-y-1 pl-4 leading-relaxed">
                 <li>
@@ -620,7 +507,7 @@ export function CfdLab({ setups, onShowInCar }: Props) {
                     : "Steady compressible RANS (SU2 RANS solver) with the Spalart-Allmaras model, at M = 0.15 and Re = 6 × 10^6, the NASA TMR conditions."}
                 </li>
                 <li>
-                  Boundaries: no-slip adiabatic walls on each element; a far-field boundary on a circle {isWing ? "25 reference chords" : "about 500 chords"} away, at free-stream conditions.
+                  Boundaries: no-slip adiabatic walls on each element; a far-field boundary on a circle{" "} {isWing ? "25 reference chords" : "about 500 chords"} away, at free-stream conditions.
                   {isWing && " No ground plane, so no ground effect; nothing rotates."}
                 </li>
                 <li>
@@ -629,7 +516,8 @@ export function CfdLab({ setups, onShowInCar }: Props) {
                 </li>
                 <li>
                   Convergence rules (stated before any results were computed): forces steady to {result.convergence.rules?.relativeRange ?? "—"} relative over the last {result.convergence.rules?.window ?? "—"} iterations,
-                  and every residual down at least {result.convergence.rules?.minResidualDropOrders ?? "—"} orders of magnitude. SU2&apos;s own stopping test is a Cauchy criterion on C_L and C_D.
+                  and every residual down at least {" "}
+            {result.convergence.rules?.minResidualDropOrders ?? "—"} orders of magnitude. SU2&apos;s own stopping test is a Cauchy criterion on C_L and C_D.
                 </li>
                 {result.limitations.map((l) => (
                   <li key={l}>{l}</li>
@@ -638,8 +526,258 @@ export function CfdLab({ setups, onShowInCar }: Props) {
               </ul>
             </details>
           </div>
+        );
+
+  const optionLabel = (s: CfdSummary) =>
+    `${s.label ?? s.caseId.slice(0, 8)} · ${s.kind === "rear-wing-section" ? `${s.meshLevel} mesh` : s.meshLevel}${s.status.converged ? "" : " · not converged"}`;
+  const tabs: Array<[CfdTab, string]> = [
+    ["flow", "Flow"],
+    ["pressure", "Pressure"],
+    ["forces", "Forces"],
+    ["run", "Runs"],
+    ["case", "Case"],
+  ];
+
+  return (
+    <section aria-labelledby={`${id}-h`} className="text-sm">
+      {/* Compact header: what is shown, how far it can be trusted, the headline numbers and the link to the car. */}
+      <div className="space-y-2 border-b border-white/10 p-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 id={`${id}-h`} className="eyebrow">
+            CFD · SU2 {result?.solver.version ?? "8.5.0"}
+          </h2>
+          <span className="text-[11px] text-subtle">
+            2D sections, computed by the solver
+          </span>
+        </div>
+        {all.length === 0 ? (
+          <p className="text-muted">No CFD results in this build.</p>
+        ) : (
+          <label className="flex flex-col gap-1">
+            <span className="sr-only">CFD case</span>
+            <select
+              value={current ?? ""}
+              onChange={(e) => setSelected(e.target.value)}
+              className="h-9 w-full rounded-md border border-line-strong bg-surface-2 px-2 text-sm text-fg"
+            >
+              {wings.length > 0 && (
+                <optgroup label="Rear-wing section">
+                  {wings.map((w) => (
+                    <option key={w.caseId} value={w.caseId}>
+                      {optionLabel(w)}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {benchmarks.length > 0 && (
+                <optgroup label="Verification benchmark (NACA 0012)">
+                  {benchmarks.map((w) => (
+                    <option key={w.caseId} value={w.caseId}>
+                      {optionLabel(w)}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+          </label>
+        )}
+        {result && (
+          <>
+            <div className="flex flex-wrap gap-1.5">
+              {trust && <Badge tone={trust.tone}>{trust.label}</Badge>}
+              <Badge tone="neutral">
+                {result.origin === "local" ? "Computed here" : "Shipped run"}
+              </Badge>
+            </div>
+            <dl
+              className="grid grid-cols-3 overflow-hidden rounded-md border border-white/10 tabular-nums"
+              style={{ gap: 1 }}
+            >
+              {(isWing
+                ? [
+                    ["C_DF", fmt(-result.coefficients.CL, 3), "−C_L"],
+                    ["C_D", fmt(result.coefficients.CD, 4), ""],
+                    [
+                      "Downforce",
+                      result.forcesPerSpan
+                        ? `${fmt(result.forcesPerSpan.downforceNPerM, 0)} N/m`
+                        : "—",
+                      "per m span",
+                    ],
+                  ]
+                : [
+                    ["C_L", fmt(result.coefficients.CL, 4), ""],
+                    ["C_D", fmt(result.coefficients.CD, 5), ""],
+                    ["Grid", result.mesh.level, ""],
+                  ]
+              ).map(([k, v, h]) => (
+                <div key={k} className="bg-surface/60 px-2 py-1.5">
+                  <dt className="text-[10px] uppercase tracking-wider text-subtle">
+                    {k}
+                  </dt>
+                  <dd className="font-display text-base font-semibold leading-tight">
+                    {v}
+                  </dd>
+                  {h && <p className="text-[10px] text-subtle">{h}</p>}
+      </div>
+              ))}
+            </dl>
+            {!result.status.converged && (
+              <p className="text-xs text-warning">
+                Provisional: {result.convergence.reasons.join("; ")}.
+              </p>
+            )}
+            {isWing && (
+              <label className="flex items-center gap-2 text-xs text-muted">
+                <input
+                  type="checkbox"
+                  checked={onCar}
+                  onChange={(e) => setOnCar(e.target.checked)}
+                  className="size-3.5 accent-[var(--color-accent)]"
+                />
+                Show the computed {field === "cp" ? "pressure" : "velocity"}{" "}
+                field on the car (slice at z = {result.transform?.z} m)
+              </label>
+            )}
+          </>
         )}
       </div>
+
+      {result && (
+        <>
+          <div
+            role="tablist"
+            aria-label="CFD views"
+            className="flex gap-0.5 overflow-x-auto border-b border-white/10 px-1.5 py-1 [scrollbar-width:none]"
+          >
+            {tabs.map(([t, label]) => (
+              <button
+                key={t}
+                type="button"
+                role="tab"
+                aria-selected={tab === t}
+                onClick={() => {
+                  setTab(t);
+                  if (t === "flow") setField("speed");
+                  if (t === "pressure") setField("cp");
+                }}
+                className={cn(
+                  "motion-interactive h-8 shrink-0 rounded-md px-2.5 text-xs font-medium",
+                  tab === t
+                    ? "bg-white/10 text-fg"
+                    : "text-muted hover:bg-white/5 hover:text-fg",
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div
+            role="tabpanel"
+            aria-label={tabs.find(([t]) => t === tab)?.[1]}
+            className="space-y-3 p-3"
+          >
+            {tab === "flow" && (
+              <>
+                <label className="flex items-center gap-1.5 text-xs text-muted">
+                  <input
+                    type="checkbox"
+                    checked={lines}
+                    onChange={(e) => setLines(e.target.checked)}
+                    className="size-3.5 accent-[var(--color-accent)]"
+                  />
+                  Streamlines (traced through the computed velocity)
+                </label>
+                <FieldView result={result} field="speed" lines={lines} />
+              </>
+            )}
+            {tab === "pressure" && (
+              <>
+                <FieldView result={result} field="cp" lines={false} />
+                <CpPlot
+                  result={result}
+                  reference={
+                    !isWing && reference
+                      ? (reference[
+                          String(Math.round(result.conditions.aoaDeg))
+                        ] ?? null)
+                      : null
+                  }
+                />
+              </>
+            )}
+            {tab === "forces" && (
+              <dl className="divide-y divide-white/10">
+                <Row
+                  k="Lift coefficient C_L (+y up)"
+                  v={fmt(result.coefficients.CL, 4)}
+                  hint={
+                    isWing
+                      ? `Downforce coefficient C_DF = −C_L = ${fmt(-result.coefficients.CL, 4)}`
+                      : undefined
+                  }
+                />
+                <Row
+                  k="Drag coefficient C_D"
+                  v={fmt(result.coefficients.CD, 5)}
+                />
+                {result.forcesPerSpan && (
+                  <>
+                    <Row
+                      k="Downforce"
+                      v={`${fmt(result.forcesPerSpan.downforceNPerM, 1)} N/m`}
+                      hint="per metre of span: −C_L q c_ref"
+                    />
+                    <Row
+                      k="Drag"
+                      v={`${fmt(result.forcesPerSpan.dragNPerM, 1)} N/m`}
+                    />
+                  </>
+                )}
+                {result.perElement &&
+                  Object.entries(result.perElement).map(([n, c]) => (
+                    <Row
+                      key={n}
+                      k={`${n.replace("wing_", "")} element`}
+                      v={`C_L ${fmt(c.CL, 3)} · C_D ${fmt(c.CD, 4)}`}
+                    />
+                  ))}
+                <Row
+                  k="Reynolds number"
+                  v={sci(result.derived.reynolds)}
+                  hint={
+                    isWing
+                      ? `ρ U c_ref / μ, c_ref = ${result.reference.lengthM} m`
+                      : "per chord"
+                  }
+                />
+                <Row k="Mach number" v={fmt(result.derived.mach, 3)} />
+                {isWing ? (
+                  <Row
+                    k="Conditions"
+                    v={`${result.conditions.speedMps} m/s · ${result.conditions.densityKgM3} kg/m³`}
+                    hint={`q = ${fmt(result.derived.dynamicPressurePa, 1)} Pa`}
+                  />
+                ) : (
+                  <Row
+                    k="Conditions"
+                    v={`α = ${result.conditions.aoaDeg}°`}
+                    hint="M = 0.15, Re = 6 × 10^6 (NASA TMR case)"
+                  />
+                )}
+              </dl>
+            )}
+            {tab === "run" && runPanel}
+            {tab === "case" && casePanel}
+          </div>
+        </>
+      )}
+      {error && (
+        <p className="px-3 pb-3 text-xs text-danger" role="alert">
+          {error}
+        </p>
+      )}
     </section>
   );
 }
@@ -647,7 +785,7 @@ export function CfdLab({ setups, onShowInCar }: Props) {
 const GRID_ORDER = ["113x33", "225x65", "449x129"];
 
 /** Grid-convergence study for the benchmark: the three published TMR grids, Richardson extrapolation and the NASA reference values. */
-function BenchmarkStudy({ runs, cache, load }: { runs: CfdSummary[]; cache: Record<string, CfdResult>; load: (id: string) => Promise<CfdResult> }) {
+function BenchmarkStudy({ runs, cache, load }: { runs: CfdSummary[]; cache: Record<string, CfdResult>; load: (id: string) => Promise<CfdResult>; }) {
   useEffect(() => {
     for (const r of runs) if (!cache[r.caseId]) void load(r.caseId).catch(() => {});
   }, [runs, cache, load]);
@@ -690,7 +828,8 @@ function BenchmarkStudy({ runs, cache, load }: { runs: CfdSummary[]; cache: Reco
               <td className="py-1 text-right">{rich.CL ? fmt(rich.CL.extrapolated, 4) : "not monotonic"}</td>
               <td className="py-1 text-right">{rich.CD ? fmt(rich.CD.extrapolated, 5) : "not monotonic"}</td>
               <td className="py-1 text-right text-subtle">
-                p = {rich.CL ? fmt(rich.CL.order, 2) : "—"} / {rich.CD ? fmt(rich.CD.order, 2) : "—"}
+                p = {rich.CL ? fmt(rich.CL.order, 2) : "—"} / {" "}
+                {rich.CD ? fmt(rich.CD.order, 2) : "—"}
               </td>
             </tr>
           )}
@@ -709,9 +848,10 @@ function BenchmarkStudy({ runs, cache, load }: { runs: CfdSummary[]; cache: Reco
       </table>
       {ref?.values && ordered.length > 0 && (
         <p className="mt-2 text-xs text-muted">
-          Finest grid here ({ordered[ordered.length - 1].mesh.level}) vs {ref.code} on {ref.grid}: C_L {pct(ordered[ordered.length - 1].coefficients.CL, ref.values.CL)}, C_D{" "}
+          Finest grid here ({ordered[ordered.length - 1].mesh.level}) vs {" "}
+          {ref.code} on {ref.grid}: C_L{" "} {pct(ordered[ordered.length - 1].coefficients.CL, ref.values.CL)}, C_D{" "}
           {pct(ordered[ordered.length - 1].coefficients.CD, ref.values.CD)}.
-          {rich?.CL && rich.CD && ` Extrapolated: C_L ${pct(rich.CL.extrapolated, ref.values.CL)}, C_D ${pct(rich.CD.extrapolated, ref.values.CD)}.`} Other codes on the 897×257 grid span C_L{" "}
+          {rich?.CL && rich.CD && ` Extrapolated: C_L ${pct(rich.CL.extrapolated, ref.values.CL)}, C_D ${pct(rich.CD.extrapolated, ref.values.CD)}.`}{" "} Other codes on the 897×257 grid span C_L{" "}
           {fmt(Math.min(...Object.values(ref.otherCodesAlpha10).map((v) => v[0])), 4)}–{fmt(Math.max(...Object.values(ref.otherCodesAlpha10).map((v) => v[0])), 4)}, C_D{" "}
           {fmt(Math.min(...Object.values(ref.otherCodesAlpha10).map((v) => v[1])), 5)}–{fmt(Math.max(...Object.values(ref.otherCodesAlpha10).map((v) => v[1])), 5)}.{" "}
           <a href={ref.url} className="underline underline-offset-4 hover:text-accent-strong">

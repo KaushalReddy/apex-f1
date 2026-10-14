@@ -1,0 +1,1548 @@
+{
+ "schema": "apex-f1/circuit-catalog@1",
+ "generatedOn": "2026-10-14",
+ "scope": "Every circuit with a Formula One Grand Prix in the OpenF1 era (2023 onwards), so every entry has car-position data for its layout. Earlier circuits have no such source and are not included.",
+ "sources": [
+  {
+   "name": "Wikipedia: List of Formula One circuits",
+   "url": "https://en.wikipedia.org/wiki/List_of_Formula_One_circuits",
+   "accessed": "2026-10-14",
+   "fields": [
+    "name",
+    "type",
+    "direction",
+    "locality",
+    "country",
+    "lengthKm",
+    "turns"
+   ],
+   "note": "Table states it is accurate as of the 2026 Singapore Grand Prix; lengths and turns are for the last configuration used in Formula One."
+  },
+  {
+   "name": "Wikipedia circuit articles (infobox)",
+   "url": "https://en.wikipedia.org",
+   "accessed": "2026-10-14",
+   "fields": [
+    "lapRecord"
+   ],
+   "note": "Race lap record of the layout matching the Grand Prix length, Formula One class only; null otherwise."
+  },
+  {
+   "name": "OpenF1 /meetings",
+   "url": "https://api.openf1.org/v1/meetings",
+   "accessed": "2026-10-14",
+   "fields": [
+    "openf1",
+    "grandsPrix",
+    "calendar"
+   ]
+  }
+ ],
+ "circuits": [
+  {
+   "id": "albert-park",
+   "name": "Albert Park Circuit",
+   "shortName": "Albert Park",
+   "openf1": {
+    "circuitKey": 10,
+    "shortName": "Melbourne"
+   },
+   "locality": "Melbourne",
+   "country": "Australia",
+   "countryCode": "AUS",
+   "type": "street",
+   "direction": "clockwise",
+   "lengthKm": 5.278,
+   "turns": 16,
+   "lapRecord": {
+    "time": "1:19.813",
+    "driver": "Charles Leclerc",
+    "car": "Ferrari SF-24",
+    "year": 2024,
+    "layoutLengthKm": 5.278
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "Australian Grand Prix",
+     "officialName": "FORMULA 1 ROLEX AUSTRALIAN GRAND PRIX 2023",
+     "date": "2023-03-31"
+    },
+    {
+     "year": 2024,
+     "name": "Australian Grand Prix",
+     "officialName": "FORMULA 1 ROLEX AUSTRALIAN GRAND PRIX 2024",
+     "date": "2024-03-22"
+    },
+    {
+     "year": 2025,
+     "name": "Australian Grand Prix",
+     "officialName": "FORMULA 1 LOUIS VUITTON AUSTRALIAN GRAND PRIX 2025",
+     "date": "2025-03-14"
+    },
+    {
+     "year": 2026,
+     "name": "Australian Grand Prix",
+     "officialName": "FORMULA 1 QATAR AIRWAYS AUSTRALIAN GRAND PRIX 2026",
+     "date": "2026-03-06"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "held",
+   "wikipedia": "https://en.wikipedia.org/wiki/Albert_Park_Circuit",
+   "geometry": {
+    "file": "albert-park.geometry.json",
+    "sessionKeys": [
+     11234
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS"
+   }
+  },
+  {
+   "id": "imola",
+   "name": "Autodromo Internazionale Enzo e Dino Ferrari",
+   "shortName": "Imola",
+   "openf1": {
+    "circuitKey": 6,
+    "shortName": "Imola"
+   },
+   "locality": "Imola",
+   "country": "Italy",
+   "countryCode": "ITA",
+   "type": "permanent",
+   "direction": "anticlockwise",
+   "lengthKm": 4.909,
+   "turns": 19,
+   "lapRecord": {
+    "time": "1:15.484",
+    "driver": "Lewis Hamilton",
+    "car": "Mercedes W11",
+    "year": 2020,
+    "layoutLengthKm": 4.909
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "Emilia Romagna Grand Prix",
+     "officialName": "CALLED OFF: FORMULA 1 QATAR AIRWAYS GRAN PREMIO DEL MADE IN ITALY E DELL'EMILIA-ROMAGNA 2023",
+     "date": "2023-05-19"
+    },
+    {
+     "year": 2024,
+     "name": "Emilia Romagna Grand Prix",
+     "officialName": "FORMULA 1 MSC CRUISES GRAN PREMIO DEL MADE IN ITALY E DELL'EMILIA-ROMAGNA 2024",
+     "date": "2024-05-17"
+    },
+    {
+     "year": 2025,
+     "name": "Emilia Romagna Grand Prix",
+     "officialName": "FORMULA 1 AWS GRAN PREMIO DEL MADE IN ITALY E DELL'EMILIA-ROMAGNA 2025",
+     "date": "2025-05-16"
+    }
+   ],
+   "calendar": "previous",
+   "season2026": null,
+   "wikipedia": "https://en.wikipedia.org/wiki/Imola_Circuit",
+   "geometry": {
+    "file": "imola.geometry.json",
+    "sessionKeys": [
+     9987
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS"
+   }
+  },
+  {
+   "id": "interlagos",
+   "name": "Autodromo José Carlos Pace",
+   "shortName": "Interlagos",
+   "openf1": {
+    "circuitKey": 14,
+    "shortName": "Interlagos"
+   },
+   "locality": "São Paulo",
+   "country": "Brazil",
+   "countryCode": "BRA",
+   "type": "permanent",
+   "direction": "anticlockwise",
+   "lengthKm": 4.309,
+   "turns": 15,
+   "lapRecord": {
+    "time": "1:10.540",
+    "driver": "Valtteri Bottas",
+    "car": "Mercedes W09",
+    "year": 2018,
+    "layoutLengthKm": 4.309
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "São Paulo Grand Prix",
+     "officialName": "FORMULA 1 ROLEX GRANDE PRÊMIO DE SÃO PAULO 2023",
+     "date": "2023-11-03"
+    },
+    {
+     "year": 2024,
+     "name": "São Paulo Grand Prix",
+     "officialName": "FORMULA 1 LENOVO GRANDE PRÊMIO DE SÃO PAULO 2024",
+     "date": "2024-11-01"
+    },
+    {
+     "year": 2025,
+     "name": "São Paulo Grand Prix",
+     "officialName": "FORMULA 1 MSC CRUISES GRANDE PRÊMIO DE SÃO PAULO 2025",
+     "date": "2025-11-07"
+    },
+    {
+     "year": 2026,
+     "name": "São Paulo Grand Prix",
+     "officialName": "FORMULA 1 MSC CRUISES GRANDE PRÊMIO DE SÃO PAULO 2026",
+     "date": "2026-11-06"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "upcoming",
+   "wikipedia": "https://en.wikipedia.org/wiki/Interlagos_Circuit",
+   "geometry": {
+    "file": "interlagos.geometry.json",
+    "sessionKeys": [
+     9869
+    ],
+    "scale": "caveat",
+    "verdict": "PASS WITH CAVEATS: length off by -2.06% under assumed unit"
+   }
+  },
+  {
+   "id": "monza",
+   "name": "Autodromo Nazionale di Monza",
+   "shortName": "Monza",
+   "openf1": {
+    "circuitKey": 39,
+    "shortName": "Monza"
+   },
+   "locality": "Monza",
+   "country": "Italy",
+   "countryCode": "ITA",
+   "type": "permanent",
+   "direction": "clockwise",
+   "lengthKm": 5.793,
+   "turns": 11,
+   "lapRecord": {
+    "time": "1:20.901",
+    "driver": "Lando Norris",
+    "car": "McLaren MCL39",
+    "year": 2025,
+    "layoutLengthKm": 5.793
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "Italian Grand Prix",
+     "officialName": "FORMULA 1 PIRELLI GRAN PREMIO D’ITALIA 2023 ",
+     "date": "2023-09-01"
+    },
+    {
+     "year": 2024,
+     "name": "Italian Grand Prix",
+     "officialName": "FORMULA 1 PIRELLI GRAN PREMIO D’ITALIA 2024",
+     "date": "2024-08-30"
+    },
+    {
+     "year": 2025,
+     "name": "Italian Grand Prix",
+     "officialName": "FORMULA 1 PIRELLI GRAN PREMIO D’ITALIA 2025",
+     "date": "2025-09-05"
+    },
+    {
+     "year": 2026,
+     "name": "Italian Grand Prix",
+     "officialName": "FORMULA 1 PIRELLI GRAN PREMIO D’ITALIA 2026",
+     "date": "2026-09-04"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "held",
+   "wikipedia": "https://en.wikipedia.org/wiki/Monza_Circuit",
+   "geometry": {
+    "file": "monza.geometry.json",
+    "sessionKeys": [
+     11361
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS"
+   }
+  },
+  {
+   "id": "mexico-city",
+   "name": "Autódromo Hermanos Rodríguez",
+   "shortName": "Mexico City",
+   "openf1": {
+    "circuitKey": 65,
+    "shortName": "Mexico City"
+   },
+   "locality": "Mexico City",
+   "country": "Mexico",
+   "countryCode": "MEX",
+   "type": "permanent",
+   "direction": "clockwise",
+   "lengthKm": 4.304,
+   "turns": 17,
+   "lapRecord": {
+    "time": "1:17.774",
+    "driver": "Valtteri Bottas",
+    "car": "Mercedes W12",
+    "year": 2021,
+    "layoutLengthKm": 4.304
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "Mexico City Grand Prix",
+     "officialName": "FORMULA 1 GRAN PREMIO DE LA CIUDAD DE MÉXICO 2023",
+     "date": "2023-10-27"
+    },
+    {
+     "year": 2024,
+     "name": "Mexico City Grand Prix",
+     "officialName": "FORMULA 1 GRAN PREMIO DE LA CIUDAD DE MÉXICO 2024",
+     "date": "2024-10-25"
+    },
+    {
+     "year": 2025,
+     "name": "Mexico City Grand Prix",
+     "officialName": "FORMULA 1 GRAN PREMIO DE LA CIUDAD DE MÉXICO 2025",
+     "date": "2025-10-24"
+    },
+    {
+     "year": 2026,
+     "name": "Mexico City Grand Prix",
+     "officialName": "FORMULA 1 GRAN PREMIO DE LA CIUDAD DE MÉXICO 2026",
+     "date": "2026-10-30"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "upcoming",
+   "wikipedia": "https://en.wikipedia.org/wiki/Aut%C3%B3dromo_Hermanos_Rodr%C3%ADguez",
+   "geometry": {
+    "file": "mexico-city.geometry.json",
+    "sessionKeys": [
+     9877
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS"
+   }
+  },
+  {
+   "id": "bahrain",
+   "name": "Bahrain International Circuit",
+   "shortName": "Bahrain",
+   "openf1": {
+    "circuitKey": 63,
+    "shortName": "Sakhir"
+   },
+   "locality": "Sakhir",
+   "country": "Bahrain",
+   "countryCode": "BHR",
+   "type": "permanent",
+   "direction": "clockwise",
+   "lengthKm": 5.412,
+   "turns": 15,
+   "lapRecord": {
+    "time": "1:31.447",
+    "driver": "Pedro de la Rosa",
+    "car": "McLaren MP4-20",
+    "year": 2005,
+    "layoutLengthKm": 5.412
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "Bahrain Grand Prix",
+     "officialName": "FORMULA 1 GULF AIR BAHRAIN GRAND PRIX 2023",
+     "date": "2023-03-03"
+    },
+    {
+     "year": 2024,
+     "name": "Bahrain Grand Prix",
+     "officialName": "FORMULA 1 GULF AIR BAHRAIN GRAND PRIX 2024",
+     "date": "2024-02-29"
+    },
+    {
+     "year": 2025,
+     "name": "Bahrain Grand Prix",
+     "officialName": "FORMULA 1 GULF AIR BAHRAIN GRAND PRIX 2025",
+     "date": "2025-04-11"
+    },
+    {
+     "year": 2026,
+     "name": "Bahrain Grand Prix",
+     "officialName": "FORMULA 1 GULF AIR BAHRAIN GRAND PRIX 2026",
+     "date": "2026-04-10"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "not-held",
+   "wikipedia": "https://en.wikipedia.org/wiki/Bahrain_International_Circuit",
+   "geometry": {
+    "file": "bahrain.geometry.json",
+    "sessionKeys": [
+     10014
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS"
+   }
+  },
+  {
+   "id": "baku",
+   "name": "Baku City Circuit",
+   "shortName": "Baku",
+   "openf1": {
+    "circuitKey": 144,
+    "shortName": "Baku"
+   },
+   "locality": "Baku",
+   "country": "Azerbaijan",
+   "countryCode": "AZE",
+   "type": "street",
+   "direction": "anticlockwise",
+   "lengthKm": 6.003,
+   "turns": 20,
+   "lapRecord": {
+    "time": "1:43.009",
+    "driver": "Charles Leclerc",
+    "car": "Ferrari SF90",
+    "year": 2019,
+    "layoutLengthKm": 6.003
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "Azerbaijan Grand Prix",
+     "officialName": "FORMULA 1 AZERBAIJAN GRAND PRIX 2023",
+     "date": "2023-04-28"
+    },
+    {
+     "year": 2024,
+     "name": "Azerbaijan Grand Prix",
+     "officialName": "FORMULA 1 QATAR AIRWAYS AZERBAIJAN GRAND PRIX 2024",
+     "date": "2024-09-13"
+    },
+    {
+     "year": 2025,
+     "name": "Azerbaijan Grand Prix",
+     "officialName": "FORMULA 1 QATAR AIRWAYS AZERBAIJAN GRAND PRIX 2025",
+     "date": "2025-09-19"
+    },
+    {
+     "year": 2026,
+     "name": "Azerbaijan Grand Prix",
+     "officialName": "FORMULA 1 QATAR AIRWAYS AZERBAIJAN GRAND PRIX 2026",
+     "date": "2026-09-24"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "held",
+   "wikipedia": "https://en.wikipedia.org/wiki/Baku_City_Circuit",
+   "geometry": {
+    "file": "baku.geometry.json",
+    "sessionKeys": [
+     11377
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS WITH CAVEATS: centerline self-crossing/close approach: needs tracked (windowed) projection"
+   }
+  },
+  {
+   "id": "montreal",
+   "name": "Circuit Gilles Villeneuve",
+   "shortName": "Montréal",
+   "openf1": {
+    "circuitKey": 23,
+    "shortName": "Montreal"
+   },
+   "locality": "Montreal",
+   "country": "Canada",
+   "countryCode": "CAN",
+   "type": "street",
+   "direction": "clockwise",
+   "lengthKm": 4.361,
+   "turns": 14,
+   "lapRecord": {
+    "time": "1:13.078",
+    "driver": "Valtteri Bottas",
+    "car": "Mercedes W10",
+    "year": 2019,
+    "layoutLengthKm": 4.361
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "Canadian Grand Prix",
+     "officialName": "FORMULA 1 PIRELLI GRAND PRIX DU CANADA 2023",
+     "date": "2023-06-16"
+    },
+    {
+     "year": 2024,
+     "name": "Canadian Grand Prix",
+     "officialName": "FORMULA 1 AWS GRAND PRIX DU CANADA 2024",
+     "date": "2024-06-07"
+    },
+    {
+     "year": 2025,
+     "name": "Canadian Grand Prix",
+     "officialName": "FORMULA 1 PIRELLI GRAND PRIX DU CANADA 2025",
+     "date": "2025-06-13"
+    },
+    {
+     "year": 2026,
+     "name": "Canadian Grand Prix",
+     "officialName": "FORMULA 1 LENOVO GRAND PRIX DU CANADA 2026",
+     "date": "2026-05-22"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "held",
+   "wikipedia": "https://en.wikipedia.org/wiki/Circuit_Gilles_Villeneuve",
+   "geometry": {
+    "file": "montreal.geometry.json",
+    "sessionKeys": [
+     11291
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS"
+   }
+  },
+  {
+   "id": "zandvoort",
+   "name": "Circuit Zandvoort",
+   "shortName": "Zandvoort",
+   "openf1": {
+    "circuitKey": 55,
+    "shortName": "Zandvoort"
+   },
+   "locality": "Zandvoort",
+   "country": "Netherlands",
+   "countryCode": "NLD",
+   "type": "permanent",
+   "direction": "clockwise",
+   "lengthKm": 4.259,
+   "turns": 14,
+   "lapRecord": {
+    "time": "1:11.097",
+    "driver": "Lewis Hamilton",
+    "car": "Mercedes W12",
+    "year": 2021,
+    "layoutLengthKm": 4.259
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "Dutch Grand Prix",
+     "officialName": "FORMULA 1 HEINEKEN DUTCH GRAND PRIX 2023",
+     "date": "2023-08-25"
+    },
+    {
+     "year": 2024,
+     "name": "Dutch Grand Prix",
+     "officialName": "FORMULA 1 HEINEKEN DUTCH GRAND PRIX 2024",
+     "date": "2024-08-23"
+    },
+    {
+     "year": 2025,
+     "name": "Dutch Grand Prix",
+     "officialName": "FORMULA 1 HEINEKEN DUTCH GRAND PRIX 2025",
+     "date": "2025-08-29"
+    },
+    {
+     "year": 2026,
+     "name": "Dutch Grand Prix",
+     "officialName": "FORMULA 1 HEINEKEN DUTCH GRAND PRIX 2026",
+     "date": "2026-08-21"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "held",
+   "wikipedia": "https://en.wikipedia.org/wiki/Circuit_Zandvoort",
+   "geometry": {
+    "file": "zandvoort.geometry.json",
+    "sessionKeys": [
+     11353
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS"
+   }
+  },
+  {
+   "id": "barcelona-catalunya",
+   "name": "Circuit de Barcelona-Catalunya",
+   "shortName": "Barcelona-Catalunya",
+   "openf1": {
+    "circuitKey": 15,
+    "shortName": "Catalunya"
+   },
+   "locality": "Montmeló",
+   "country": "Spain",
+   "countryCode": "ESP",
+   "type": "permanent",
+   "direction": "clockwise",
+   "lengthKm": 4.657,
+   "turns": 14,
+   "lapRecord": {
+    "time": "1:15.743",
+    "driver": "Oscar Piastri",
+    "car": "McLaren MCL39",
+    "year": 2025,
+    "layoutLengthKm": 4.657
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "Spanish Grand Prix",
+     "officialName": "FORMULA 1 AWS GRAN PREMIO DE ESPAÑA 2023",
+     "date": "2023-06-02"
+    },
+    {
+     "year": 2024,
+     "name": "Spanish Grand Prix",
+     "officialName": "FORMULA 1 ARAMCO GRAN PREMIO DE ESPAÑA 2024",
+     "date": "2024-06-21"
+    },
+    {
+     "year": 2025,
+     "name": "Spanish Grand Prix",
+     "officialName": "FORMULA 1 ARAMCO GRAN PREMIO DE ESPAÑA 2025",
+     "date": "2025-05-30"
+    },
+    {
+     "year": 2026,
+     "name": "Barcelona Grand Prix",
+     "officialName": "FORMULA 1 MSC CRUISES GRAN PREMIO DE BARCELONA-CATALUNYA 2026",
+     "date": "2026-06-12"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "held",
+   "wikipedia": "https://en.wikipedia.org/wiki/Circuit_de_Barcelona-Catalunya",
+   "geometry": {
+    "file": "barcelona-catalunya.geometry.json",
+    "sessionKeys": [
+     11307
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS"
+   }
+  },
+  {
+   "id": "monaco",
+   "name": "Circuit de Monaco",
+   "shortName": "Monaco",
+   "openf1": {
+    "circuitKey": 22,
+    "shortName": "Monte Carlo"
+   },
+   "locality": "Monte Carlo",
+   "country": "Monaco",
+   "countryCode": "MCO",
+   "type": "street",
+   "direction": "clockwise",
+   "lengthKm": 3.337,
+   "turns": 19,
+   "lapRecord": {
+    "time": "1:12.909",
+    "driver": "Lewis Hamilton",
+    "car": "Mercedes W12",
+    "year": 2021,
+    "layoutLengthKm": 3.337
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "Monaco Grand Prix",
+     "officialName": "FORMULA 1 GRAND PRIX DE MONACO 2023",
+     "date": "2023-05-26"
+    },
+    {
+     "year": 2024,
+     "name": "Monaco Grand Prix",
+     "officialName": "FORMULA 1 GRAND PRIX DE MONACO 2024",
+     "date": "2024-05-24"
+    },
+    {
+     "year": 2025,
+     "name": "Monaco Grand Prix",
+     "officialName": "FORMULA 1 TAG HEUER GRAND PRIX DE MONACO 2025",
+     "date": "2025-05-23"
+    },
+    {
+     "year": 2026,
+     "name": "Monaco Grand Prix",
+     "officialName": "FORMULA 1 LOUIS VUITTON GRAND PRIX DE MONACO 2026",
+     "date": "2026-06-05"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "held",
+   "wikipedia": "https://en.wikipedia.org/wiki/Circuit_de_Monaco",
+   "geometry": {
+    "file": "monaco.geometry.json",
+    "sessionKeys": [
+     9523
+    ],
+    "scale": "caveat",
+    "verdict": "PASS WITH CAVEATS: length off by -2.55% under assumed unit"
+   }
+  },
+  {
+   "id": "spa-francorchamps",
+   "name": "Circuit de Spa-Francorchamps",
+   "shortName": "Spa-Francorchamps",
+   "openf1": {
+    "circuitKey": 7,
+    "shortName": "Spa-Francorchamps"
+   },
+   "locality": "Stavelot",
+   "country": "Belgium",
+   "countryCode": "BEL",
+   "type": "permanent",
+   "direction": "clockwise",
+   "lengthKm": 7.004,
+   "turns": 20,
+   "lapRecord": {
+    "time": "1:44.701",
+    "driver": "Sergio Pérez",
+    "car": "Red Bull RB20",
+    "year": 2024,
+    "layoutLengthKm": 7.004
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "Belgian Grand Prix",
+     "officialName": "FORMULA 1 MSC CRUISES BELGIAN GRAND PRIX 2023",
+     "date": "2023-07-28"
+    },
+    {
+     "year": 2024,
+     "name": "Belgian Grand Prix",
+     "officialName": "FORMULA 1 ROLEX BELGIAN GRAND PRIX 2024",
+     "date": "2024-07-26"
+    },
+    {
+     "year": 2025,
+     "name": "Belgian Grand Prix",
+     "officialName": "FORMULA 1 MOËT & CHANDON BELGIAN GRAND PRIX 2025",
+     "date": "2025-07-25"
+    },
+    {
+     "year": 2026,
+     "name": "Belgian Grand Prix",
+     "officialName": "FORMULA 1 MOËT & CHANDON BELGIAN GRAND PRIX 2026",
+     "date": "2026-07-17"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "held",
+   "wikipedia": "https://en.wikipedia.org/wiki/Circuit_de_Spa-Francorchamps",
+   "geometry": {
+    "file": "spa-francorchamps.geometry.json",
+    "sessionKeys": [
+     11334
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS"
+   }
+  },
+  {
+   "id": "cota",
+   "name": "Circuit of the Americas",
+   "shortName": "Circuit of the Americas",
+   "openf1": {
+    "circuitKey": 9,
+    "shortName": "Austin"
+   },
+   "locality": "Austin",
+   "country": "United States",
+   "countryCode": "USA",
+   "type": "permanent",
+   "direction": "anticlockwise",
+   "lengthKm": 5.513,
+   "turns": 20,
+   "lapRecord": {
+    "time": "1:36.169",
+    "driver": "Charles Leclerc",
+    "car": "Ferrari SF90",
+    "year": 2019,
+    "layoutLengthKm": 5.513
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "United States Grand Prix",
+     "officialName": "FORMULA 1 LENOVO UNITED STATES GRAND PRIX 2023",
+     "date": "2023-10-20"
+    },
+    {
+     "year": 2024,
+     "name": "United States Grand Prix",
+     "officialName": "FORMULA 1 PIRELLI UNITED STATES GRAND PRIX 2024",
+     "date": "2024-10-18"
+    },
+    {
+     "year": 2025,
+     "name": "United States Grand Prix",
+     "officialName": "FORMULA 1 MSC CRUISES UNITED STATES GRAND PRIX 2025",
+     "date": "2025-10-17"
+    },
+    {
+     "year": 2026,
+     "name": "United States Grand Prix",
+     "officialName": "FORMULA 1 MSC CRUISES UNITED STATES GRAND PRIX 2026",
+     "date": "2026-10-23"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "upcoming",
+   "wikipedia": "https://en.wikipedia.org/wiki/Circuit_of_the_Americas",
+   "geometry": {
+    "file": "cota.geometry.json",
+    "sessionKeys": [
+     9888
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS"
+   }
+  },
+  {
+   "id": "hungaroring",
+   "name": "Hungaroring",
+   "shortName": "Hungaroring",
+   "openf1": {
+    "circuitKey": 4,
+    "shortName": "Hungaroring"
+   },
+   "locality": "Mogyoród",
+   "country": "Hungary",
+   "countryCode": "HUN",
+   "type": "permanent",
+   "direction": "clockwise",
+   "lengthKm": 4.381,
+   "turns": 14,
+   "lapRecord": {
+    "time": "1:16.627",
+    "driver": "Lewis Hamilton",
+    "car": "Mercedes W11",
+    "year": 2020,
+    "layoutLengthKm": 4.381
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "Hungarian Grand Prix",
+     "officialName": "FORMULA 1 QATAR AIRWAYS HUNGARIAN GRAND PRIX 2023",
+     "date": "2023-07-21"
+    },
+    {
+     "year": 2024,
+     "name": "Hungarian Grand Prix",
+     "officialName": "FORMULA 1 HUNGARIAN GRAND PRIX 2024",
+     "date": "2024-07-19"
+    },
+    {
+     "year": 2025,
+     "name": "Hungarian Grand Prix",
+     "officialName": "FORMULA 1 LENOVO HUNGARIAN GRAND PRIX 2025",
+     "date": "2025-08-01"
+    },
+    {
+     "year": 2026,
+     "name": "Hungarian Grand Prix",
+     "officialName": "FORMULA 1 AWS HUNGARIAN GRAND PRIX 2026",
+     "date": "2026-07-24"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "held",
+   "wikipedia": "https://en.wikipedia.org/wiki/Hungaroring",
+   "geometry": {
+    "file": "hungaroring.geometry.json",
+    "sessionKeys": [
+     9928
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS"
+   }
+  },
+  {
+   "id": "jeddah",
+   "name": "Jeddah Corniche Circuit",
+   "shortName": "Jeddah",
+   "openf1": {
+    "circuitKey": 149,
+    "shortName": "Jeddah"
+   },
+   "locality": "Jeddah",
+   "country": "Saudi Arabia",
+   "countryCode": "SAU",
+   "type": "street",
+   "direction": "anticlockwise",
+   "lengthKm": 6.174,
+   "turns": 27,
+   "lapRecord": {
+    "time": "1:30.734",
+    "driver": "Lewis Hamilton",
+    "car": "Mercedes W12",
+    "year": 2021,
+    "layoutLengthKm": 6.174
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "Saudi Arabian Grand Prix",
+     "officialName": "FORMULA 1 STC SAUDI ARABIAN GRAND PRIX 2023",
+     "date": "2023-03-17"
+    },
+    {
+     "year": 2024,
+     "name": "Saudi Arabian Grand Prix",
+     "officialName": "FORMULA 1 STC SAUDI ARABIAN GRAND PRIX 2024",
+     "date": "2024-03-07"
+    },
+    {
+     "year": 2025,
+     "name": "Saudi Arabian Grand Prix",
+     "officialName": "FORMULA 1 STC SAUDI ARABIAN GRAND PRIX 2025",
+     "date": "2025-04-18"
+    },
+    {
+     "year": 2026,
+     "name": "Saudi Arabian Grand Prix",
+     "officialName": "FORMULA 1 STC SAUDI ARABIAN GRAND PRIX 2026",
+     "date": "2026-04-17"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "not-held",
+   "wikipedia": "https://en.wikipedia.org/wiki/Jeddah_Corniche_Circuit",
+   "geometry": {
+    "file": "jeddah.geometry.json",
+    "sessionKeys": [
+     10022
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS"
+   }
+  },
+  {
+   "id": "las-vegas",
+   "name": "Las Vegas Strip Circuit",
+   "shortName": "Las Vegas",
+   "openf1": {
+    "circuitKey": 152,
+    "shortName": "Las Vegas"
+   },
+   "locality": "Paradise",
+   "country": "United States",
+   "countryCode": "USA",
+   "type": "street",
+   "direction": "anticlockwise",
+   "lengthKm": 6.201,
+   "turns": 17,
+   "lapRecord": {
+    "time": "1:33.365",
+    "driver": "Max Verstappen",
+    "car": "Red Bull Racing RB21",
+    "year": 2025,
+    "layoutLengthKm": 6.201
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "Las Vegas Grand Prix",
+     "officialName": "FORMULA 1 HEINEKEN SILVER LAS VEGAS GRAND PRIX 2023",
+     "date": "2023-11-17"
+    },
+    {
+     "year": 2024,
+     "name": "Las Vegas Grand Prix",
+     "officialName": "FORMULA 1 HEINEKEN SILVER LAS VEGAS GRAND PRIX 2024",
+     "date": "2024-11-22"
+    },
+    {
+     "year": 2025,
+     "name": "Las Vegas Grand Prix",
+     "officialName": "FORMULA 1 HEINEKEN LAS VEGAS GRAND PRIX 2025",
+     "date": "2025-11-21"
+    },
+    {
+     "year": 2026,
+     "name": "Las Vegas Grand Prix",
+     "officialName": "FORMULA 1 HEINEKEN LAS VEGAS GRAND PRIX 2026",
+     "date": "2026-11-20"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "upcoming",
+   "wikipedia": "https://en.wikipedia.org/wiki/Las_Vegas_Strip_Circuit",
+   "geometry": {
+    "file": "las-vegas.geometry.json",
+    "sessionKeys": [
+     9858
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS"
+   }
+  },
+  {
+   "id": "lusail",
+   "name": "Lusail International Circuit",
+   "shortName": "Lusail",
+   "openf1": {
+    "circuitKey": 150,
+    "shortName": "Lusail"
+   },
+   "locality": "Lusail",
+   "country": "Qatar",
+   "countryCode": "QAT",
+   "type": "permanent",
+   "direction": "clockwise",
+   "lengthKm": 5.419,
+   "turns": 16,
+   "lapRecord": {
+    "time": "1:22.384",
+    "driver": "Lando Norris",
+    "car": "McLaren MCL38",
+    "year": 2024,
+    "layoutLengthKm": 5.419
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "Qatar Grand Prix",
+     "officialName": "FORMULA 1 QATAR AIRWAYS QATAR GRAND PRIX 2023",
+     "date": "2023-10-06"
+    },
+    {
+     "year": 2024,
+     "name": "Qatar Grand Prix",
+     "officialName": "FORMULA 1 QATAR AIRWAYS QATAR GRAND PRIX 2024",
+     "date": "2024-11-29"
+    },
+    {
+     "year": 2025,
+     "name": "Qatar Grand Prix",
+     "officialName": "FORMULA 1 QATAR AIRWAYS QATAR GRAND PRIX 2025",
+     "date": "2025-11-28"
+    },
+    {
+     "year": 2026,
+     "name": "Qatar Grand Prix",
+     "officialName": "FORMULA 1 QATAR AIRWAYS QATAR GRAND PRIX 2026",
+     "date": "2026-11-27"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "upcoming",
+   "wikipedia": "https://en.wikipedia.org/wiki/Lusail_International_Circuit",
+   "geometry": {
+    "file": "lusail.geometry.json",
+    "sessionKeys": [
+     9850
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS"
+   }
+  },
+  {
+   "id": "madring",
+   "name": "Madring",
+   "shortName": "Madring",
+   "openf1": {
+    "circuitKey": 153,
+    "shortName": "Madring"
+   },
+   "locality": "Barajas",
+   "country": "Spain",
+   "countryCode": "ESP",
+   "type": "street",
+   "direction": "clockwise",
+   "lengthKm": 5.414,
+   "turns": 22,
+   "lapRecord": {
+    "time": "1:35.587",
+    "driver": "George Russell",
+    "car": "Mercedes-AMG F1 W17",
+    "year": 2026,
+    "layoutLengthKm": 5.414
+   },
+   "grandsPrix": [
+    {
+     "year": 2026,
+     "name": "Spanish Grand Prix",
+     "officialName": "FORMULA 1 TAG HEUER GRAN PREMIO DE ESPAÑA 2026",
+     "date": "2026-09-11"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "held",
+   "wikipedia": "https://en.wikipedia.org/wiki/Madring",
+   "geometry": {
+    "file": "madring.geometry.json",
+    "sessionKeys": [
+     11369
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS"
+   }
+  },
+  {
+   "id": "marina-bay",
+   "name": "Marina Bay Street Circuit",
+   "shortName": "Marina Bay",
+   "openf1": {
+    "circuitKey": 61,
+    "shortName": "Singapore"
+   },
+   "locality": "Marina Bay",
+   "country": "Singapore",
+   "countryCode": "SGP",
+   "type": "street",
+   "direction": "anticlockwise",
+   "lengthKm": 4.94,
+   "turns": 19,
+   "lapRecord": {
+    "time": "1:34.486",
+    "driver": "Daniel Ricciardo",
+    "car": "RB VCARB 01",
+    "year": 2024,
+    "layoutLengthKm": 4.94
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "Singapore Grand Prix",
+     "officialName": "FORMULA 1 SINGAPORE AIRLINES SINGAPORE GRAND PRIX 2023 ",
+     "date": "2023-09-15"
+    },
+    {
+     "year": 2024,
+     "name": "Singapore Grand Prix",
+     "officialName": "FORMULA 1 SINGAPORE AIRLINES SINGAPORE GRAND PRIX 2024",
+     "date": "2024-09-20"
+    },
+    {
+     "year": 2025,
+     "name": "Singapore Grand Prix",
+     "officialName": "FORMULA 1 SINGAPORE AIRLINES SINGAPORE GRAND PRIX 2025",
+     "date": "2025-10-03"
+    },
+    {
+     "year": 2026,
+     "name": "Singapore Grand Prix",
+     "officialName": "FORMULA 1 SINGAPORE AIRLINES SINGAPORE GRAND PRIX 2026",
+     "date": "2026-10-09"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "held",
+   "wikipedia": "https://en.wikipedia.org/wiki/Marina_Bay_Street_Circuit",
+   "geometry": {
+    "file": "marina-bay.geometry.json",
+    "sessionKeys": [
+     11388
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS"
+   }
+  },
+  {
+   "id": "miami",
+   "name": "Miami International Autodrome",
+   "shortName": "Miami",
+   "openf1": {
+    "circuitKey": 151,
+    "shortName": "Miami"
+   },
+   "locality": "Miami Gardens",
+   "country": "United States",
+   "countryCode": "USA",
+   "type": "street",
+   "direction": "anticlockwise",
+   "lengthKm": 5.412,
+   "turns": 19,
+   "lapRecord": {
+    "time": "1:29.708",
+    "driver": "Max Verstappen",
+    "car": "Red Bull Racing RB19",
+    "year": 2023,
+    "layoutLengthKm": 5.412
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "Miami Grand Prix",
+     "officialName": "FORMULA 1 CRYPTO.COM MIAMI GRAND PRIX 2023",
+     "date": "2023-05-05"
+    },
+    {
+     "year": 2024,
+     "name": "Miami Grand Prix",
+     "officialName": "FORMULA 1 CRYPTO.COM MIAMI GRAND PRIX 2024",
+     "date": "2024-05-03"
+    },
+    {
+     "year": 2025,
+     "name": "Miami Grand Prix",
+     "officialName": "FORMULA 1 CRYPTO.COM MIAMI GRAND PRIX 2025",
+     "date": "2025-05-02"
+    },
+    {
+     "year": 2026,
+     "name": "Miami Grand Prix",
+     "officialName": "FORMULA 1 CRYPTO.COM MIAMI GRAND PRIX 2026",
+     "date": "2026-05-01"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "held",
+   "wikipedia": "https://en.wikipedia.org/wiki/Miami_International_Autodrome",
+   "geometry": {
+    "file": "miami.geometry.json",
+    "sessionKeys": [
+     11280
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS"
+   }
+  },
+  {
+   "id": "red-bull-ring",
+   "name": "Red Bull Ring",
+   "shortName": "Red Bull Ring",
+   "openf1": {
+    "circuitKey": 19,
+    "shortName": "Spielberg"
+   },
+   "locality": "Spielberg",
+   "country": "Austria",
+   "countryCode": "AUT",
+   "type": "permanent",
+   "direction": "clockwise",
+   "lengthKm": 4.318,
+   "turns": 10,
+   "lapRecord": {
+    "time": "1:07.924",
+    "driver": "Oscar Piastri",
+    "car": "McLaren MCL39",
+    "year": 2025,
+    "layoutLengthKm": 4.326
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "Austrian Grand Prix",
+     "officialName": "FORMULA 1 ROLEX GROSSER PREIS VON ÖSTERREICH 2023",
+     "date": "2023-06-30"
+    },
+    {
+     "year": 2024,
+     "name": "Austrian Grand Prix",
+     "officialName": "FORMULA 1 QATAR AIRWAYS AUSTRIAN GRAND PRIX 2024",
+     "date": "2024-06-28"
+    },
+    {
+     "year": 2025,
+     "name": "Austrian Grand Prix",
+     "officialName": "FORMULA 1 MSC CRUISES AUSTRIAN GRAND PRIX 2025",
+     "date": "2025-06-27"
+    },
+    {
+     "year": 2026,
+     "name": "Austrian Grand Prix",
+     "officialName": "FORMULA 1 LENOVO AUSTRIAN GRAND PRIX 2026",
+     "date": "2026-06-26"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "held",
+   "wikipedia": "https://en.wikipedia.org/wiki/Red_Bull_Ring",
+   "geometry": {
+    "file": "red-bull-ring.geometry.json",
+    "sessionKeys": [
+     11315
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS"
+   }
+  },
+  {
+   "id": "sepang",
+   "name": "Sepang International Circuit",
+   "shortName": "Sepang",
+   "openf1": {
+    "circuitKey": 12,
+    "shortName": "Kuala Lumpur"
+   },
+   "locality": "Sepang",
+   "country": "Malaysia",
+   "countryCode": "MYS",
+   "type": "permanent",
+   "direction": "clockwise",
+   "lengthKm": 5.543,
+   "turns": 15,
+   "lapRecord": {
+    "time": "1:34.080",
+    "driver": "Sebastian Vettel",
+    "car": "Ferrari SF70H",
+    "year": 2017,
+    "layoutLengthKm": 5.543
+   },
+   "grandsPrix": [
+    {
+     "year": 2026,
+     "name": "Bahrain Grand Prix",
+     "officialName": "FORMULA 1 GULF AIR BAHRAIN GRAND PRIX IN MALAYSIA 2026",
+     "date": "2026-10-02"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "held",
+   "wikipedia": "https://en.wikipedia.org/wiki/Sepang_International_Circuit",
+   "geometry": null
+  },
+  {
+   "id": "shanghai",
+   "name": "Shanghai International Circuit",
+   "shortName": "Shanghai",
+   "openf1": {
+    "circuitKey": 49,
+    "shortName": "Shanghai"
+   },
+   "locality": "Shanghai",
+   "country": "China",
+   "countryCode": "CHN",
+   "type": "permanent",
+   "direction": "clockwise",
+   "lengthKm": 5.451,
+   "turns": 16,
+   "lapRecord": {
+    "time": "1:32.238",
+    "driver": "Michael Schumacher",
+    "car": "Ferrari F2004",
+    "year": 2004,
+    "layoutLengthKm": 5.451
+   },
+   "grandsPrix": [
+    {
+     "year": 2024,
+     "name": "Chinese Grand Prix",
+     "officialName": "FORMULA 1 LENOVO CHINESE GRAND PRIX 2024",
+     "date": "2024-04-19"
+    },
+    {
+     "year": 2025,
+     "name": "Chinese Grand Prix",
+     "officialName": "FORMULA 1 HEINEKEN CHINESE GRAND PRIX 2025",
+     "date": "2025-03-21"
+    },
+    {
+     "year": 2026,
+     "name": "Chinese Grand Prix",
+     "officialName": "FORMULA 1 HEINEKEN CHINESE GRAND PRIX 2026",
+     "date": "2026-03-13"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "held",
+   "wikipedia": "https://en.wikipedia.org/wiki/Shanghai_International_Circuit",
+   "geometry": {
+    "file": "shanghai.geometry.json",
+    "sessionKeys": [
+     11245
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS"
+   }
+  },
+  {
+   "id": "silverstone",
+   "name": "Silverstone Circuit",
+   "shortName": "Silverstone",
+   "openf1": {
+    "circuitKey": 2,
+    "shortName": "Silverstone"
+   },
+   "locality": "Silverstone",
+   "country": "United Kingdom",
+   "countryCode": "GBR",
+   "type": "permanent",
+   "direction": "clockwise",
+   "lengthKm": 5.891,
+   "turns": 18,
+   "lapRecord": {
+    "time": "1:27.097",
+    "driver": "Max Verstappen",
+    "car": "Red Bull RB16",
+    "year": 2020,
+    "layoutLengthKm": 5.891
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "British Grand Prix",
+     "officialName": "FORMULA 1 ARAMCO BRITISH GRAND PRIX 2023",
+     "date": "2023-07-07"
+    },
+    {
+     "year": 2024,
+     "name": "British Grand Prix",
+     "officialName": "FORMULA 1 QATAR AIRWAYS BRITISH GRAND PRIX 2024",
+     "date": "2024-07-05"
+    },
+    {
+     "year": 2025,
+     "name": "British Grand Prix",
+     "officialName": "FORMULA 1 QATAR AIRWAYS BRITISH GRAND PRIX 2025",
+     "date": "2025-07-04"
+    },
+    {
+     "year": 2026,
+     "name": "British Grand Prix",
+     "officialName": "FORMULA 1 PIRELLI BRITISH GRAND PRIX 2026",
+     "date": "2026-07-03"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "held",
+   "wikipedia": "https://en.wikipedia.org/wiki/Silverstone_Circuit",
+   "geometry": {
+    "file": "silverstone.geometry.json",
+    "sessionKeys": [
+     11326
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS"
+   }
+  },
+  {
+   "id": "suzuka",
+   "name": "Suzuka International Racing Course",
+   "shortName": "Suzuka",
+   "openf1": {
+    "circuitKey": 46,
+    "shortName": "Suzuka"
+   },
+   "locality": "Suzuka",
+   "country": "Japan",
+   "countryCode": "JPN",
+   "type": "permanent",
+   "direction": "figure-of-eight",
+   "lengthKm": 5.807,
+   "turns": 18,
+   "lapRecord": {
+    "time": "1:30.965",
+    "driver": "Andrea Kimi Antonelli",
+    "car": "Mercedes AMG W16",
+    "year": 2025,
+    "layoutLengthKm": 5.807
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "Japanese Grand Prix",
+     "officialName": "FORMULA 1 LENOVO JAPANESE GRAND PRIX 2023 ",
+     "date": "2023-09-22"
+    },
+    {
+     "year": 2024,
+     "name": "Japanese Grand Prix",
+     "officialName": "FORMULA 1 MSC CRUISES JAPANESE GRAND PRIX 2024",
+     "date": "2024-04-05"
+    },
+    {
+     "year": 2025,
+     "name": "Japanese Grand Prix",
+     "officialName": "FORMULA 1 LENOVO JAPANESE GRAND PRIX 2025 ",
+     "date": "2025-04-04"
+    },
+    {
+     "year": 2026,
+     "name": "Japanese Grand Prix",
+     "officialName": "FORMULA 1 ARAMCO JAPANESE GRAND PRIX 2026",
+     "date": "2026-03-27"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "held",
+   "wikipedia": "https://en.wikipedia.org/wiki/Suzuka_Circuit",
+   "geometry": {
+    "file": "suzuka.geometry.json",
+    "sessionKeys": [
+     11253
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS WITH CAVEATS: centerline self-crossing/close approach: needs tracked (windowed) projection"
+   }
+  },
+  {
+   "id": "yas-marina",
+   "name": "Yas Marina Circuit",
+   "shortName": "Yas Marina",
+   "openf1": {
+    "circuitKey": 70,
+    "shortName": "Yas Marina Circuit"
+   },
+   "locality": "Abu Dhabi",
+   "country": "United Arab Emirates",
+   "countryCode": "ARE",
+   "type": "permanent",
+   "direction": "anticlockwise",
+   "lengthKm": 5.281,
+   "turns": 16,
+   "lapRecord": {
+    "time": "1:25.637",
+    "driver": "Kevin Magnussen",
+    "car": "Haas VF-24",
+    "year": 2024,
+    "layoutLengthKm": 5.281
+   },
+   "grandsPrix": [
+    {
+     "year": 2023,
+     "name": "Abu Dhabi Grand Prix",
+     "officialName": "FORMULA 1 ETIHAD AIRWAYS ABU DHABI GRAND PRIX 2023 ",
+     "date": "2023-11-24"
+    },
+    {
+     "year": 2024,
+     "name": "Abu Dhabi Grand Prix",
+     "officialName": "FORMULA 1 ETIHAD AIRWAYS ABU DHABI GRAND PRIX 2024",
+     "date": "2024-12-06"
+    },
+    {
+     "year": 2025,
+     "name": "Abu Dhabi Grand Prix",
+     "officialName": "FORMULA 1 ETIHAD AIRWAYS ABU DHABI GRAND PRIX 2025",
+     "date": "2025-12-05"
+    },
+    {
+     "year": 2026,
+     "name": "Abu Dhabi Grand Prix",
+     "officialName": "FORMULA 1 ETIHAD AIRWAYS ABU DHABI GRAND PRIX 2026",
+     "date": "2026-12-04"
+    }
+   ],
+   "calendar": "current",
+   "season2026": "upcoming",
+   "wikipedia": "https://en.wikipedia.org/wiki/Yas_Marina_Circuit",
+   "geometry": {
+    "file": "yas-marina.geometry.json",
+    "sessionKeys": [
+     9839
+    ],
+    "scale": "within-tolerance",
+    "verdict": "PASS"
+   }
+  }
+ ]
+}

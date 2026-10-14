@@ -1,7 +1,6 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useRouter } from "next/navigation";
 import {
   useCallback,
   useEffect,
@@ -48,6 +47,7 @@ import type { SpecStatus, SpecValue } from "@/lib/car/specs";
 import type { ComponentId, Livery, ViewName } from "@/lib/car/types";
 import { cn } from "@/lib/cn";
 import { useReducedMotion, useWebGL } from "@/lib/use-client-env";
+import { useImmersive } from "@/lib/use-immersive";
 import { AERO_COLORS, type AeroLayers } from "./Airflow";
 import { ImmersiveNav } from "@/components/layout/ImmersiveNav";
 import { CfdLab } from "./CfdLab";
@@ -267,9 +267,9 @@ export function CarLab({
   // The Lab is full-window only: a fixed layer over the whole tab. Browser fullscreen (which also hides the browser's toolbars) is an
   // optional extra on top of it, since browsers only allow it after a click; it never changes the layout. "Exit" leaves the page.
   const theater = useRef<HTMLDivElement | null>(null);
-  const router = useRouter();
-  const [nativeFs, setNativeFs] = useState(false);
-  const [fsSupported, setFsSupported] = useState(false);
+  const { nativeFs, fsSupported, toggleBrowserFullscreen, leave } = useImmersive(theater, exitHref, () =>
+    setPreset((p) => ({ ...p, nonce: p.nonce + 1 })), // the canvas changed size: frame the car again
+  );
   const [hudTab, setHudTab] = useState<HudTab>("inspector");
   const [cfdSlice, setCfdSlice] = useState<{
     result: CfdResult;
@@ -348,55 +348,6 @@ export function CarLab({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  useEffect(() => {
-    void Promise.resolve().then(() =>
-      setFsSupported(
-        !!document.documentElement.requestFullscreen &&
-          document.fullscreenEnabled !== false,
-      ),
-    );
-    const onFs = () => {
-      setNativeFs(
-        !!theater.current && document.fullscreenElement === theater.current,
-      );
-      setPreset((p) => ({ ...p, nonce: p.nonce + 1 })); // the canvas changed size: frame the car again
-    };
-    document.addEventListener("fullscreenchange", onFs);
-    return () => document.removeEventListener("fullscreenchange", onFs);
-  }, []);
-
-  // The layer covers the page, so the page behind it must not scroll.
-  useEffect(() => {
-    const overflow = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = overflow;
-    };
-  }, []);
-
-  const toggleBrowserFullscreen = async (on: boolean) => {
-    try {
-      if (
-        on &&
-        theater.current?.requestFullscreen &&
-        !document.fullscreenElement
-      )
-        await theater.current.requestFullscreen({ navigationUI: "hide" });
-      if (!on && document.fullscreenElement) await document.exitFullscreen();
-    } catch {
-      // refused (permissions, iframe, user agent): the full-window layer stays as it is
-    }
-  };
-  /** Leaves the Lab: back to where the visitor came from on this site, or to this car's showcase page. */
-  const leave = () => {
-    void toggleBrowserFullscreen(false);
-    if (
-      document.referrer.startsWith(window.location.origin) &&
-      window.history.length > 1
-    )
-      router.back();
-    else router.push(exitHref);
-  };
 
   useEffect(() => {
     document.body.style.cursor = hovered ? "pointer" : "";
@@ -695,7 +646,6 @@ export function CarLab({
     <CfdLab setups={{ a: setups.a, b: setups.b }} onShowInCar={showCfd} />
   );
 
-  const wide = hudTab === "cfd"; // the CFD panel needs room for its field and pressure plots
   return (
     <div ref={theater} className="fixed inset-0 z-[70] bg-bg">
       <ImmersiveNav
@@ -822,7 +772,7 @@ export function CarLab({
           sheet && "max-lg:bottom-[50svh]",
           panels.left && "lg:left-[18rem]",
           panels.right &&
-            (wide ? "lg:right-[min(48rem,55vw)]" : "lg:right-[23rem]"),
+            "lg:right-[23rem]",
         )}
       >
         {webgl === null ? (
@@ -971,7 +921,7 @@ export function CarLab({
           <div
             className={cn(
               "absolute bottom-[4.75rem] right-4 top-[8rem] z-10 hidden flex-col overflow-hidden lg:flex",
-              wide ? "w-[calc(min(48rem,55vw)-1.5rem)]" : "w-[21.5rem]",
+              "w-[21.5rem]",
               GLASS,
             )}
           >

@@ -107,9 +107,15 @@ def collect(year, circuit, session_name, n_drivers):
         rows = fetch_location(key, n, t0, t1)
         if not rows:
             continue
+        try:
+            lap_rows = get("laps", f"session_key={key}&driver_number={n}")
+        except RuntimeError as e:
+            if not str(e).startswith("404 "):
+                raise
+            continue  # OpenF1 answers 404 when a driver has no laps in the session (e.g. did not start): skip that driver
         data[n] = tuple(np.array(c, float) for c in zip(*[(ts(r["date"]), r["x"], r["y"], r["z"]) for r in rows]))
         laps[n] = [(l["lap_number"], ts(l["date_start"]), l["lap_duration"], bool(l.get("is_pit_out_lap")))
-                   for l in get("laps", f"session_key={key}&driver_number={n}") if l.get("date_start") and l.get("lap_duration")]
+                   for l in lap_rows if l.get("date_start") and l.get("lap_duration")]
     return s, data, laps
 
 # ---------------- analysis orchestration ----------------

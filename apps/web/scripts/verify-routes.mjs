@@ -7,10 +7,10 @@ import { createRequire } from "node:module";
 const PORT = process.env.VERIFY_PORT ?? "3101";
 const BASE = `http://127.0.0.1:${PORT}`;
 const REQUIRED = [
-  "/", "/live", "/drivers", "/drivers/norris", "/teams", "/teams/ferrari", "/cars", "/cars/mclaren", "/cars/mclaren/lab", "/cars/cadillac", "/cars/cadillac/lab",
-  "/circuits", "/circuits/monza", "/standings", "/analysis", "/replay", "/strategy", "/telemetry", "/race-engineer",
+  "/", "/live", "/circuits/monaco/race", "/circuits/suzuka/race", "/drivers", "/drivers/norris", "/teams", "/teams/ferrari", "/cars", "/cars/mclaren", "/cars/mclaren/lab", "/cars/cadillac", "/cars/cadillac/lab",
+  "/circuits", "/circuits/monza", "/circuits/suzuka", "/circuits/sepang", "/standings", "/analysis", "/replay", "/strategy", "/telemetry", "/race-engineer",
 ];
-const EXPECT_404 = ["/does-not-exist", "/drivers/not-a-driver", "/teams/nope", "/cars/nope", "/cars/nope/lab", "/circuits/nope"];
+const EXPECT_404 = ["/does-not-exist", "/drivers/not-a-driver", "/teams/nope", "/cars/nope", "/cars/nope/lab", "/circuits/nope", "/circuits/sepang/race"];
 
 const nextBin = createRequire(import.meta.url).resolve("next/dist/bin/next");
 const server = spawn(process.execPath, [nextBin, "start", "-p", PORT], { stdio: ["ignore", "pipe", "pipe"] });

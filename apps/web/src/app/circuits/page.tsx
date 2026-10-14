@@ -1,29 +1,34 @@
-import { CircuitCard } from "@/components/data/circuit-card";
-import { Badge, DemoBadge } from "@/components/ui/badge";
+import { CircuitDirectory } from "@/components/circuits/CircuitDirectory";
+import { Badge } from "@/components/ui/badge";
 import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
-import { DEMO_CIRCUITS } from "@/domain/demo";
-import { getNavItem } from "@/domain/navigation";
-import { availableGeometrySlugs } from "@/lib/circuit/load";
+import { CATALOG, CIRCUITS } from "@/lib/circuit/catalog";
+import { loadCircuitGeometry } from "@/lib/circuit/load";
+import { circuitOutline, type Outline } from "@/lib/circuit/outline";
 
 export const metadata = { title: "Circuits" };
 
 export default async function CircuitsPage() {
-  const { phase } = getNavItem("/circuits");
-  const with3d = await availableGeometrySlugs();
+  const outlines: Record<string, Outline | null> = {};
+  for (const c of CIRCUITS) {
+    const g = await loadCircuitGeometry(c.id);
+    outlines[c.id] = g.status === "ok" ? circuitOutline(g.geometry.points, g.geometry.closed) : null;
+  }
+  const withLayout = Object.values(outlines).filter(Boolean).length;
   return (
     <PageContainer>
       <PageHeader
         eyebrow="Circuits"
         title="Circuits"
-        description="Layouts, corners, DRS zones and results, with a 3D explorer. The entries below are a static preview of the layout."
-        badges={<><Badge tone="info">Phase {phase}</Badge><DemoBadge /></>}
+        description={`Every circuit that has hosted a Grand Prix since 2023 (${CIRCUITS.length}). ${withLayout} have a 3D layout reconstructed from real car-position data; lengths, turns and lap records are as published (sources on each circuit).`}
+        badges={
+          <>
+            <Badge tone="info">{withLayout} layouts from OpenF1 car positions</Badge>
+            <Badge tone="neutral">Facts: Wikipedia, accessed {CATALOG.generatedOn}</Badge>
+          </>
+        }
       />
-      <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        {DEMO_CIRCUITS.map((c) => (
-          <li key={c.slug}><CircuitCard circuit={c} has3d={with3d.has(c.slug)} /></li>
-        ))}
-      </ul>
+      <CircuitDirectory circuits={CIRCUITS} outlines={outlines} />
     </PageContainer>
   );
 }

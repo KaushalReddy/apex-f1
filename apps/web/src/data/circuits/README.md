@@ -1,4 +1,20 @@
-# Circuit geometry artifacts
+# Circuit catalog and geometry artifacts
+
+## Catalog (`catalog.json`)
+The circuit library: every circuit with a Grand Prix in the OpenF1 era (2023 onwards), 26 circuits. Built by
+`tools/circuit-catalog/build.py` (cached, reproducible) from Wikipedia's "List of Formula One circuits" (type, direction, length, turns:
+last F1 configuration), each circuit's Wikipedia infobox (F1 race lap record, only for the layout matching the GP length) and OpenF1
+`/meetings` (circuit key, Grands Prix held, 2026 calendar). Pre-2023 circuits are out of scope: there is no car-position data to build
+their layouts from, and none is drawn.
+
+## Layouts generated (Phase 9)
+All with `tools/openf1-spike` from the most recent race in the data (`SSL_CERT_FILE=/etc/ssl/cert.pem` was needed for HTTPS with the
+python.org Python build). 24 measure within 2.5 % of the published length; `catalog.test.ts` checks this and that the direction of travel
+in the car data matches the published direction for every circuit.
+- Hungaroring: from the 2025 race (the 2026 race reconstructed 16.7 % short).
+- Shanghai: 4 drivers (the spike now skips a driver without laps; OpenF1 answers 404).
+- **Sepang: no layout.** The 2026 race gave no usable centerline and qualifying gave lines up to 290 m apart, so nothing is shipped.
+- Monaco: the original Phase 3 artifact (2024 race), unchanged.
 
 Files here are `<circuit-slug>.geometry.json` and must conform to `packages/contracts/schemas/circuit-geometry.schema.json`.
 They are **generated**, never hand-drawn, from OpenF1 location data by `tools/openf1-spike`.

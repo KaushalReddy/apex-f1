@@ -74,7 +74,9 @@ describe("stable identity", () => {
     expect(teamColour(fixture, "McLaren")).toBe("#ff8000"); // the project's colour, not the source's #ff8700
     expect(teamColour(fixture, "Racing Bulls")).toBe("#6692ff");
     expect(circuitPage("Monte Carlo")).toBe("monaco");
-    expect(circuitPage("Lusail")).toBeUndefined();
+    expect(circuitPage("Lusail")).toBe("lusail");
+    expect(circuitPage("Kuala Lumpur")).toBe("sepang"); // the 2026 Bahrain Grand Prix, held in Malaysia
+    expect(circuitPage("Nowhere")).toBeUndefined();
   });
 });
 

@@ -1,4 +1,4 @@
-import { findCircuit } from "@/domain/demo";
+import { findCircuitById } from "@/lib/circuit/catalog";
 import type { WingAngles } from "./geometry";
 import type { SetupProfileId } from "./types";
 
@@ -82,6 +82,6 @@ const CONTEXT: ReadonlyArray<Omit<CircuitContext, "name">> = [
 ];
 
 export const CIRCUIT_CONTEXTS: readonly CircuitContext[] = CONTEXT.flatMap((c) => {
-  const circuit = findCircuit(c.circuitSlug);
-  return circuit ? [{ ...c, name: circuit.name }] : [];
+  const circuit = findCircuitById(c.circuitSlug);
+  return circuit ? [{ ...c, name: circuit.shortName }] : [];
 });

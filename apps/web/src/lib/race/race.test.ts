@@ -555,7 +555,7 @@ describe("fit into the area left free by floating panels", async () => {
 });
 
 describe("driver identity shared with the driver pages", () => {
-  it("demo race driver ids are the project's driver slugs, so /live?driver=<slug> and the profile resolve the same person", async () => {
+  it("demo race driver ids are the project's driver slugs, so /circuits/<id>/race?driver=<slug> and the profile resolve the same person", async () => {
     const { DEMO_DRIVERS } = await import("@/domain/demo");
     expect(demoEntries().map((e) => e.id)).toEqual(DEMO_DRIVERS.map((d) => d.slug));
     expect(demoEntries().map((e) => e.code)).toEqual(DEMO_DRIVERS.map((d) => d.code));

@@ -17,7 +17,7 @@ Each phase ends with a summary and a STOP for approval. Status as of Phase 0.
 | 6 | Driver experience and standings: directory, profiles, season trends, head-to-head, drivers' and constructors' championships (`/drivers`, `/drivers/[driver]`, `/drivers/compare`, `/standings`) from OpenF1 season snapshots | done (see `apps/web/src/data/results/README.md`) |
 | 7 | Team experience: eleven-team directory with livery cards, team profiles (line-up, constructors' standing, results, trends), team head-to-head (`/teams`, `/teams/[team]`, `/teams/compare`) from the same OpenF1 snapshots | done |
 | 8 | Car Lab: component tree, selection, hide, isolate, x-ray, explode amount, labels, camera focus, focused conceptual airflow, A/B wing setup explorer with relative indices (`/cars/[team]/lab`) on the Phase 4 procedural car plus a real CFD pipeline (SU2 RANS-SA via `tools/cfd`) for a 2D rear-wing section and the NASA TMR NACA 0012 verification case; full-car 3D CFD not feasible on this setup | implemented, awaiting approval |
-| 9 | Circuit explorer pages | not started |
+| 9 | Circuit library and explorer: 26-circuit catalog (every GP venue since 2023; facts from Wikipedia, events from OpenF1, `tools/circuit-catalog`), 25 layouts from OpenF1 car positions (Sepang has none: reconstruction failed its checks), directory with search/filter/sort (`/circuits`), full-window explorer with views, markers, history and provenance (`/circuits/[circuit]`), simulated race on any layout (`/live?circuit=`); website QA pass; compact tabbed CFD workspace in the Car Lab | implemented, awaiting approval |
 | 10-15 | Telemetry lab, replay, weather/race control, strategy, AI engineer, Race Rewind | not started |
 | 16-19 | Performance, tests, deploy, docs | not started |
 

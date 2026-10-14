@@ -1,4 +1,5 @@
 import { DEMO_TEAMS, type DemoTeam } from "@/domain/demo";
+import { circuitByShortName } from "@/lib/circuit/catalog";
 import type { DriverIdentity, SeasonResults } from "./types";
 
 /**
@@ -58,12 +59,5 @@ export function teamColour(season: SeasonResults, teamName: string | null): stri
   return "#8a94a2";
 }
 
-/** Circuit pages that exist in the project, keyed by the source's circuit short name. */
-const CIRCUIT_PAGES: Record<string, string> = {
-  "Monte Carlo": "monaco",
-  Monza: "monza",
-  "Spa-Francorchamps": "spa-francorchamps",
-  Suzuka: "suzuka",
-  Silverstone: "silverstone",
-};
-export const circuitPage = (circuitShortName: string | null) => (circuitShortName ? CIRCUIT_PAGES[circuitShortName] : undefined);
+/** The circuit page for a circuit short name as published by OpenF1 (results snapshots), via the circuit catalog. */
+export const circuitPage = (circuitShortName: string | null) => circuitByShortName(circuitShortName)?.id;

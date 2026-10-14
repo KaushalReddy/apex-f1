@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { CapabilityCard } from "@/components/data/capability-card";
+import { CARD_LINK, CardArrow } from "@/components/ui/card-arrow";
 import { CircuitCard } from "@/components/data/circuit-card";
 import { DriverCard } from "@/components/data/driver-card";
 import { KeyValueList } from "@/components/data/key-value-list";
@@ -11,7 +13,10 @@ import { PageContainer } from "@/components/ui/page-container";
 import { Panel } from "@/components/ui/panel";
 import { SectionHeader, SectionMarker } from "@/components/ui/section-header";
 import { StatusDot } from "@/components/ui/status-dot";
-import { DEMO_CIRCUITS, DEMO_DRIVERS, DEMO_TEAMS } from "@/domain/demo";
+import { DEMO_DRIVERS, DEMO_TEAMS } from "@/domain/demo";
+import { CIRCUITS } from "@/lib/circuit/catalog";
+import { loadCircuitGeometry } from "@/lib/circuit/load";
+import { circuitOutline } from "@/lib/circuit/outline";
 import { getNavItem } from "@/domain/navigation";
 import { loadSeasons } from "@/lib/drivers/load";
 import { seasonStandings } from "@/lib/drivers/standings";
@@ -40,6 +45,16 @@ export default async function Home() {
   // Latest exported season's published standings (build time); null when no snapshot is present.
   const { seasons } = await loadSeasons();
   const top = seasons.length ? seasonStandings(seasons[0], seasons) : null;
+  // The next 2026 races (by date), then the most recent ones, with their real layout outlines.
+  const date26 = (c: (typeof CIRCUITS)[number]) => c.grandsPrix.find((g) => g.year === 2026)?.date ?? "";
+  const upcoming = CIRCUITS.filter((c) => c.season2026 === "upcoming").sort((a, b) => date26(a).localeCompare(date26(b)));
+  const recent = CIRCUITS.filter((c) => c.season2026 === "held").sort((a, b) => date26(b).localeCompare(date26(a)));
+  const featured = await Promise.all(
+    [...upcoming, ...recent].slice(0, 4).map(async (circuit) => {
+      const g = await loadCircuitGeometry(circuit.id);
+      return { circuit, outline: g.status === "ok" ? circuitOutline(g.geometry.points, g.geometry.closed) : null };
+    }),
+  );
   return (
     <>
       <section aria-labelledby="hero-heading" className="relative overflow-hidden border-b border-line">
@@ -171,24 +186,66 @@ export default async function Home() {
         </section>
 
         <section aria-labelledby="drivers-heading">
-          <SectionHeader id="drivers-heading" eyebrow="Drivers" title="Featured drivers" action={<PreviewNote />} />
+          <SectionHeader
+            id="drivers-heading"
+            eyebrow="Drivers"
+            title={top ? `Championship leaders · ${top.season}` : "Featured drivers"}
+            action={top ? <ButtonLink href="/drivers" variant="secondary" size="sm">All drivers</ButtonLink> : <PreviewNote />}
+          />
           <ul className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
-            {DEMO_DRIVERS.map((d) => (
-              <li key={d.slug}>
-                <DriverCard driver={d} />
-              </li>
-            ))}
+            {top
+              ? top.drivers.slice(0, 6).map((d) => (
+                  <li key={d.acronym}>
+                    <Link href={d.slug ? `/drivers/${d.slug}` : "/standings"} className={`${CARD_LINK} relative overflow-hidden pl-6`}>
+                      <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: d.teamColour }} />
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="font-display text-4xl font-semibold leading-none tracking-[0.04em] text-fg">{d.acronym}</p>
+                        <CardArrow />
+                      </div>
+                      <p className="mt-4 text-base font-medium">{d.name}</p>
+                      <p className="mt-1 text-sm text-muted">{d.team ?? "—"}</p>
+                      <p className="mt-2 text-sm font-medium tabular-nums">
+                        P{d.position} · {d.points} pts
+                      </p>
+                    </Link>
+                  </li>
+                ))
+              : DEMO_DRIVERS.map((d) => (
+                  <li key={d.slug}>
+                    <DriverCard driver={d} />
+                  </li>
+                ))}
           </ul>
         </section>
 
         <section aria-labelledby="teams-heading">
-          <SectionHeader id="teams-heading" eyebrow="Teams" title="Featured teams" action={<PreviewNote />} />
+          <SectionHeader
+            id="teams-heading"
+            eyebrow="Teams"
+            title={top?.teams ? `Constructors' leaders · ${top.season}` : "Featured teams"}
+            action={top?.teams ? <ButtonLink href="/teams" variant="secondary" size="sm">All teams</ButtonLink> : <PreviewNote />}
+          />
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {DEMO_TEAMS.map((t) => (
-              <li key={t.slug}>
-                <TeamCard team={t} />
-              </li>
-            ))}
+            {top?.teams
+              ? top.teams.slice(0, 4).map((t) => (
+                  <li key={t.team}>
+                    <Link href={t.teamSlug ? `/teams/${t.teamSlug}` : "/standings"} className={`${CARD_LINK} relative overflow-hidden pl-6`}>
+                      <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: t.teamColour }} />
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-base font-medium">{t.team}</p>
+                        <CardArrow />
+                      </div>
+                      <p className="mt-2 text-sm font-medium tabular-nums">
+                        P{t.position} · {t.points} pts{t.wins ? ` · ${t.wins} win${t.wins === 1 ? "" : "s"}` : ""}
+                      </p>
+                    </Link>
+                  </li>
+                ))
+              : DEMO_TEAMS.map((t) => (
+                  <li key={t.slug}>
+                    <TeamCard team={t} />
+                  </li>
+                ))}
           </ul>
         </section>
 
@@ -197,13 +254,17 @@ export default async function Home() {
             id="circuits-heading"
             eyebrow="Circuits"
             title="Circuits"
-            description="Circuit pages show an interactive 3D layout wherever geometry has been generated from OpenF1 data."
-            action={<PreviewNote />}
+            description="Next on the 2026 calendar, each with an interactive 3D layout reconstructed from real car-position data."
+            action={
+              <ButtonLink href="/circuits" variant="secondary" size="sm">
+                All {CIRCUITS.length} circuits
+              </ButtonLink>
+            }
           />
-          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            {DEMO_CIRCUITS.map((c) => (
-              <li key={c.slug}>
-                <CircuitCard circuit={c} />
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {featured.map(({ circuit, outline }) => (
+              <li key={circuit.id}>
+                <CircuitCard circuit={circuit} outline={outline} />
               </li>
             ))}
           </ul>
