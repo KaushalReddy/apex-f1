@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, type KeyboardEvent } from "react";
-import { teamColor } from "@/lib/race/entries";
+import { driverColor } from "@/lib/race/entries";
 import { formatGap, formatLapTime, stepSelection } from "@/lib/race/session";
 import type { DriverState } from "@/lib/race/types";
 import { cn } from "@/lib/cn";
@@ -55,7 +55,7 @@ export function Leaderboard({
             >
               <span className={cn("font-semibold", d.position === 1 ? "text-warning" : "text-muted")}>{d.position ?? "—"}</span>
               <span className="flex min-w-0 items-center gap-2">
-                <span aria-hidden="true" className="h-4 w-1 shrink-0 rounded-sm" style={{ backgroundColor: teamColor(d.teamSlug) }} />
+                <span aria-hidden="true" className="h-4 w-1 shrink-0 rounded-sm" style={{ backgroundColor: driverColor(d) }} />
                 <span className="font-semibold">{d.code}</span>
                 {d.pit === "in-pit" && <span className="rounded-sm border border-info/40 px-1 text-[10px] font-semibold uppercase tracking-wider text-info">Pit</span>}
                 {d.finished && <span className="rounded-sm border border-line-strong px-1 text-[10px] font-semibold uppercase tracking-wider text-muted">Fin</span>}

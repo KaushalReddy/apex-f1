@@ -16,7 +16,7 @@ export const NAV_ITEMS: readonly NavItem[] = [
   { href: "/cars", label: "Cars", group: "primary", phase: 8, summary: "Interactive 3D car lab with component hotspots and exploded view." },
   { href: "/circuits", label: "Circuits", group: "primary", phase: 9, summary: "Layouts, corners, DRS zones and historical results." },
   { href: "/standings", label: "Standings", group: "primary", phase: 6, summary: "Driver and constructor championship tables." },
-  { href: "/replay", label: "Replay", group: "product", phase: 11, summary: "Reconstruct a past session in 3D with full playback controls." },
+  { href: "/replay", label: "Replay", group: "product", phase: 11, summary: "Play back a recorded Grand Prix on its 3D circuit: positions, running order, gaps and race control at any moment." },
   { href: "/telemetry", label: "Telemetry", group: "product", phase: 10, summary: "Two drivers' fastest laps compared on speed, throttle, brake, gear and RPM, linked to the 3D circuit." },
   { href: "/strategy", label: "Strategy", group: "product", phase: 13, summary: "Tyre stints, pit windows and clearly labelled what-if simulations." },
   { href: "/race-engineer", label: "Race Engineer", group: "product", phase: 14, summary: "Ask questions answered only from the platform's own race data." },

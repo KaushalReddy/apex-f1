@@ -9,18 +9,21 @@ import { ImmersiveNav } from "@/components/layout/ImmersiveNav";
 import { Badge } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { StatusDot } from "@/components/ui/status-dot";
-import { findTeam } from "@/domain/demo";
+import { findTeamBySlug } from "@/lib/teams/registry";
 import { centerlineToWorld, createWorldTransform } from "@/lib/circuit/transform";
 import type { CircuitGeometry } from "@/lib/circuit/types";
 import { cn } from "@/lib/cn";
 import { createDemoRace, paceProfile } from "@/lib/race/demo";
-import { demoEntries, teamColor } from "@/lib/race/entries";
+import { demoEntries, driverColor } from "@/lib/race/entries";
 import { appendEvents, type RaceEvent } from "@/lib/race/events";
 import { DemoProvider, PLAYBACK_SPEEDS, ReplayProvider, realScheduler, type ProviderUpdate, type RaceProvider } from "@/lib/race/providers";
 import { MODE_LABEL, SnapshotBuffer, battles, formatGap, formatLapTime, freshness, sortByRaceOrder, toggleSelection } from "@/lib/race/session";
 import type { RaceView } from "@/lib/race/fit";
 import { createTrackPath } from "@/lib/race/track";
 import { fetchReplayTimeline } from "@/lib/replay/api";
+import { parseReplay } from "@/lib/replay/dataset";
+import { ReplayModel } from "@/lib/replay/model";
+import { HistoricalReplayProvider } from "@/lib/replay/provider";
 import { useReducedMotion, useWebGL } from "@/lib/use-client-env";
 import { useImmersive } from "@/lib/use-immersive";
 import { Leaderboard } from "./Leaderboard";
@@ -55,7 +58,9 @@ export interface RaceExperienceProps {
    */
   source:
     | { kind: "demo"; totalLaps: number; /** Simulated base lap time (s), chosen per circuit by the page. */ baseLapS: number }
-    | { kind: "replay"; sessionKey: number; from: number; to: number; label: string };
+    | { kind: "replay"; sessionKey: number; from: number; to: number; label: string }
+    /** A full recorded race (lib/replay): one validated dataset file, fetched from this site. */
+    | { kind: "history"; sessionKey: number; url: string; label: string };
   /** Where Exit goes when there is no previous page on this site. */
   exitHref: string;
   /** Page-specific line under the status chips (Live: no live race, and the previous-race option). */
@@ -82,6 +87,8 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice }: 
   const reducedMotion = useReducedMotion();
   const webgl = useWebGL();
   const [update, setUpdate] = useState<ProviderUpdate | null>(null);
+  // Capabilities of sources with an exact clock (historical replay), known once the dataset has loaded.
+  const [caps, setCaps] = useState<Pick<RaceProvider, "speeds" | "timeline"> | null>(null);
   const [events, setEvents] = useState<RaceEvent[]>([]);
   // `?driver=<slug>` (e.g. from a driver profile) opens with that driver selected. Driver ids in the demo are the project's driver slugs,
   // the same identity the driver pages use. Read once on the client; on the server there is no URL and no snapshot, so nothing differs.
@@ -115,6 +122,55 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice }: 
   }, [geometry]);
 
   useEffect(() => {
+    const attach = (p: RaceProvider) => {
+      provider.current = p;
+      buffer.current = new SnapshotBuffer(p.updateIntervalMs);
+      const off = p.subscribe((u) => {
+        if (u.snapshot) buffer.current.push(u.snapshot, u.at);
+        // After a reset/seek/restart the provider sends the full history to that point: replace the log, so nothing is shown twice.
+        if (u.eventsReset) setEvents(appendEvents([], u.events));
+        else if (u.events.length) setEvents((log) => appendEvents(log, u.events));
+        setUpdate(u);
+      });
+      p.start();
+      return () => {
+        off();
+        p.dispose();
+        provider.current = null;
+      };
+    };
+    if (source.kind === "history") {
+      // Load, validate and index one race; a newer request (or unmount) supersedes it, so a stale response is never applied.
+      const ctrl = new AbortController();
+      let detach: (() => void) | null = null;
+      const fail = (detail: string) => setUpdate({ snapshot: null, source: { status: "error", detail }, playback: null, at: performance.now(), events: [], eventsReset: true });
+      fetch(source.url, { signal: ctrl.signal })
+        .then((r) => {
+          if (!r.ok) throw new Error(`the replay file answered HTTP ${r.status}`);
+          return r.json();
+        })
+        .then((raw: unknown) => {
+          if (ctrl.signal.aborted) return;
+          const parsed = parseReplay(raw);
+          if (!parsed.ok) throw new Error(`the replay file is invalid (${parsed.error})`);
+          if (parsed.value.coordinateSystem !== geometry.coordinateSystem) throw new Error("the replay and the circuit layout use different coordinate systems");
+          const { transform, path } = frame;
+          const model = new ReplayModel(parsed.value, (x, y, hint) => {
+            const w = transform.toWorld(x, y, transform.origin[2]);
+            return path.project(w[0], w[2], hint);
+          });
+          const p = new HistoricalReplayProvider(model, { circuitSlug: circuit.slug, circuitName: circuit.name });
+          setCaps({ speeds: p.speeds, timeline: p.timeline });
+          detach = attach(p);
+        })
+        .catch((e: unknown) => {
+          if (!ctrl.signal.aborted) fail(e instanceof Error ? e.message : "the replay could not be loaded");
+        });
+      return () => {
+        ctrl.abort();
+        detach?.();
+      };
+    }
     const session = { id: source.kind === "demo" ? "apex-demo" : `openf1-${source.sessionKey}`, type: "Race", circuitSlug: circuit.slug, circuitName: circuit.name };
     const p: RaceProvider =
       source.kind === "demo"
@@ -132,21 +188,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice }: 
             session,
             sourceName: source.label,
           });
-    provider.current = p;
-    buffer.current = new SnapshotBuffer(p.updateIntervalMs);
-    const off = p.subscribe((u) => {
-      if (u.snapshot) buffer.current.push(u.snapshot, u.at);
-      // After a reset/seek/restart the provider sends the full history to that point: replace the log, so nothing is shown twice.
-      if (u.eventsReset) setEvents(appendEvents([], u.events));
-      else if (u.events.length) setEvents((log) => appendEvents(log, u.events));
-      setUpdate(u);
-    });
-    p.start();
-    return () => {
-      off();
-      p.dispose();
-      provider.current = null;
-    };
+    return attach(p);
   }, [source, frame, geometry.coordinateSystem, circuit]);
 
   useEffect(() => {
@@ -168,7 +210,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice }: 
   const snapshot = update?.snapshot ?? null;
   const drivers = useMemo(() => (snapshot ? sortByRaceOrder(snapshot.drivers) : []), [snapshot]);
   const byId = useMemo(() => new Map(drivers.map((d) => [d.id, d])), [drivers]);
-  const markerDrivers = useMemo(() => drivers.map((d) => ({ id: d.id, color: teamColor(d.teamSlug), position: d.position, stale: d.stale })), [drivers]);
+  const markerDrivers = useMemo(() => drivers.map((d) => ({ id: d.id, color: driverColor(d), position: d.position, stale: d.stale })), [drivers]);
   const battlePairs = useMemo(() => (snapshot ? battles(snapshot) : []), [snapshot]);
   const playing = update?.playback?.playing ?? false;
   const fresh = freshness({ snapshot, receivedAt: update?.at ?? null, now: Math.max(now, update?.at ?? 0), playing, sourceStatus: update?.source.status ?? "connecting" });
@@ -210,11 +252,24 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice }: 
         return `Battle: ${name(e.behind)} within a second of ${name(e.ahead)}`;
       case "session":
         return e.status === "running" ? "Session started" : e.status === "finished" ? "Session finished" : `Session ${e.status}`;
+      case "official":
+        return `Race control: ${e.text.charAt(0)}${e.text.slice(1).toLowerCase()}`;
+      case "pit-stop":
+        return `${name(e.driver)} pit stop${e.lap ? ` on lap ${e.lap}` : ""}${e.laneS ? ` (${e.laneS.toFixed(1)} s in the pit lane)` : ""}`;
+      case "position":
+        return `${name(e.driver)} ${e.to < e.from ? "up" : "down"} to P${e.to} (timing feed)`;
     }
   };
 
   const sessionStatus = snapshot?.session.status ?? "no data";
   const lap = snapshot?.session.lap;
+  // Race clock for exact-clock replays: time since lights out (negative on the grid).
+  const raceClock = (() => {
+    if (!caps?.timeline || !snapshot) return null;
+    const s = Math.round((snapshot.t - caps.timeline.lightsOutMs) / 1000);
+    const a = Math.abs(s);
+    return `${s < 0 ? "−" : ""}${Math.floor(a / 3600)}:${String(Math.floor((a % 3600) / 60)).padStart(2, "0")}:${String(a % 60).padStart(2, "0")}`;
+  })();
   const laps = snapshot?.session.totalLaps;
   const playback = update?.playback ?? null;
   const finished = sessionStatus === "finished";
@@ -223,11 +278,11 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice }: 
     <div className="rounded-lg border border-line-strong bg-surface p-3" aria-live="polite">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-center gap-2.5">
-          <span aria-hidden="true" className="h-8 w-1 rounded-sm" style={{ backgroundColor: teamColor(sel.teamSlug) }} />
+          <span aria-hidden="true" className="h-8 w-1 rounded-sm" style={{ backgroundColor: driverColor(sel) }} />
           <div>
             <p className="font-display text-2xl font-semibold leading-none">{sel.code}</p>
             <p className="mt-1 text-xs text-muted">
-              {[sel.name, sel.teamSlug ? findTeam(sel.teamSlug)?.name : null, sel.number != null ? `#${sel.number}` : null].filter(Boolean).join(" · ") || "Identity: car number only"}
+              {[sel.name, sel.teamSlug ? findTeamBySlug(sel.teamSlug)?.name : null, sel.number != null ? `#${sel.number}` : null].filter(Boolean).join(" · ") || "Identity: car number only"}
             </p>
           </div>
         </div>
@@ -260,13 +315,23 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice }: 
   );
 
   const playbackBar = (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface/95 p-1.5 shadow-2">
+    <div className={cn("flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface/95 p-1.5 shadow-2", caps?.timeline && "[&>.timeline]:order-first [&>.timeline]:basis-full")}>
       <Button size="sm" variant="secondary" className="h-8 min-w-[4.5rem]" disabled={!playback || !snapshot} onClick={() => (playing ? provider.current?.pause() : provider.current?.play())}>
         {playing ? "Pause" : finished ? "Watch again" : snapshot && snapshot.t > 0 ? "Resume" : "Play"}
       </Button>
       <Button size="sm" variant="ghost" className="h-8" disabled={!playback || !snapshot} onClick={() => provider.current?.reset()}>
         Reset
       </Button>
+      {caps?.timeline && (
+        <>
+          <Button size="sm" variant="ghost" className="h-8 px-2" disabled={!snapshot} aria-label="Back 10 seconds" onClick={() => provider.current?.step?.(-10_000)}>
+            −10 s
+          </Button>
+          <Button size="sm" variant="ghost" className="h-8 px-2" disabled={!snapshot} aria-label="Forward 10 seconds" onClick={() => provider.current?.step?.(10_000)}>
+            +10 s
+          </Button>
+        </>
+      )}
       <label className="flex items-center gap-1.5 text-xs text-muted">
         <span className="sr-only sm:not-sr-only">Speed</span>
         <select
@@ -276,26 +341,59 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice }: 
           onChange={(e) => provider.current?.setSpeed(Number(e.target.value))}
           aria-label="Playback speed"
         >
-          {PLAYBACK_SPEEDS.map((s) => (
+          {(caps?.speeds ?? PLAYBACK_SPEEDS).map((s) => (
             <option key={s} value={s}>
               {s}×
             </option>
           ))}
         </select>
       </label>
-      <input
-        type="range"
-        min={0}
-        max={1000}
-        step={1}
-        value={Math.round((snapshot?.elapsed ?? 0) * 1000)}
-        disabled={!playback || !snapshot}
-        onChange={(e) => provider.current?.seek(Number(e.target.value) / 1000)}
-        aria-label="Session timeline"
-        aria-valuetext={lap != null && laps != null ? `Lap ${lap} of ${laps}` : `${Math.round((snapshot?.elapsed ?? 0) * 100)}% of the recording`}
-        className="h-8 min-w-24 flex-1"
-      />
-      <span className="px-1 text-xs tabular-nums text-muted">{lap != null && laps != null ? `Lap ${lap}/${laps}` : snapshot ? new Date(snapshot.t).toISOString().slice(11, 21) : "—"}</span>
+      <div className="timeline relative min-w-24 flex-1 px-1">
+        <input
+          type="range"
+          min={0}
+          max={1000}
+          step={1}
+          value={Math.round((snapshot?.elapsed ?? 0) * 1000)}
+          disabled={!playback || !snapshot}
+          onChange={(e) => provider.current?.seek(Number(e.target.value) / 1000)}
+          aria-label="Session timeline"
+          aria-valuetext={`${raceClock ?? ""}${lap != null && laps != null ? ` · lap ${lap} of ${laps}` : raceClock ? "" : `${Math.round((snapshot?.elapsed ?? 0) * 100)}% of the recording`}`}
+          className="block h-8 w-full"
+        />
+        {/* Sourced moments under the track, each one seeks there: Safety Car / VSC periods as bands, other official moments and pit stops as ticks. */}
+        {caps?.timeline && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2">
+            {caps.timeline.markers.map((m, i) => {
+              const d = caps.timeline!.durationMs;
+              const band = m.end != null;
+              return (
+                <button
+                  key={`${m.t}-${i}`}
+                  type="button"
+                  title={band ? `${m.label}: ${Math.round((m.end! - m.t) / 1000)} s` : m.label}
+                  aria-label={`Go to: ${m.label}`}
+                  tabIndex={m.kind === "pit" ? -1 : 0}
+                  onClick={() => provider.current?.seekTime?.(Math.max(0, m.t - 3000))}
+                  className={cn(
+                    "pointer-events-auto absolute bottom-0 rounded-full focus-visible:outline-2",
+                    band ? "h-1.5 min-w-1.5" : "-translate-x-1/2",
+                    m.kind === "pit" && "z-0 h-1.5 w-1 bg-subtle/60",
+                    m.kind === "safety-car" && "z-10 bg-warning",
+                    m.kind === "red-flag" && "z-20 h-2 w-1.5 bg-danger",
+                    (m.kind === "start" || m.kind === "finish") && "z-20 h-2 w-1.5 bg-fg",
+                  )}
+                  style={{ left: `${(m.t / d) * 100}%`, width: band ? `${((m.end! - m.t) / d) * 100}%` : undefined }}
+                />
+              );
+            })}
+          </div>
+        )}
+      </div>
+      <span className="ml-auto px-1 text-xs tabular-nums text-muted">
+        {lap != null && laps != null ? `Lap ${lap}/${laps}` : ""}
+        {raceClock ? `${lap != null && laps != null ? " · " : ""}${raceClock}` : lap == null && snapshot ? new Date(snapshot.t).toISOString().slice(11, 21) : ""}
+      </span>
     </div>
   );
 
@@ -332,7 +430,8 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice }: 
     <div className="flex flex-wrap items-center gap-2 text-xs text-muted">
       {modeBadge}
       {freshnessChip}
-      <span className="rounded-sm border border-line px-1.5 py-0.5">{statusText}</span>
+      {/* Not repeated when the freshness chip already says the same ("Paused"). */}
+      {statusText !== FRESHNESS_COPY[fresh.state].text && <span className="rounded-sm border border-line px-1.5 py-0.5">{statusText}</span>}
       <span className="rounded-sm border border-line px-1.5 py-0.5 tabular-nums">{lap != null && laps != null ? `Lap ${lap} / ${laps}` : "Lap —"}</span>
     </div>
   );
@@ -407,8 +506,9 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice }: 
               <li key={e.id}>
                 <button
                   type="button"
-                  disabled={ids.length === 0}
+                  disabled={ids.length === 0 && !caps?.timeline}
                   onClick={() => {
+                    provider.current?.seekTime?.(e.t);
                     if (e.kind === "battle") {
                       setSelected(e.behind);
                       setFocus([e.ahead, e.behind]);
@@ -416,7 +516,9 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice }: 
                   }}
                   className="motion-interactive flex w-full items-baseline gap-2 px-3 py-1.5 text-left text-sm enabled:hover:bg-surface-2"
                 >
-                  <span className="w-12 shrink-0 text-[11px] tabular-nums text-subtle">{new Date(e.t).toISOString().slice(14, 19)}</span>
+                  <span className="w-12 shrink-0 text-[11px] tabular-nums text-subtle">
+                    {caps?.timeline ? `${Math.round((e.t - caps.timeline.lightsOutMs) / 60000)}′` : new Date(e.t).toISOString().slice(14, 19)}
+                  </span>
                   <span className={cn(e.kind === "battle" ? "text-info" : e.kind === "overtake" ? "text-fg" : "text-muted")}>{eventText(e)}</span>
                 </button>
               </li>
@@ -434,16 +536,20 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice }: 
         Real data (stored replay, live when connected) is on the Live page.
       </Link>
     ) : (
-      <span className="text-muted">Stored replay · live timing is not connected.</span>
+      <span className="text-muted">{source.kind === "history" ? "Recorded race · OpenF1" : "Stored replay · live timing is not connected."}</span>
     );
 
   const errorBox = !snapshot && update?.source.status === "error" && (
     // Top centre on desktop, clear of the header card (which carries the page's notice) and the toolbar.
     <div className={cn("pointer-events-auto absolute inset-x-3 top-[7.5rem] z-10 p-4 text-sm md:left-1/2 md:right-auto md:w-[30rem] md:-translate-x-1/2", GLASS, "border-danger/40")} role="alert">
-      <p className="font-medium text-danger">The replay source is unavailable</p>
-      <p className="mt-1 text-muted">{update.source.detail?.replace(/\.?$/, ".")} The stored replay needs the APEX F1 API (port 8080) with session data ingested.</p>
-      <ButtonLink href={`/circuits/${circuit.slug}/race`} size="sm" variant="secondary" className="mt-3">
-        Simulated race on this circuit
+      <p className="font-medium text-danger">{source.kind === "history" ? "This replay could not be loaded" : "The replay source is unavailable"}</p>
+      <p className="mt-1 text-muted">
+        {source.kind === "history"
+          ? `The race data could not be loaded: ${update.source.detail ?? "unknown error"}. Nothing is shown rather than guessed.`
+          : `${update.source.detail?.replace(/\.?$/, ".")} The stored replay needs the APEX F1 API (port 8080) with session data ingested.`}
+      </p>
+      <ButtonLink href={source.kind === "history" ? "/replay" : `/circuits/${circuit.slug}/race`} size="sm" variant="secondary" className="mt-3">
+        {source.kind === "history" ? "All replays" : "Simulated race on this circuit"}
       </ButtonLink>
     </div>
   );
@@ -513,7 +619,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice }: 
                       d.id === selected ? "border-fg/80 text-fg" : "border-line-strong/70 text-fg/90",
                     )}
                   >
-                    <span className="h-3 w-0.5 rounded-sm" style={{ backgroundColor: teamColor(d.teamSlug) }} />
+                    <span className="h-3 w-0.5 rounded-sm" style={{ backgroundColor: driverColor(d) }} />
                     {d.position != null && (
                       <span data-pos className="text-muted [[data-compact=true]_&]:hidden">
                         {d.position}
@@ -544,6 +650,9 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice }: 
                       <p className="mt-2 leading-relaxed text-muted">
                         {mode === "DEMO" && `Simulated race on the ${circuit.name} layout with the project's driver line-up. Positions, gaps, lap times and pit stops are generated by the simulator (base lap time scaled from the circuit's published F1 race lap record); they are not real results.`}
                         {mode === "REPLAY" && source.kind === "replay" && `${source.label}. Stored OpenF1 location samples served by the APEX F1 API: car numbers and positions only, so race order and timing are not available.`}
+                        {mode === "REPLAY" &&
+                          source.kind === "history" &&
+                          `${source.label}. Recorded OpenF1 data: car positions (samples at least 1 s apart; between samples cars move along the track in proportion to time, and gaps over 5 s are not bridged), the official running order, published gaps, lap times, pit stops and race-control messages, each as of the replay time. Position changes are from the timing feed and include pit cycles, so they are not called overtakes.`}
                         {mode === "LIVE" && MODE_LABEL.LIVE.description}
                         {update?.source.detail && update.source.status !== "error" && <span className="ml-1 text-subtle">{update.source.detail}</span>}
                       </p>

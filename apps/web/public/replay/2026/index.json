@@ -1,0 +1,193 @@
+{
+ "schema": "apex-f1/race-replay-index@1",
+ "season": 2026,
+ "sessions": [
+  {
+   "sessionKey": 11234,
+   "meetingKey": 1279,
+   "eventName": "Australian Grand Prix",
+   "circuitShortName": "Melbourne",
+   "date": "2026-03-08",
+   "durationMs": 5118335,
+   "drivers": 22,
+   "laps": 58,
+   "positionCoverage": 1
+  },
+  {
+   "sessionKey": 11245,
+   "meetingKey": 1280,
+   "eventName": "Chinese Grand Prix",
+   "circuitShortName": "Shanghai",
+   "date": "2026-03-15",
+   "durationMs": 5733354,
+   "drivers": 22,
+   "laps": 56,
+   "positionCoverage": 1
+  },
+  {
+   "sessionKey": 11253,
+   "meetingKey": 1281,
+   "eventName": "Japanese Grand Prix",
+   "circuitShortName": "Suzuka",
+   "date": "2026-03-29",
+   "durationMs": 5426255,
+   "drivers": 22,
+   "laps": 53,
+   "positionCoverage": 1
+  },
+  {
+   "sessionKey": 11280,
+   "meetingKey": 1284,
+   "eventName": "Miami Grand Prix",
+   "circuitShortName": "Miami",
+   "date": "2026-05-03",
+   "durationMs": 5740731,
+   "drivers": 22,
+   "laps": 57,
+   "positionCoverage": 1
+  },
+  {
+   "sessionKey": 11291,
+   "meetingKey": 1285,
+   "eventName": "Canadian Grand Prix",
+   "circuitShortName": "Montreal",
+   "date": "2026-05-24",
+   "durationMs": 5414888,
+   "drivers": 22,
+   "laps": 68,
+   "positionCoverage": 1
+  },
+  {
+   "sessionKey": 11299,
+   "meetingKey": 1286,
+   "eventName": "Monaco Grand Prix",
+   "circuitShortName": "Monte Carlo",
+   "date": "2026-06-07",
+   "durationMs": 8705601,
+   "drivers": 22,
+   "laps": 78,
+   "positionCoverage": 0.044
+  },
+  {
+   "sessionKey": 11307,
+   "meetingKey": 1287,
+   "eventName": "Barcelona Grand Prix",
+   "circuitShortName": "Catalunya",
+   "date": "2026-06-14",
+   "durationMs": 5676631,
+   "drivers": 22,
+   "laps": 66,
+   "positionCoverage": 1
+  },
+  {
+   "sessionKey": 11315,
+   "meetingKey": 1288,
+   "eventName": "Austrian Grand Prix",
+   "circuitShortName": "Spielberg",
+   "date": "2026-06-28",
+   "durationMs": 5314675,
+   "drivers": 22,
+   "laps": 71,
+   "positionCoverage": 1
+  },
+  {
+   "sessionKey": 11326,
+   "meetingKey": 1289,
+   "eventName": "British Grand Prix",
+   "circuitShortName": "Silverstone",
+   "date": "2026-07-05",
+   "durationMs": 5289937,
+   "drivers": 22,
+   "laps": 52,
+   "positionCoverage": 1
+  },
+  {
+   "sessionKey": 11334,
+   "meetingKey": 1290,
+   "eventName": "Belgian Grand Prix",
+   "circuitShortName": "Spa-Francorchamps",
+   "date": "2026-07-19",
+   "durationMs": 5243905,
+   "drivers": 22,
+   "laps": 45,
+   "positionCoverage": 1
+  },
+  {
+   "sessionKey": 11342,
+   "meetingKey": 1291,
+   "eventName": "Hungarian Grand Prix",
+   "circuitShortName": "Hungaroring",
+   "date": "2026-07-26",
+   "durationMs": 6112641,
+   "drivers": 22,
+   "laps": 70,
+   "positionCoverage": 0.995
+  },
+  {
+   "sessionKey": 11353,
+   "meetingKey": 1292,
+   "eventName": "Dutch Grand Prix",
+   "circuitShortName": "Zandvoort",
+   "date": "2026-08-23",
+   "durationMs": 7605242,
+   "drivers": 22,
+   "laps": 72,
+   "positionCoverage": 0.996
+  },
+  {
+   "sessionKey": 11361,
+   "meetingKey": 1293,
+   "eventName": "Italian Grand Prix",
+   "circuitShortName": "Monza",
+   "date": "2026-09-06",
+   "durationMs": 6804633,
+   "drivers": 22,
+   "laps": 53,
+   "positionCoverage": 1
+  },
+  {
+   "sessionKey": 11369,
+   "meetingKey": 1294,
+   "eventName": "Spanish Grand Prix",
+   "circuitShortName": "Madring",
+   "date": "2026-09-13",
+   "durationMs": 5810031,
+   "drivers": 22,
+   "laps": 57,
+   "positionCoverage": 1
+  },
+  {
+   "sessionKey": 11377,
+   "meetingKey": 1295,
+   "eventName": "Azerbaijan Grand Prix",
+   "circuitShortName": "Baku",
+   "date": "2026-09-26",
+   "durationMs": 5973901,
+   "drivers": 22,
+   "laps": 51,
+   "positionCoverage": 1
+  },
+  {
+   "sessionKey": 11731,
+   "meetingKey": 1308,
+   "eventName": "Bahrain Grand Prix",
+   "circuitShortName": "Kuala Lumpur",
+   "date": "2026-10-04",
+   "durationMs": 6514588,
+   "drivers": 22,
+   "laps": 55,
+   "positionCoverage": 1
+  },
+  {
+   "sessionKey": 11388,
+   "meetingKey": 1296,
+   "eventName": "Singapore Grand Prix",
+   "circuitShortName": "Singapore",
+   "date": "2026-10-11",
+   "durationMs": 6262110,
+   "drivers": 22,
+   "laps": 62,
+   "positionCoverage": 1
+  }
+ ]
+}

@@ -39,6 +39,12 @@ export interface RaceProvider {
   setSpeed(speed: number): void;
   /** Jump to a fraction (0..1) of the race / recording. */
   seek(fraction: number): void;
+  /** Optional, for sources with an exact clock (historical replay): speeds offered, exact seek and step, and timeline markers. */
+  readonly speeds?: readonly number[];
+  seekTime?(t: number): void;
+  step?(deltaMs: number): void;
+  /** Markers are moments; `end` makes one a period (Safety Car / VSC deployed until its ending message). */
+  timeline?: { durationMs: number; startUtc: string; lightsOutMs: number; markers: { t: number; end?: number; kind: "start" | "finish" | "safety-car" | "red-flag" | "pit"; label: string }[] };
 }
 
 export interface Scheduler {

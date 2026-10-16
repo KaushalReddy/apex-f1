@@ -36,6 +36,8 @@ export interface DriverState {
   number: number | null;
   /** Domain team slug, or null when the source does not say. */
   teamSlug: string | null;
+  /** The team's colour as the source publishes it for this session (e.g. OpenF1), preferred over the app's own when present. */
+  teamColour?: string | null;
   position: number | null;
   /** Current lap, 1-based. */
   lap: number | null;

@@ -1,165 +1,97 @@
-"use client";
-
-import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { CardArrow } from "@/components/ui/card-arrow";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
-import { Panel } from "@/components/ui/panel";
-import { fetchReplayTimeline } from "@/lib/replay/api";
-import type { PositionFrame } from "@/lib/replay/types";
+import { circuitByShortName } from "@/lib/circuit/catalog";
+import { availableGeometrySlugs } from "@/lib/circuit/load";
+import { loadReplayIndex } from "@/lib/replay/load";
 
-const SESSION_KEY = 9523;
-const FROM = 1716728400000;
-const TO = 1716728410000;
+export const metadata = { title: "Race Replay" };
 
-export default function Page() {
-  const [frames, setFrames] = useState<PositionFrame[]>([]);
-  const [frameIndex, setFrameIndex] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [attempt, setAttempt] = useState(0);
+const clock = (ms: number) => `${Math.floor(ms / 3_600_000)}:${String(Math.floor((ms % 3_600_000) / 60_000)).padStart(2, "0")}`;
 
-  useEffect(() => {
-    fetchReplayTimeline(SESSION_KEY, FROM, TO)
-      .then(setFrames)
-      .catch((err: unknown) => {
-        setError(err instanceof Error ? err.message : "Failed to load replay");
-      })
-      .finally(() => setLoading(false));
-  }, [attempt]);
-
-  const retry = () => {
-    setError(null);
-    setFrames([]);
-    setFrameIndex(0);
-    setLoading(true);
-    setAttempt((n) => n + 1);
-  };
-
-  const frame = frames[frameIndex];
+/**
+ * Race Replay picker. Lists every exported race (tools/openf1-replay) and says plainly which can be replayed: a race needs its dataset and
+ * a generated circuit layout to be placed in 3D.
+ */
+export default async function Page() {
+  const [index, layouts] = await Promise.all([loadReplayIndex(), availableGeometrySlugs()]);
+  const rows = index.map((r) => {
+    const circuit = r.circuitShortName ? circuitByShortName(r.circuitShortName) : undefined;
+    const ready = !!circuit && layouts.has(circuit.id);
+    return { ...r, circuit, ready };
+  });
+  const seasons = [...new Set(rows.map((r) => r.season))];
 
   return (
     <PageContainer>
       <PageHeader
         eyebrow="Analysis"
         title="Race Replay"
-        description="Reconstruct a past session from telemetry stored by the APEX F1 backend. This is the table view; the 3D replay is planned."
-        badges={
-          <>
-            <Badge tone="success">Stored telemetry</Badge>
-            <Badge>Monaco 2024 · Race · Session {SESSION_KEY}</Badge>
-          </>
-        }
+        description="Play back a recorded Grand Prix on its 3D circuit: every car's recorded position, the official running order, gaps, laps, pit stops and race-control messages at any moment, with seeking and speed control."
+        badges={<Badge tone="info">Recorded data · OpenF1</Badge>}
       />
-
-      {loading && (
-        <Panel>
-          <div role="status" aria-live="polite" className="flex items-center gap-3 text-sm text-muted">
-            <span aria-hidden="true" className="inline-block size-2 animate-pulse-soft rounded-full bg-info" />
-            Loading replay telemetry…
-          </div>
-        </Panel>
-      )}
-
-      {error && (
-        <Panel>
-          <div role="alert">
-            <p className="font-semibold text-danger">Could not load the replay</p>
-            <p className="mt-2 text-sm text-muted">{error}</p>
-            <p className="mt-2 text-sm text-muted">Make sure the Spring Boot API is running on port 8080.</p>
-          </div>
-          <div className="mt-4">
-            <Button variant="secondary" size="sm" onClick={retry}>
-              Try again
-            </Button>
-          </div>
-        </Panel>
-      )}
-
-      {!loading && !error && frames.length === 0 && (
-        <EmptyState title="No replay frames in this window" status="Empty" headingLevel="h2">
-          The backend answered, but returned no frames for session {SESSION_KEY} in the requested time window. Nothing is estimated to fill the gap.
+      {rows.length === 0 ? (
+        <EmptyState title="No race replays in this build" status="Unavailable" headingLevel="h2">
+          Replays are exported from OpenF1 with tools/openf1-replay (see tools/openf1-replay/README.md). Nothing is shown rather than invented.
         </EmptyState>
+      ) : (
+        seasons.map((season) => (
+          <section key={season} aria-labelledby={`season-${season}`} className="mb-10">
+            <h2 id={`season-${season}`} className="mb-3 font-display text-2xl font-semibold">
+              {season} season
+            </h2>
+            <ul className="border-b border-line">
+              {rows
+                .filter((r) => r.season === season)
+                .map((r) => {
+                  const body = (
+                    <>
+                      <span className="tabular-nums text-sm text-subtle">{r.date}</span>
+                      <span className="min-w-0">
+                        <span className="block font-medium">{r.eventName}</span>
+                        <span className="block truncate text-sm text-muted">
+                          {r.circuit?.name ?? r.circuitShortName ?? "Unknown circuit"} · {r.laps} laps · {r.drivers} cars · {clock(r.durationMs)} recorded
+                          {(r.positionCoverage ?? 1) < 0.9 && ` · car positions for ${Math.round((r.positionCoverage ?? 0) * 100)}% of it`}
+                        </span>
+                      </span>
+                      <span className="flex items-center gap-3">
+                        {!r.ready ? (
+                          <Badge tone="warning">No circuit layout</Badge>
+                        ) : (r.positionCoverage ?? 1) < 0.9 ? (
+                          <Badge tone="warning">Partial positions</Badge>
+                        ) : (
+                          <Badge tone="success">Replay ready</Badge>
+                        )}
+                        {r.ready && <CardArrow />}
+                      </span>
+                    </>
+                  );
+                  const grid = "grid grid-cols-[6.5rem_minmax(0,1fr)_auto] items-center gap-x-4 border-t border-line px-1 py-3.5 max-sm:grid-cols-[minmax(0,1fr)_auto] max-sm:[&>span:first-child]:col-span-2";
+                  return (
+                    <li key={r.sessionKey}>
+                      {r.ready ? (
+                        <Link href={`/replay/${r.sessionKey}`} className={`group motion-interactive ${grid} hover:bg-surface/60`}>
+                          {body}
+                        </Link>
+                      ) : (
+                        <div className={grid} title="This circuit has no generated layout, so the cars cannot be placed in 3D.">
+                          {body}
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+            </ul>
+          </section>
+        ))
       )}
-
-      {!loading && !error && frame && (
-        <div className="space-y-6">
-          <Panel>
-            <dl className="flex flex-wrap items-start justify-between gap-x-8 gap-y-4">
-              <div>
-                <dt className="eyebrow">Replay clock (UTC)</dt>
-                <dd className="mt-1.5 text-lg tabular-nums">{new Date(frame.t).toISOString()}</dd>
-              </div>
-              <div>
-                <dt className="eyebrow">Cars</dt>
-                <dd className="mt-1.5 font-display text-3xl font-semibold leading-none tabular-nums">{frame.cars.length}</dd>
-              </div>
-              <div>
-                <dt className="eyebrow">Frames</dt>
-                <dd className="mt-1.5 font-display text-3xl font-semibold leading-none tabular-nums">{frames.length}</dd>
-              </div>
-            </dl>
-          </Panel>
-
-          <Panel>
-            <label className="eyebrow block" htmlFor="replay-progress">
-              Playback
-            </label>
-
-            <input
-              id="replay-progress"
-              className="mt-3 h-6 w-full"
-              type="range"
-              min={0}
-              max={Math.max(frames.length - 1, 0)}
-              value={frameIndex}
-              aria-valuetext={`Frame ${frameIndex + 1} of ${frames.length}, ${new Date(frame.t).toISOString()}`}
-              onChange={(event) => setFrameIndex(Number(event.target.value))}
-            />
-
-            <div className="mt-2 flex justify-between text-xs tabular-nums text-muted">
-              <span>Frame {frameIndex + 1}</span>
-              <span>{frames.length} total</span>
-            </div>
-          </Panel>
-
-          <Panel>
-            <h2 className="font-display text-2xl font-semibold tracking-[0.01em]">Car positions</h2>
-            <p className="mt-1 text-sm text-muted">Coordinates are the provider&apos;s native location units, stored and shown unscaled.</p>
-
-            <div className="mt-4 overflow-x-auto">
-              <table className="w-full min-w-[32rem] text-left text-sm">
-                <caption className="sr-only">Car positions for frame {frameIndex + 1} of {frames.length}</caption>
-                <thead className="border-b border-line-strong text-xs uppercase tracking-[0.08em] text-subtle">
-                  <tr>
-                    <th scope="col" className="px-3 py-2.5 font-semibold">Driver</th>
-                    <th scope="col" className="px-3 py-2.5 text-right font-semibold">X</th>
-                    <th scope="col" className="px-3 py-2.5 text-right font-semibold">Y</th>
-                    <th scope="col" className="px-3 py-2.5 text-right font-semibold">Z</th>
-                    <th scope="col" className="px-3 py-2.5 text-right font-semibold">Sample time (ms)</th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-line">
-                  {frame.cars.map((car) => (
-                    <tr key={car.driverNumber} className="hover:bg-surface-2">
-                      <th scope="row" className="px-3 py-2.5 font-semibold tabular-nums">
-                        #{car.driverNumber}
-                      </th>
-                      <td className="px-3 py-2.5 text-right tabular-nums">{car.x}</td>
-                      <td className="px-3 py-2.5 text-right tabular-nums">{car.y}</td>
-                      <td className="px-3 py-2.5 text-right tabular-nums">{car.z}</td>
-                      <td className="px-3 py-2.5 text-right tabular-nums text-muted">{car.sampleT}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </Panel>
-        </div>
-      )}
+      <p className="max-w-prose text-sm leading-relaxed text-muted">
+        Positions are OpenF1&apos;s recorded car locations, kept at least one second apart; between samples, cars move along the track in proportion to time and nothing is bridged across gaps longer
+        than five seconds. The running order, gaps, lap times, pit stops and race-control messages are shown as published at each moment.
+      </p>
     </PageContainer>
   );
 }

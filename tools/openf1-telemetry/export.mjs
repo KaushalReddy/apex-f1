@@ -9,12 +9,11 @@
 // interpolation are derived (and tested) in the app. A lap whose time race control deleted (track limits etc.) is never chosen as the
 // fastest lap; deletions are read from OpenF1 /race_control and listed in the file. Requests are rate-limited and retried like
 // tools/openf1-results.
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
-import { createHash } from "node:crypto";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { ms, openf1 } from "../openf1-client.mjs";
 
-const API = "https://api.openf1.org/v1";
 const args = Object.fromEntries(process.argv.slice(2).reduce((acc, a, i, all) => (a.startsWith("--") ? [...acc, [a.slice(2), all[i + 1]]] : acc), []));
 const year = Number(args.year);
 const out = args.out;
@@ -24,35 +23,8 @@ if (!Number.isInteger(year) || !out) {
   process.exit(2);
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-const CACHE = join(dirname(fileURLToPath(import.meta.url)), ".cache");
-mkdirSync(CACHE, { recursive: true });
-let last = 0;
-async function get(path) {
-  const file = join(CACHE, createHash("sha1").update(path).digest("hex") + ".json");
-  if (existsSync(file)) return JSON.parse(readFileSync(file, "utf8"));
-  for (let attempt = 0; attempt < 8; attempt++) {
-    const wait = Math.max(0, last + 2100 - Date.now());
-    if (wait) await sleep(wait);
-    last = Date.now();
-    const res = await fetch(`${API}/${path}`);
-    if (res.status === 404) return [];
-    if (res.ok) {
-      const body = await res.json();
-      const rows = Array.isArray(body) ? body : [];
-      if (rows.length) writeFileSync(file, JSON.stringify(rows)); // completed sessions do not change; empty answers are re-asked next run
-      return rows;
-    }
-    if (res.status === 429 || res.status >= 500) {
-      await sleep(8000 * (attempt + 1));
-      continue;
-    }
-    throw new Error(`${path}: HTTP ${res.status}`);
-  }
-  throw new Error(`${path}: gave up after retries`);
-}
+const get = openf1(join(dirname(fileURLToPath(import.meta.url)), ".cache"));
 
-const ms = (iso) => Date.parse(iso);
 const iso = (t) => new Date(t).toISOString();
 /** Padding either side of the lap so the app can interpolate exactly at the start and finish line. */
 const PAD_MS = 1000;

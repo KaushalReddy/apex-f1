@@ -6,6 +6,7 @@ import { circuitByShortName, findCircuitById } from "@/lib/circuit/catalog";
 import { loadCircuitGeometry } from "@/lib/circuit/load";
 import { loadSeasons } from "@/lib/drivers/load";
 import { previousRace } from "@/lib/race/previous";
+import { loadReplayIndex, replayUrl } from "@/lib/replay/load";
 
 export const metadata = { title: "Live Race" };
 
@@ -48,18 +49,20 @@ const day = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("en
 type Props = { searchParams: Promise<{ replay?: string }> };
 
 /**
- * `/live`: real data only. No live timing provider is connected, so there is never a live race here yet: the page says so and offers the
- * previous race (latest in the results snapshots) by default when the API has its positions; otherwise, or with `?replay=sample`, the
- * stored Monaco sample.
+ * `/live`: real data only. No live timing provider is connected, so there is never a live race here yet: the page says so and shows the
+ * previous race (latest in the results snapshots): the full recorded race when Race Replay has it, else a window the APEX F1 API has
+ * ingested; otherwise, or with `?replay=sample`, the stored Monaco sample.
  */
 export default async function Page({ searchParams }: Props) {
   const wantSample = (await searchParams).replay === "sample";
   const prev = previousRace((await loadSeasons()).seasons, new Date().toISOString().slice(0, 10));
   const prevCircuit = prev?.circuitShortName ? circuitByShortName(prev.circuitShortName) : undefined;
   const prevGeometry = prevCircuit ? await loadCircuitGeometry(prevCircuit.id) : null;
-  const prevStart = prev && prevGeometry?.status === "ok" ? await firstIngestedSample(prev.sessionKey) : null;
+  // Preferred: the full recorded race from the Race Replay datasets; otherwise a window ingested into the APEX F1 API.
+  const recorded = prev && prevGeometry?.status === "ok" ? (await loadReplayIndex()).find((r) => r.sessionKey === prev.sessionKey) : undefined;
+  const prevStart = prev && prevGeometry?.status === "ok" && !recorded ? await firstIngestedSample(prev.sessionKey) : null;
   const prevTitle = prev ? `${prev.name} ${prev.season} (${day(prev.date)})` : null;
-  const showPrevious = !wantSample && prev && prevCircuit && prevGeometry?.status === "ok" && prevStart !== null;
+  const showPrevious = !wantSample && prev && prevCircuit && prevGeometry?.status === "ok" && (recorded || prevStart !== null);
 
   const circuit = showPrevious ? prevCircuit : findCircuitById(SAMPLE.circuit);
   const result = showPrevious ? prevGeometry : circuit ? await loadCircuitGeometry(circuit.id) : null;
@@ -82,9 +85,12 @@ export default async function Page({ searchParams }: Props) {
       <span className="font-medium text-fg">No live race right now.</span>{" "}
       {showPrevious ? (
         <>
-          Showing the previous race, {prevTitle}. <Link href="/live?replay=sample" className={link}>Stored Monaco sample</Link>
+          Showing the previous race, {prevTitle}{recorded ? ", recorded in full" : ""}.{" "}
+          <Link href="/replay" className={link}>
+            All race replays
+          </Link>
         </>
-      ) : !prevTitle ? null : prevStart !== null ? (
+      ) : !prevTitle ? null : recorded || prevStart !== null ? (
         <Link href="/live" className={link}>
           Watch the previous race: {prevTitle}
         </Link>
@@ -103,7 +109,9 @@ export default async function Page({ searchParams }: Props) {
       geometry={result.geometry}
       circuit={{ slug: circuit.id, name: circuit.shortName }}
       source={
-        showPrevious
+        showPrevious && recorded
+          ? { kind: "history", sessionKey: recorded.sessionKey, url: replayUrl(recorded.season, recorded.sessionKey), label: `${prevTitle} · Race · OpenF1 session ${recorded.sessionKey}` }
+          : showPrevious && prevStart !== null
           ? { kind: "replay", sessionKey: prev.sessionKey, from: prevStart, to: prevStart + PREVIOUS_WINDOW_MS, label: `${prevTitle} · Race · OpenF1 session ${prev.sessionKey} (${PREVIOUS_WINDOW_MS / 1000} s from ${new Date(prevStart).toISOString().slice(11, 19)} UTC)` }
           : { kind: "replay", ...SAMPLE }
       }

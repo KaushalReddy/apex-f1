@@ -10,7 +10,12 @@ export type RaceEvent =
   | { id: string; t: number; kind: "lap"; lap: number; totalLaps: number | null }
   | { id: string; t: number; kind: "pit-entry" | "pit-exit" | "finish"; driver: string }
   | { id: string; t: number; kind: "battle"; ahead: string; behind: string }
-  | { id: string; t: number; kind: "session"; status: RaceSnapshot["session"]["status"] };
+  | { id: string; t: number; kind: "session"; status: RaceSnapshot["session"]["status"] }
+  // Historical replay (lib/replay): official race-control messages, published pit stops, and position changes derived from the official
+  // order feed (a gain can come from a pass, a rival pitting or a retirement, so it is never called an overtake).
+  | { id: string; t: number; kind: "official"; text: string; tone: "start" | "finish" | "safety-car" | "red-flag" }
+  | { id: string; t: number; kind: "pit-stop"; driver: string; lap: number | null; laneS: number | null }
+  | { id: string; t: number; kind: "position"; driver: string; from: number; to: number };
 
 /** Battle thresholds with hysteresis, so a pair hovering around one value is reported once, not on every update. */
 export const BATTLE_ENTER_S = 0.8;

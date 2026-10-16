@@ -13,3 +13,6 @@ export function demoEntries(): DemoEntry[] {
 /** Marker colour for a driver: the team's established UI colour (the same one used by team cards and markers); neutral when unknown. */
 export const NEUTRAL_MARKER = "#c9ced6";
 export const teamColor = (teamSlug: string | null) => (teamSlug ? findTeam(teamSlug)?.color ?? NEUTRAL_MARKER : NEUTRAL_MARKER);
+
+/** A driver's marker colour: the source's published team colour when it has one, else the team's UI colour. */
+export const driverColor = (d: { teamSlug: string | null; teamColour?: string | null }) => d.teamColour ?? teamColor(d.teamSlug);
