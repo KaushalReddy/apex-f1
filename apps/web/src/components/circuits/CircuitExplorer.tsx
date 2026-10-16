@@ -65,6 +65,8 @@ interface Props {
   events: CircuitEvent[];
   /** Every circuit, for the switcher (id and short name, catalog order). */
   all: ReadonlyArray<{ id: string; shortName: string; hasLayout: boolean }>;
+  /** Telemetry Lab for this circuit's latest exported session, when there is one. */
+  telemetryHref?: string | null;
 }
 
 function Fact({ k, v, hint }: { k: string; v: ReactNode; hint?: ReactNode }) {
@@ -87,6 +89,7 @@ export function CircuitExplorer({
   provenance,
   events,
   all,
+  telemetryHref,
 }: Props) {
   const theater = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
@@ -234,6 +237,14 @@ export function CircuitExplorer({
           <p className="mt-1 text-muted">
             No race at this circuit in the exported seasons (2024–2026 so far).
           </p>
+        )}
+        {telemetryHref && (
+          <Link
+            href={telemetryHref}
+            className="mt-2 inline-block text-sm font-medium underline decoration-white/30 underline-offset-4 hover:decoration-white"
+          >
+            Compare lap telemetry here
+          </Link>
         )}
       </div>
       <details className="text-xs text-muted">

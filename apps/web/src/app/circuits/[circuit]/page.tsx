@@ -1,10 +1,11 @@
 import { notFound } from "next/navigation";
 import { CircuitExplorer } from "@/components/circuits/CircuitExplorer";
-import { CIRCUITS, findCircuitById } from "@/lib/circuit/catalog";
+import { CIRCUITS, circuitByShortName, findCircuitById } from "@/lib/circuit/catalog";
 import { centerlineLengthUnits, circuitExtentMeters, describeScale, describeTrackWidth, resolveTrackWidth } from "@/lib/circuit/geometry";
 import { circuitHistory } from "@/lib/circuit/history";
 import { availableGeometrySlugs, loadCircuitGeometry } from "@/lib/circuit/load";
 import { loadSeasons } from "@/lib/drivers/load";
+import { loadTelemetryIndex } from "@/lib/telemetry/load";
 
 export const dynamicParams = false;
 export const generateStaticParams = () => CIRCUITS.map((c) => ({ circuit: c.id }));
@@ -20,7 +21,7 @@ export async function generateMetadata({ params }: Props) {
 export default async function CircuitPage({ params }: Props) {
   const circuit = findCircuitById((await params).circuit);
   if (!circuit) notFound();
-  const [result, { seasons }, withLayout] = await Promise.all([loadCircuitGeometry(circuit.id), loadSeasons(), availableGeometrySlugs()]);
+  const [result, { seasons }, withLayout, telemetry] = await Promise.all([loadCircuitGeometry(circuit.id), loadSeasons(), availableGeometrySlugs(), loadTelemetryIndex()]);
   const g = result.status === "ok" ? result.geometry : null;
   const provenance = g
     ? {
@@ -40,6 +41,7 @@ export default async function CircuitPage({ params }: Props) {
       geometry={g}
       provenance={provenance}
       events={circuitHistory(circuit, seasons)}
+      telemetryHref={telemetry.some((t) => t.circuitShortName != null && circuitByShortName(t.circuitShortName)?.id === circuit.id) ? `/telemetry?circuit=${circuit.id}` : null}
       all={[...CIRCUITS].sort((a, b) => a.shortName.localeCompare(b.shortName)).map((c) => ({ id: c.id, shortName: c.shortName, hasLayout: withLayout.has(c.id) }))}
     />
   );

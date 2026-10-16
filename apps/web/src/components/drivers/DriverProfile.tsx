@@ -60,6 +60,9 @@ export function DriverProfile({ profile }: { profile: Profile }) {
             <ButtonLink href={`/drivers/compare?season=${season}&a=${ref.slug}`} size="sm" variant="secondary">
               Compare
             </ButtonLink>
+            <ButtonLink href={`/telemetry?a=${ref.acronym}`} size="sm" variant="secondary" title="This driver's fastest lap in their latest exported session, against the fastest rival">
+              Lap telemetry
+            </ButtonLink>
             {p.teamSlug && (
               <ButtonLink href={`/cars/${p.teamSlug}`} size="sm" variant="secondary">
                 {p.team} car

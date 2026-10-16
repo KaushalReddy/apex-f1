@@ -30,3 +30,4 @@ tools/openf1-results/.cache/
 tools/cfd/.local/
 apps/web/.cfd/
 __pycache__/
+tools/openf1-telemetry/.cache/
