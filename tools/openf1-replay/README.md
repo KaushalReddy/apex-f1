@@ -21,6 +21,7 @@ About 100 requests per race (positions in 30-minute windows per car), spaced 2.1
 | Pit stops | `/pit` | time, lap, pit-lane and stationary time |
 | Race control | `/race_control` | every message, timestamped |
 | Tyre stints | `/stints` | stint number, compound, first and last lap, tyre age at the start |
+| On-track passes | `/overtakes` | time, overtaking car, overtaken car, position gained |
 Times are ms from the replay start (`startUtc`): 20 s before lights out (first lap start) to 30 s after the last lap ends.
 
 ## What the app derives (tested in `apps/web/src/lib/replay`)
@@ -73,3 +74,10 @@ Times are ms from the replay start (`startUtc`): 20 s before lights out (first l
 - **What-if** (SIMULATION, always labelled): moving one stop re-predicts the two stints around it from the driver's own fitted lines; the
   number of stops is unchanged so pit-lane time cancels. Range from slopes ± one standard error. Finishing position assumes everyone else
   unchanged, from each driver's last published gap. Not modelled: traffic, Safety Cars, warm-up, track/fuel changes, rivals reacting.
+
+## Race Rewind (Phase 15; `apps/web/src/lib/replay/rewind.ts`, tested)
+- **Changes**: the driver's official position after lights out; changes within 30 s form one step; steps that net to zero are left out.
+- **Who swapped**: cars ahead before and behind after the step (or the reverse), from the official order either side.
+- **Why** (first match): own pit stop (pit record from 120 s before to 45 s after), the other car's pit stop, a published pass between
+  the two (within 60 s), the other car stopping (no further laps), else unexplained. 0-5% of swaps are unexplained across the 2026 races.
+  Places moved with no car swapped (a car dropping out of the order) also count as unexplained, so causes add up to the net change.

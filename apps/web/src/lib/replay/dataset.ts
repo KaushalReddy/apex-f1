@@ -73,6 +73,8 @@ export interface ReplayDataset {
   order: [number, number, number][];
   pits: { t: number; number: number; lap: number | null; laneS: number | null; stopS: number | null }[];
   raceControl: RaceControlMessage[];
+  /** On-track passes as published by OpenF1: [t, overtaking car, overtaken car, position gained] (empty in older exports). */
+  overtakes: [number, number, number, number | null][];
   /** Absent in files exported before weather support. */
   weather: ReplayWeather | null;
   /** What validation removed (reported in the UI, never hidden). */
@@ -182,6 +184,10 @@ export function parseReplay(raw: unknown): Result<ReplayDataset> {
     .filter((r): r is Record<string, unknown> => isObj(r) && fin(r.t) && typeof r.message === "string")
     .map((r) => ({ t: r.t as number, category: strOrNull(r.category), flag: strOrNull(r.flag), scope: strOrNull(r.scope), message: r.message as string, lap: numOrNull(r.lap), number: numOrNull(r.number) }))
     .sort((a, b) => a.t - b.t);
+  const overtakes = (Array.isArray(raw.overtakes) ? (raw.overtakes as unknown[]) : [])
+    .filter((o): o is unknown[] => Array.isArray(o) && fin(o[0]) && known.has(o[1] as number) && known.has(o[2] as number))
+    .map((o) => [o[0], o[1], o[2], numOrNull(o[3])] as [number, number, number, number | null])
+    .sort((a, b) => a[0] - b[0]);
   const src = isObj(raw.source) ? raw.source : {};
   return {
     ok: true,
@@ -202,6 +208,7 @@ export function parseReplay(raw: unknown): Result<ReplayDataset> {
       order,
       pits,
       raceControl,
+      overtakes,
       weather: parseWeather(raw.weather),
       dropped,
     },

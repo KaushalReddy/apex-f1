@@ -29,6 +29,7 @@ import { ComparePicker } from "@/components/replay/ComparePicker";
 import { CircuitFocus } from "./CircuitFocus";
 import { RaceControlPanel } from "@/components/replay/RaceControlPanel";
 import { EngineerPanel } from "@/components/engineer/EngineerPanel";
+import { RewindPanel } from "@/components/replay/RewindPanel";
 import { messageText, RaceControl, weatherAt, type TrackStatus } from "@/lib/replay/raceControl";
 import { EVENT_LEAD_IN_MS } from "@/lib/replay/model";
 import { emphasis, isHollow, reconcile, type FocusSet } from "@/lib/race/visibility";
@@ -125,6 +126,9 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
   // AI Race Engineer (Phase 14): its panel, kept mounted once opened so the conversation survives closing it.
   const [engOpen, setEngOpen] = useState(false);
   const [engMounted, setEngMounted] = useState(false);
+  const [engPrefill, setEngPrefill] = useState<{ id: number; text: string } | null>(null);
+  // Race Rewind (Phase 15): why the selected driver gained or lost each place.
+  const [rewindOpen, setRewindOpen] = useState(false);
   // Whether the comparison PANEL is open. The comparison itself (pair, highlight, on-screen bar) stays active when another panel takes the
   // right-hand area; that panel's Close then closes only itself, and the Compare button reopens the comparison where it was left.
   const [compareShown, setCompareShown] = useState(true);
@@ -473,7 +477,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
   // Space the floating panels take (below the site bar and HUD row, above the playback bar). Desktop side insets are symmetric so the
   // circuit stays centred on screen; they shrink when no side panel is open.
   // One docked panel (Drivers, Race control or the Engineer) owns the right-hand area at a time.
-  const dockOpen = focusOpen || rcOpen || engOpen;
+  const dockOpen = focusOpen || rcOpen || engOpen || rewindOpen;
   const comparePanel = !!compare && compareShown && !dockOpen;
   const sidePanels = showOrder || !!sel || showEvents || comparePanel || dockOpen;
   // The comparison column is wider (22.5rem, or 36rem "wide") than the driver/events column (18.5rem). Wide frames the circuit off-centre
@@ -502,6 +506,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
     setFocusOpen(false);
     setRcOpen(false);
     setEngOpen(false);
+    setRewindOpen(false);
     setCompareShown(true);
     const a = compare?.a ?? selected ?? lastPair?.[0] ?? null;
     const b = compare?.b ?? (lastPair && lastPair[1] !== a ? lastPair[1] : lastPair && lastPair[0] !== a ? lastPair[0] : null);
@@ -518,14 +523,16 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
       setFocusOpen(false);
       setRcOpen(false);
       setEngOpen(false);
+      setRewindOpen(false);
       setCompareShown(true);
     } else if (compare.stage === "pick" && compare.resume && compare.a && compare.b) setCompare({ stage: "active", a: compare.a, b: compare.b });
     else setCompare(null);
   };
   /** Race control and Drivers take the right-hand area by closing the comparison panel (not stacking over it). */
-  const openDock = (which: "rc" | "focus" | "eng" | null) => {
+  const openDock = (which: "rc" | "focus" | "eng" | "rewind" | null) => {
     setRcOpen(which === "rc");
     setEngOpen(which === "eng");
+    setRewindOpen(which === "rewind");
     if (which === "eng") setEngMounted(true);
     setFocusOpen(which === "focus");
     if (which) setCompareShown(false);
@@ -865,6 +872,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
                       openDock(rcOpen ? null : "rc");
                     }, rcOpen)}
                     {model && toolButton("Compare", onCompareButton, comparePanel)}
+                    {model && toolButton("Rewind", () => openDock(rewindOpen ? null : "rewind"), rewindOpen)}
                     {model && source.kind === "history" && toolButton("Engineer", () => openDock(engOpen ? null : "eng"), engOpen)}
                   </div>
                 </div>
@@ -929,10 +937,31 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
                     </div>
                   </div>
                 )}
+                {rewindOpen && model && (
+                  <div className={cn("pointer-events-none absolute z-20 flex flex-col", phone ? "inset-x-2 bottom-[9.25rem]" : "bottom-[5.75rem] right-4 top-[8.5rem] w-[22.5rem]")} style={phone ? { top: toolbarBottom + 8 } : undefined}>
+                    <div className={cn("pointer-events-auto flex min-h-0 flex-1 flex-col overflow-hidden", GLASS)}>
+                      <RewindPanel
+                        model={model}
+                        t={rcT}
+                        initialNumber={selected ? Number(selected.replace("car-", "")) : null}
+                        onSeek={(t) => provider.current?.seekTime?.(t)}
+                        onAsk={
+                          source.kind === "history"
+                            ? (text) => {
+                                setEngPrefill((p) => ({ id: (p?.id ?? 0) + 1, text }));
+                                openDock("eng");
+                              }
+                            : undefined
+                        }
+                        onClose={() => setRewindOpen(false)}
+                      />
+                    </div>
+                  </div>
+                )}
                 {engMounted && model && source.kind === "history" && (
                   <div className={cn("pointer-events-none absolute z-20 flex flex-col", !engOpen && "hidden", phone ? "inset-x-2 bottom-[9.25rem]" : "bottom-[5.75rem] right-4 top-[8.5rem] w-[24rem]")} style={phone ? { top: toolbarBottom + 8 } : undefined}>
                     <div className={cn("pointer-events-auto flex min-h-0 flex-1 flex-col overflow-hidden", GLASS)}>
-                      <EngineerPanel sessionKey={source.sessionKey} t={rcT} onSeek={(t) => provider.current?.seekTime?.(Math.max(0, t - EVENT_LEAD_IN_MS))} onClose={() => setEngOpen(false)} />
+                      <EngineerPanel sessionKey={source.sessionKey} t={rcT} onSeek={(t) => provider.current?.seekTime?.(Math.max(0, t - EVENT_LEAD_IN_MS))} onClose={() => setEngOpen(false)} prefill={engPrefill} />
                     </div>
                   </div>
                 )}

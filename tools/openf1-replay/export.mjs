@@ -49,6 +49,7 @@ for (const s of sessions) {
   ];
   const weather = (await get(`weather?session_key=${key}`)).sort((x, y) => ms(x.date) - ms(y.date));
   const stints = await get(`stints?session_key=${key}`);
+  const overtakes = await get(`overtakes?session_key=${key}`);
   const lap1 = laps.filter((l) => l.lap_number === 1 && l.date_start).map((l) => ms(l.date_start));
   if (!lap1.length) {
     console.error(`  ${key} ${s.location}: no lap data published, skipped`);
@@ -106,7 +107,7 @@ for (const s of sessions) {
     source: {
       name: "OpenF1",
       url: "https://openf1.org",
-      endpoints: ["/v1/sessions", "/v1/meetings", "/v1/drivers", "/v1/location", "/v1/laps", "/v1/position", "/v1/intervals", "/v1/pit", "/v1/race_control", "/v1/weather", "/v1/stints"],
+      endpoints: ["/v1/sessions", "/v1/meetings", "/v1/drivers", "/v1/location", "/v1/laps", "/v1/position", "/v1/intervals", "/v1/pit", "/v1/race_control", "/v1/weather", "/v1/stints", "/v1/overtakes"],
       fetchedOn: new Date().toISOString().slice(0, 10),
       note: "Recorded OpenF1 data (unofficial, community API; data originating from Formula 1 timing). Positions thinned to samples at least 1 s apart. Non-commercial use; see openf1.org for terms.",
     },
@@ -142,6 +143,11 @@ for (const s of sessions) {
       windSpeed: weather.map((w) => num(w.wind_speed)),
       windDir: weather.map((w) => num(w.wind_direction)),
     },
+    // On-track passes as published: [t, overtaking car, overtaken car, position gained].
+    overtakes: overtakes
+      .filter((o) => o.date && Number.isInteger(o.overtaking_driver_number) && Number.isInteger(o.overtaken_driver_number))
+      .map((o) => [rel(o.date), o.overtaking_driver_number, o.overtaken_driver_number, o.position ?? null])
+      .sort((a, b) => a[0] - b[0]),
     raceControl: rc
       .map((r) => ({ t: rel(r.date), category: r.category ?? null, flag: r.flag ?? null, scope: r.scope ?? null, message: r.message ?? "", lap: r.lap_number ?? null, number: r.driver_number ?? null }))
       .sort((a, b) => a.t - b.t),

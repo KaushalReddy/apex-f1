@@ -22,14 +22,22 @@ interface Props {
   onMoment?: (t: number) => void;
   momentHref?: ((t: number) => string) | null;
   compact?: boolean;
+  /** A question to put in the box (not sent); a new `id` replaces the box's text. */
+  prefill?: { id: number; text: string } | null;
 }
 
 const MAX_TURNS = 20;
 
 /** Conversation with the Race Engineer (Phase 14). Answers stream from /api/engineer; only finished question/answer pairs are sent back. */
-export function EngineerChat({ sessionKey, until = null, suggestions, onMoment, momentHref, compact }: Props) {
+export function EngineerChat({ sessionKey, until = null, suggestions, onMoment, momentHref, compact, prefill = null }: Props) {
   const [turns, setTurns] = useState<Turn[]>([]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(prefill?.text ?? "");
+  // Adopt a new prefill while rendering (React's pattern for state derived from a changed prop).
+  const [prefillId, setPrefillId] = useState(prefill?.id ?? null);
+  if (prefill && prefill.id !== prefillId) {
+    setPrefillId(prefill.id);
+    setInput(prefill.text);
+  }
   const [busy, setBusy] = useState(false);
   const [unconfigured, setUnconfigured] = useState(false);
   const abort = useRef<AbortController | null>(null);

@@ -2,6 +2,7 @@ import type { ReplayDataset } from "@/lib/replay/dataset";
 import { comparable, consistency, lapRows, neutralisedPeriods } from "@/lib/replay/laps";
 import { ReplayModel } from "@/lib/replay/model";
 import { classify, messageText } from "@/lib/replay/raceControl";
+import { rewindSteps, rewindSummary } from "@/lib/replay/rewind";
 import { finalGaps, stintsOf } from "@/lib/strategy/strategy";
 
 /**
@@ -37,6 +38,7 @@ export function cutAt(ds: ReplayDataset, until: number | null): ReplayDataset {
     order: ds.order.filter(([t]) => t <= until),
     pits: ds.pits.filter((p) => p.t <= until),
     raceControl: ds.raceControl.filter((m) => m.t <= until),
+    overtakes: ds.overtakes.filter(([t]) => t <= until),
     weather: w ? { t: pick(w.t), air: pick(w.air), track: pick(w.track), humidity: pick(w.humidity), pressure: pick(w.pressure), rain: pick(w.rain), windSpeed: pick(w.windSpeed), windDir: pick(w.windDir) } : null,
   };
 }
@@ -208,6 +210,35 @@ export class EngineerData {
       .map(({ c, lap }) => ({ t: c.t, race_clock: this.clock(c.t), lap, kind: c.kind, message: messageText(c.message) }));
   }
 
+  /** Race Rewind: every position change of a driver with its calculated cause (see lib/replay/rewind). */
+  positionChanges(i: number) {
+    const m = this.m;
+    const steps = rewindSteps(m, i);
+    const sum = rewindSummary(m, i, steps);
+    const code = (n: number) => {
+      const k = m.ds.drivers.findIndex((d) => d.number === n);
+      return k >= 0 ? this.code(k) : `#${n}`;
+    };
+    return {
+      driver: this.code(i),
+      start_position: sum.start,
+      [this.partial ? "current_position" : "finish_position"]: sum.now,
+      net_places_by_cause_calc: sum.byCause,
+      changes: steps.map((s) => ({
+        t: s.t,
+        race_clock: this.clock(s.t),
+        lap: s.lap,
+        from: s.from,
+        to: s.to,
+        swaps: s.swaps.map((w) => ({ car: code(w.other), cause: w.cause })),
+        own_pit_stop: s.pit ? { lap: s.pit.lap, pit_lane_s: r1(s.pit.laneS) } : undefined,
+        under: s.neutralised ?? undefined,
+        penalty_messages: s.penalties.length ? s.penalties : undefined,
+      })),
+      note: "Calculated by APEX F1 from the official order, pit stops and OpenF1's published on-track passes. cause: own-pit (lost while pitting), rival-pit (gained as the other car pitted), on-track (a published pass), rival-stopped (the other car stopped), unexplained (no record explains it).",
+    };
+  }
+
   weather() {
     const w = this.m.ds.weather;
     if (!w) return { weather: "not published for this race" };
@@ -271,6 +302,12 @@ export const TOOLS: ToolSpec[] = [
     },
   },
   {
+    name: "position_changes",
+    description:
+      "Race Rewind for one driver: every position change with its calculated cause (own pit stop, a rival's pit stop, an on-track pass, a rival stopping, or unexplained), whether it was under a Safety Car/VSC, penalty messages, and net places by cause. Use for 'why did X lose/gain places' questions.",
+    input_schema: { type: "object", properties: { driver: { type: "string", description: "Three-letter code, car number or surname" } }, required: ["driver"], additionalProperties: false },
+  },
+  {
     name: "weather",
     description: "Track-side weather through the race (air and track temperature, humidity, rain, wind), about every five minutes.",
     input_schema: { type: "object", properties: {}, additionalProperties: false },
@@ -323,6 +360,10 @@ export function runTool(data: EngineerData, name: string, input: unknown): ToolO
       }
       const list = data.messages({ fromLap: o.from_lap as number | undefined, toLap: o.to_lap as number | undefined, driver, keyOnly: o.key_only === true });
       return { ok: true, value: { messages: list.slice(0, 80), truncated: list.length > 80 || undefined }, label: driver != null ? `Race control about ${data.code(driver)}` : "Race control" };
+    }
+    case "position_changes": {
+      const i = who(o.driver);
+      return typeof i === "string" ? { ok: false, error: i } : { ok: true, value: data.positionChanges(i), label: `${data.code(i)}'s position changes` };
     }
     case "weather":
       return { ok: true, value: data.weather(), label: "Weather" };

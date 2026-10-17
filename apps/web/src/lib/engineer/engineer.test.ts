@@ -76,6 +76,21 @@ describe("tools on real data", () => {
   });
 });
 
+describe("position_changes tool", () => {
+  it("gives the Race Rewind analysis, cut at the replay moment", () => {
+    const full = runTool(new EngineerData(ds, null), "position_changes", { driver: "NOR" });
+    if (!full.ok) throw new Error(full.error);
+    const v = full.value as { finish_position: number; changes: { swaps: { cause: string }[] }[] };
+    expect(v.finish_position).toBe(4);
+    expect(v.changes.some((c) => c.swaps.some((w) => w.cause === "own-pit"))).toBe(true);
+    const part = runTool(new EngineerData(ds, mid), "position_changes", { driver: "NOR" });
+    if (!part.ok) throw new Error(part.error);
+    const p = part.value as { current_position: number; changes: { t: number }[] };
+    expect(p.changes.every((c) => c.t <= mid)).toBe(true);
+    expect(p.changes.length).toBeLessThan(v.changes.length);
+  });
+});
+
 describe("validHistory", () => {
   it("accepts alternating turns that end with a question, and rejects anything else", () => {
     expect(validHistory([{ role: "user", text: "Who won?" }])).toHaveLength(1);

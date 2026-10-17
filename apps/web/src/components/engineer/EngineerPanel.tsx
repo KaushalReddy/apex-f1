@@ -6,7 +6,7 @@ import { EngineerChat } from "./EngineerChat";
 const SUGGESTIONS = ["What has happened so far?", "Who is fastest right now?", "How are the tyre strategies playing out?", "Why did the leader change?"] as const;
 
 /** The Race Engineer inside the replay: it knows the race only up to the replay moment when each question is asked, and links seek. */
-export function EngineerPanel({ sessionKey, t, onSeek, onClose }: { sessionKey: number; t: number; onSeek: (t: number) => void; onClose: () => void }) {
+export function EngineerPanel({ sessionKey, t, onSeek, onClose, prefill = null }: { sessionKey: number; t: number; onSeek: (t: number) => void; onClose: () => void; prefill?: { id: number; text: string } | null }) {
   return (
     <section aria-labelledby="eng-heading" className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between gap-2 border-b border-white/10 px-3 py-2">
@@ -18,7 +18,7 @@ export function EngineerPanel({ sessionKey, t, onSeek, onClose }: { sessionKey: 
         </Button>
       </div>
       <p className="px-3 pt-2 text-[11px] text-subtle">Knows the race only up to the replay moment when you ask, so no spoilers. Select a linked moment to jump there.</p>
-      <EngineerChat sessionKey={sessionKey} until={t} suggestions={SUGGESTIONS} onMoment={onSeek} compact />
+      <EngineerChat sessionKey={sessionKey} until={t} suggestions={SUGGESTIONS} onMoment={onSeek} compact prefill={prefill} />
     </section>
   );
 }
