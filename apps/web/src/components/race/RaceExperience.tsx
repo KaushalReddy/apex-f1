@@ -386,10 +386,10 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
       </Button>
       {caps?.timeline && (
         <>
-          <Button size="sm" variant="ghost" className="h-8 px-2" disabled={!snapshot} aria-label="Back 10 seconds" onClick={() => provider.current?.step?.(-10_000)}>
+          <Button size="sm" variant="ghost" className="h-8 px-2" disabled={!snapshot} aria-label="−10 s: back 10 seconds" onClick={() => provider.current?.step?.(-10_000)}>
             −10 s
           </Button>
-          <Button size="sm" variant="ghost" className="h-8 px-2" disabled={!snapshot} aria-label="Forward 10 seconds" onClick={() => provider.current?.step?.(10_000)}>
+          <Button size="sm" variant="ghost" className="h-8 px-2" disabled={!snapshot} aria-label="+10 s: forward 10 seconds" onClick={() => provider.current?.step?.(10_000)}>
             +10 s
           </Button>
         </>

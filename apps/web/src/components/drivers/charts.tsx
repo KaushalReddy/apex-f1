@@ -257,7 +257,8 @@ export function Stat({ label, value, hint }: { label: string; value: ReactNode; 
     <div className="bg-surface px-4 py-3">
       <dt className="eyebrow">{label}</dt>
       <dd className="mt-1 font-display text-2xl font-semibold leading-none tabular-nums">{value}</dd>
-      {hint && <p className="mt-1 text-[11px] text-subtle">{hint}</p>}
+      {/* A second <dd>: a <dl> group may only hold <dt>/<dd> (a <p> here broke the term-value pairing for screen readers). */}
+      {hint && <dd className="mt-1 text-[11px] text-subtle">{hint}</dd>}
     </div>
   );
 }

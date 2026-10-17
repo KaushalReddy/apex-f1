@@ -32,3 +32,7 @@ apps/web/.cfd/
 __pycache__/
 tools/openf1-telemetry/.cache/
 tools/openf1-replay/.cache/
+
+# Playwright
+apps/web/playwright-report/
+apps/web/test-results/

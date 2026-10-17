@@ -83,15 +83,16 @@ export function StrategyView({ data, initialDriver, replayHref }: { data: Strate
                       type="button"
                       onClick={() => setSel(d.number)}
                       aria-pressed={d.number === driver?.number}
-                      aria-label={`${d.code}: ${d.stints.map((s) => `${compound(s.compound).label} laps ${s.lapStart}–${s.lapEnd}`).join(", ")}`}
                       className={cn("motion-interactive relative flex h-7 w-full items-center rounded-sm text-left hover:bg-surface-2", d.number === driver?.number && "bg-surface-2")}
                     >
                       <span className="flex w-24 shrink-0 items-center gap-1.5 pl-1 text-xs">
                         <span className="w-6 tabular-nums text-subtle">{f ? `P${f.position}` : ""}</span>
                         <span aria-hidden="true" className="h-3 w-0.5 rounded-sm" style={{ backgroundColor: d.colour ?? "#c9ced6" }} />
                         <span className="font-semibold">{d.code}</span>
+                        {/* The row's name is its visible text plus the stints in words (the coloured bars and letters are visual only). */}
+                        <span className="sr-only">: {d.stints.map((s) => `${compound(s.compound).label} laps ${s.lapStart}–${s.lapEnd}`).join(", ")}</span>
                       </span>
-                      <span className="relative h-4 flex-1">
+                      <span aria-hidden="true" className="relative h-4 flex-1">
                         {d.stints.map((s) => {
                           const c = compound(s.compound);
                           return (
