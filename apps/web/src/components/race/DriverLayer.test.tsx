@@ -7,7 +7,7 @@ import { centerlineToWorld, createWorldTransform } from "@/lib/circuit/transform
 import { SnapshotBuffer } from "@/lib/race/session";
 import { createTrackPath } from "@/lib/race/track";
 import type { RaceSnapshot } from "@/lib/race/types";
-import { DriverLayer, type MarkerDriver } from "./DriverLayer";
+import { DriverLayer, SAFETY_CAR_AHEAD_M, type MarkerDriver } from "./DriverLayer";
 
 const geometry = syntheticLoop({ n: 300 });
 const transform = createWorldTransform(geometry);
@@ -27,7 +27,7 @@ const snapshot = (progress: Record<string, number | null>): RaceSnapshot => ({
   epoch: 0,
 });
 
-function Layer({ drivers, buffer }: { drivers: MarkerDriver[]; buffer: SnapshotBuffer }) {
+function Layer({ drivers, buffer, neutral = null }: { drivers: MarkerDriver[]; buffer: SnapshotBuffer; neutral?: { kind: "safety-car" | "vsc"; leaderId: string | null } | null }) {
   return (
     <CircuitFrameProvider value={transform}>
       <DriverLayer
@@ -42,6 +42,7 @@ function Layer({ drivers, buffer }: { drivers: MarkerDriver[]; buffer: SnapshotB
         animating={false}
         onSelect={() => {}}
         onHover={() => {}}
+        neutral={neutral}
       />
     </CircuitFrameProvider>
   );
@@ -118,6 +119,24 @@ describe("DriverLayer (headless R3F)", () => {
     path.pointAt(0.7, out);
     expect(group("c").position.x).toBeCloseTo(out[0], 3); // the same position as when shown normally
     expect(group("b").getObjectByName("halo")).toBeDefined();
+    vi.restoreAllMocks();
+    await r.unmount();
+  });
+
+  it("draws the approximate Safety Car just ahead of the leader, and nothing for a VSC or a green track", async () => {
+    vi.spyOn(performance, "now").mockReturnValue(10_000);
+    const buffer = new SnapshotBuffer(250);
+    buffer.push(snapshot({ a: 0.3, b: 0.2 }), 0);
+    const r = await ReactThreeTestRenderer.create(<Layer drivers={drivers.slice(0, 2)} buffer={buffer} neutral={{ kind: "safety-car", leaderId: "a" }} />);
+    await r.advanceFrames(1, 1 / 60);
+    const sc = r.scene.findByProps({ name: "safety-car" }).instance as Group;
+    const out = [0, 0, 0];
+    path.pointAt(0.3 + SAFETY_CAR_AHEAD_M / path.length, out);
+    expect(sc.visible).toBe(true);
+    expect(sc.position.x).toBeCloseTo(out[0], 3);
+    expect(sc.position.z).toBeCloseTo(out[2], 3);
+    await r.update(<Layer drivers={drivers.slice(0, 2)} buffer={buffer} neutral={{ kind: "vsc", leaderId: "a" }} />);
+    expect(r.scene.findAll((n) => n.props.name === "safety-car")).toHaveLength(0);
     vi.restoreAllMocks();
     await r.unmount();
   });

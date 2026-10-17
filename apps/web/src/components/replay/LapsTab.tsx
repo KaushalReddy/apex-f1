@@ -102,7 +102,7 @@ export function LapsTab({ model, a, b, codeA, codeB, t, onSeek }: { model: Repla
         <tbody className="divide-y divide-white/10">
           {rowsA.map((r) => {
             const rb = byLapB.get(r.lap);
-            const flag = (x: typeof r | undefined) => (x ? [x.pit && "pit", x.neutralised && "SC/VSC"].filter(Boolean).join(", ") : "");
+            const flag = (x: typeof r | undefined) => (x ? [x.pit && "pit", ...x.neutralisedBy].filter(Boolean).join(", ") : "");
             const flags = [...new Set([flag(r), flag(rb)].filter(Boolean))].join(" · ");
             return (
               <tr key={r.lap} className={cn(current === r.lap && "bg-surface-2/70")}>

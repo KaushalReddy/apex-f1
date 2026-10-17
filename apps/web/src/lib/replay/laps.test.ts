@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { parseReplay } from "./dataset";
 import { comparable, consistency, deltaSwings, lapRows, neutralisedPeriods, sectorBreakdown } from "./laps";
 import { ReplayModel } from "./model";
-import { fixture, project } from "./model.test";
+import { fixture, project } from "./testing/fixture";
 
-// TEST DATA: the synthetic race of model.test.ts with more laps for car 1.
+// TEST DATA: the synthetic race of testing/fixture.ts with more laps for car 1.
 function model() {
   const f = fixture();
   f.drivers[0].laps = [[1, 10_000, 100, 30, 40, 30], [2, 110_000, 98, 29, 40, 29], [3, 208_000, 120, 40, 40, 40], [4, 328_000, 97, 29, 39, 29], [5, 425_000, 99, 30, 39, 30], [6, 524_000, 96, 28, 39, 29]];
@@ -25,13 +25,14 @@ describe("lap rows", () => {
   const m = model();
   const rows = lapRows(m, 0);
   it("marks pit in/out laps and neutralised laps from official records", () => {
-    expect(neutralisedPeriods(m)).toEqual([[90_000, 150_000]]);
+    expect(neutralisedPeriods(m)).toEqual([{ from: 90_000, to: 150_000, kind: "VSC" }]);
+    expect(rows[1].neutralisedBy).toEqual(["VSC"]);
     expect(rows.map((r) => [r.lap, r.pit, r.neutralised])).toEqual([[1, false, true], [2, false, true], [3, false, false], [4, true, false], [5, true, false], [6, false, false]]);
   });
   it("uses only comparable laps for consistency, and needs at least three", () => {
     expect(rows.filter(comparable).map((r) => r.lap)).toEqual([3, 6]);
     expect(consistency(rows)).toBeNull(); // two comparable laps only
-    const c = consistency([...rows, { lap: 7, start: 0, lapS: 98, sectors: [null, null, null], pit: false, neutralised: false }])!;
+    const c = consistency([...rows, { lap: 7, start: 0, lapS: 98, sectors: [null, null, null], pit: false, neutralised: false, neutralisedBy: [] }])!;
     expect(c.laps).toBe(3);
     expect(c.meanS).toBeCloseTo((120 + 96 + 98) / 3);
   });

@@ -27,6 +27,9 @@ import { HistoricalReplayProvider } from "@/lib/replay/provider";
 import { ComparePanel } from "@/components/replay/ComparePanel";
 import { ComparePicker } from "@/components/replay/ComparePicker";
 import { CircuitFocus } from "./CircuitFocus";
+import { RaceControlPanel } from "@/components/replay/RaceControlPanel";
+import { messageText, RaceControl, weatherAt, type TrackStatus } from "@/lib/replay/raceControl";
+import { EVENT_LEAD_IN_MS } from "@/lib/replay/model";
 import { emphasis, isHollow, reconcile, type FocusSet } from "@/lib/race/visibility";
 import { useReducedMotion, useWebGL } from "@/lib/use-client-env";
 import { useImmersive } from "@/lib/use-immersive";
@@ -73,6 +76,18 @@ export interface RaceExperienceProps {
   telemetrySessionKey?: number | null;
 }
 
+/** Track status (calculated from race-control messages; see lib/replay/raceControl). */
+const STATUS_LABEL: Record<TrackStatus, string> = { "not-started": "Before the start", green: "Track green", yellow: "Yellow flag", vsc: "Virtual Safety Car", "safety-car": "Safety Car", "red-flag": "Red flag", finished: "Chequered flag" };
+const STATUS_TONE: Record<TrackStatus, string> = {
+  "not-started": "border-white/15 text-muted",
+  green: "border-success/50 text-success",
+  yellow: "border-warning/60 text-warning",
+  vsc: "border-warning/60 text-warning",
+  "safety-car": "border-warning/70 bg-warning/10 text-warning",
+  "red-flag": "border-danger/70 bg-danger/10 text-danger",
+  finished: "border-white/25 text-fg",
+};
+
 const FRESHNESS_COPY = {
   waiting: { tone: "neutral", text: "Waiting for data" },
   fresh: { tone: "success", text: "Up to date" },
@@ -104,6 +119,22 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
   const [wideCompare, setWideCompare] = useState(false);
   // The last compared pair, so reopening the picker (after Exit, or an accidental double-click) starts from it.
   const [lastPair, setLastPair] = useState<[string, string] | null>(null);
+  // Race control & conditions (Phase 12): its panel, and the approximate sector-flag shading on the circuit (on by default).
+  const [rcOpen, setRcOpen] = useState(false);
+  // Whether the comparison PANEL is open. The comparison itself (pair, highlight, on-screen bar) stays active when another panel takes the
+  // right-hand area; that panel's Close then closes only itself, and the Compare button reopens the comparison where it was left.
+  const [compareShown, setCompareShown] = useState(true);
+  const [sectorOverlay, setSectorOverlay] = useState(true);
+  // Where the HUD toolbar ends (it wraps to more rows on narrow screens): phone panels start just below it instead of a guessed offset.
+  const toolbarRef = useRef<HTMLDivElement | null>(null);
+  const [toolbarBottom, setToolbarBottom] = useState(112);
+  useEffect(() => {
+    const el = toolbarRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setToolbarBottom(Math.round(el.getBoundingClientRect().bottom)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   // While comparing, the pair is emphasised unless the user chose "Show all" (the comparison itself stays open). A new pair re-enables it.
   const [compareHighlight, setCompareHighlight] = useState(true);
   const [events, setEvents] = useState<RaceEvent[]>([]);
@@ -284,7 +315,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
       case "session":
         return e.status === "running" ? "Session started" : e.status === "finished" ? "Session finished" : `Session ${e.status}`;
       case "official":
-        return `Race control: ${e.text.charAt(0)}${e.text.slice(1).toLowerCase()}`;
+        return `Race control: ${messageText(e.text)}`;
       case "pit-stop":
         return `${name(e.driver)} pit stop${e.lap ? ` on lap ${e.lap}` : ""}${e.laneS ? ` (${e.laneS.toFixed(1)} s in the pit lane)` : ""}`;
       case "position":
@@ -405,13 +436,13 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
                   title={band ? `${m.label}: ${Math.round((m.end! - m.t) / 1000)} s` : m.label}
                   aria-label={`Go to: ${m.label}`}
                   tabIndex={m.kind === "pit" ? -1 : 0}
-                  onClick={() => provider.current?.seekTime?.(Math.max(0, m.t - 3000))}
+                  onClick={() => provider.current?.seekTime?.(Math.max(0, m.t - EVENT_LEAD_IN_MS))}
                   className={cn(
                     "pointer-events-auto absolute bottom-0 rounded-full focus-visible:outline-2",
                     band ? "h-1.5 min-w-1.5" : "-translate-x-1/2",
                     m.kind === "pit" && "z-0 h-1.5 w-1 bg-subtle/60",
                     m.kind === "safety-car" && "z-10 bg-warning",
-                    m.kind === "red-flag" && "z-20 h-2 w-1.5 bg-danger",
+                    m.kind === "red-flag" && cn("z-20 bg-danger", band ? "h-1.5" : "h-2 w-1.5"),
                     (m.kind === "start" || m.kind === "finish") && "z-20 h-2 w-1.5 bg-fg",
                   )}
                   style={{ left: `${(m.t / d) * 100}%`, width: band ? `${((m.end! - m.t) / d) * 100}%` : undefined }}
@@ -434,18 +465,24 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
   // Space the floating panels take, so the circuit is framed in what is left (desktop: side panels; phone: top bar and bottom stack).
   // Space the floating panels take (below the site bar and HUD row, above the playback bar). Desktop side insets are symmetric so the
   // circuit stays centred on screen; they shrink when no side panel is open.
-  const sidePanels = showOrder || !!sel || showEvents || !!compare || focusOpen;
+  const comparePanel = !!compare && compareShown && !focusOpen && !rcOpen;
+  const sidePanels = showOrder || !!sel || showEvents || comparePanel || focusOpen || rcOpen;
   // The comparison column is wider (22.5rem, or 36rem "wide") than the driver/events column (18.5rem). Wide frames the circuit off-centre
   // (between the race order and the panel) rather than shrinking it to a sliver.
-  const side = compare ? 392 : 344;
+  const side = comparePanel ? 392 : 344;
   const insets = phone
-    ? { top: 112, right: 8, bottom: compare ? 420 : sel || showOrder ? 300 : 120, left: 8 }
-    : compare && wideCompare
+    ? { top: 112, right: 8, bottom: comparePanel ? 420 : sel || showOrder ? 300 : 120, left: 8 }
+    : comparePanel && wideCompare
       ? { top: 196, right: 600, bottom: 92, left: showOrder ? 344 : 24 }
       : { top: 196, right: sidePanels ? side : 24, bottom: 92, left: sidePanels ? side : 24 };
 
   // Comparison: drivers by id <-> model index, the active pair highlighted on the circuit with the battle focus ring.
   const model = caps?.model ?? null;
+  const rc = useMemo(() => (model ? new RaceControl(model) : null), [model]);
+  const rcT = snapshot?.t ?? 0;
+  const trackStatus = rc ? rc.statusAt(rcT) : null;
+  const sectorFlagsNow = rc ? [...rc.sectorFlags(rcT)] : [];
+  const weatherNow = rc && model ? weatherAt(model.ds.weather, rcT) : null;
   const indexOf = (id: string | null) => (model && id ? model.ds.drivers.findIndex((d) => `car-${d.number}` === id) : -1);
   const comparing = compare?.stage === "active" && indexOf(compare.a) >= 0 && indexOf(compare.b) >= 0;
   const shownFocus = comparing ? [compare!.a!, compare!.b!] : focus;
@@ -454,6 +491,8 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
     : [];
   const startCompare = () => {
     setFocusOpen(false);
+    setRcOpen(false);
+    setCompareShown(true);
     const a = compare?.a ?? selected ?? lastPair?.[0] ?? null;
     const b = compare?.b ?? (lastPair && lastPair[1] !== a ? lastPair[1] : lastPair && lastPair[0] !== a ? lastPair[0] : null);
     setCompare({ stage: "pick", a, b });
@@ -464,9 +503,19 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
    */
   const onCompareButton = () => {
     if (!compare) startCompare();
-    else if (focusOpen) setFocusOpen(false);
-    else if (compare.stage === "pick" && compare.resume && compare.a && compare.b) setCompare({ stage: "active", a: compare.a, b: compare.b });
+    else if (!comparePanel) {
+      // Comparison active but its panel closed (another panel took the area): reopen it as it was.
+      setFocusOpen(false);
+      setRcOpen(false);
+      setCompareShown(true);
+    } else if (compare.stage === "pick" && compare.resume && compare.a && compare.b) setCompare({ stage: "active", a: compare.a, b: compare.b });
     else setCompare(null);
+  };
+  /** Race control and Drivers take the right-hand area by closing the comparison panel (not stacking over it). */
+  const openDock = (which: "rc" | "focus" | null) => {
+    setRcOpen(which === "rc");
+    setFocusOpen(which === "focus");
+    if (which) setCompareShown(false);
   };
   const comparePane = compare && model && (
     <div className={cn("pointer-events-auto flex min-h-0 flex-col overflow-hidden", GLASS)}>
@@ -480,6 +529,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
             setSelected(null);
             setCompareHighlight(true);
             setLastPair([a, b]);
+            setCompareShown(true);
             setCompare({ stage: "active", a, b });
           }}
         />
@@ -604,7 +654,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
                   type="button"
                   disabled={ids.length === 0 && !caps?.timeline}
                   onClick={() => {
-                    provider.current?.seekTime?.(e.t);
+                    provider.current?.seekTime?.(Math.max(0, e.t - EVENT_LEAD_IN_MS));
                     if (e.kind === "battle") {
                       setSelected(e.behind);
                       setFocus([e.ahead, e.behind]);
@@ -685,6 +735,8 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
                     fitNonce={fitNonce}
                     insets={insets}
                     view={fitView}
+                    sectorFlags={rc && sectorOverlay && rc.sectorCount ? { count: rc.sectorCount, flags: sectorFlagsNow } : null}
+                    neutral={trackStatus === "safety-car" || trackStatus === "vsc" ? { kind: trackStatus, leaderId: drivers.find((d) => d.position === 1)?.id ?? null } : null}
                     drivers={markerDrivers}
                     buffer={buffer}
                     labels={labels}
@@ -702,6 +754,16 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
               {/* Driver labels: placed every frame, always touching their marker by the driver layer (lib/race/declutter.ts placeLabels). Mouse users can
                   click a label; keyboard and screen-reader users get the same selection through the race order list. */}
               <div ref={labels} aria-hidden="true" className="pointer-events-none absolute inset-0 overflow-hidden">
+                {/* Safety Car (approximate: its position is not in the data) and VSC tags, placed by the driver layer. */}
+                {(trackStatus === "safety-car" || trackStatus === "vsc") && (
+                  <span
+                    data-label-id={trackStatus === "safety-car" ? "__sc" : "__vsc"}
+                    data-visible="false"
+                    className="absolute left-0 top-0 whitespace-nowrap rounded-sm border border-[#ffd60a]/80 bg-bg/85 px-1.5 py-0.5 text-[11px] font-semibold leading-none text-[#ffd60a] transition-opacity duration-150 data-[visible=false]:opacity-0"
+                  >
+                    {trackStatus === "safety-car" ? "SC (approx.)" : "VSC"}
+                  </span>
+                )}
                 {drivers.map((d) => (
                   <button
                     key={d.id}
@@ -738,6 +800,22 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
                     <p className="eyebrow hidden sm:block">Race experience</p>
                     <h1 className="truncate font-display text-lg font-semibold leading-tight sm:text-xl">{circuit.name} · {source.kind === "demo" ? "Simulated race" : "Race"}</h1>
                     <div className="mt-1 hidden sm:block">{statusChips}</div>
+                    {trackStatus && (
+                      <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                        <span className={cn("rounded-sm border px-1.5 py-0.5 font-medium", STATUS_TONE[trackStatus])}>
+                          {STATUS_LABEL[trackStatus]}
+                          {trackStatus === "yellow" && sectorFlagsNow.length > 0 && ` · sector${sectorFlagsNow.length > 1 ? "s" : ""} ${sectorFlagsNow.map(([k]) => k).join(", ")}`}
+                        </span>
+                        {sectorOverlay && sectorFlagsNow.length > 0 && <span className="text-[11px] text-subtle">shaded on the circuit (approx.)</span>}
+                        {weatherNow && (
+                          <span className="tabular-nums text-muted">
+                            {weatherNow.airC != null && `Air ${Math.round(weatherNow.airC)}°`}
+                            {weatherNow.trackC != null && ` · Track ${Math.round(weatherNow.trackC)}°`}
+                            {weatherNow.rain && <span className="text-info"> · Rain</span>}
+                          </span>
+                        )}
+                      </div>
+                    )}
                     <div className="mt-1 sm:hidden">{modeBadge}</div>
                     {notice && <p className="mt-1.5 text-xs leading-relaxed text-muted">{notice}</p>}
                     <details className="mt-1.5 text-xs">
@@ -760,22 +838,27 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
                   </div>
                   {showOrder && !phone && <div className={cn("pointer-events-auto flex min-h-0 flex-col overflow-hidden", GLASS)}>{orderPanel}</div>}
                   </div>
-                  <div className={cn("pointer-events-auto flex flex-wrap justify-end gap-1 p-1", GLASS)}>
+                  <div ref={toolbarRef} className={cn("pointer-events-auto flex flex-wrap justify-end gap-1 p-1", GLASS)}>
                     <span className="hidden items-center px-1 text-xs text-muted lg:inline-flex">{freshnessChip}</span>
                     {toolButton("Fit", fitCircuit)}
                     <span className="hidden sm:contents">{toolButton("Top-down", topDown)}</span>
                     {toolButton("Labels", () => setLabelsOn((l) => !l), labelsOn)}
                     {toolButton("Order", () => setShowOrder((o) => !o), showOrder)}
                     <span className="hidden sm:contents">{toolButton("Events", () => setShowEvents((o) => !o), showEvents)}</span>
-                    {toolButton(emph.source === "focus" ? `Drivers · ${emph.prominent!.size}` : "Drivers", () => setFocusOpen((o) => !o), focusOpen || emph.source === "focus")}
-                    {model && toolButton("Compare", onCompareButton, !!compare && !focusOpen)}
+                    {toolButton(emph.source === "focus" ? `Drivers · ${emph.prominent!.size}` : "Drivers", () => {
+                      openDock(focusOpen ? null : "focus");
+                    }, focusOpen || emph.source === "focus")}
+                    {rc && toolButton("Race control", () => {
+                      openDock(rcOpen ? null : "rc");
+                    }, rcOpen)}
+                    {model && toolButton("Compare", onCompareButton, comparePanel)}
                   </div>
                 </div>
 
                 {errorBox}
 
                 {/* Desktop: race order floats on the left, driver details and events on the right. Phone: one bottom sheet at a time. */}
-                {showOrder && phone && !sel && !compare && !focusOpen && (
+                {showOrder && phone && !sel && !comparePanel && !focusOpen && !rcOpen && (
                   <div
                     className={cn(
                       "pointer-events-auto absolute inset-x-2 bottom-[4.75rem] flex max-h-[42vh] flex-col overflow-hidden",
@@ -792,7 +875,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
                   <div
                     className={cn(
                       "pointer-events-none absolute flex flex-col",
-                      focusOpen && "hidden",
+                      !comparePanel && "hidden",
                       phone ? "inset-x-2 bottom-[9.25rem] max-h-[52svh]" : cn("bottom-[5.75rem] right-4 top-[8.5rem]", wideCompare ? "w-[36rem]" : "w-[22.5rem]"),
                     )}
                   >
@@ -800,7 +883,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
                   </div>
                 )}
                 {focusOpen && (
-                  <div className={cn("pointer-events-none absolute z-20 flex flex-col", phone ? "inset-x-2 bottom-[9.25rem] top-[7.25rem]" : "bottom-[5.75rem] right-4 top-[8.5rem] w-[20rem]")}>
+                  <div className={cn("pointer-events-none absolute z-20 flex flex-col", phone ? "inset-x-2 bottom-[9.25rem]" : "bottom-[5.75rem] right-4 top-[8.5rem] w-[20rem]")} style={phone ? { top: toolbarBottom + 8 } : undefined}>
                     <div className={cn("pointer-events-auto flex min-h-0 flex-col overflow-hidden", GLASS)}>
                       <CircuitFocus
                         drivers={drivers.map((d) => ({ id: d.id, code: d.code, name: d.name, team: d.teamSlug ? (findTeamBySlug(d.teamSlug)?.name ?? null) : null, number: d.number, colour: driverColor(d), position: d.position, hollow: isHollow(emph, d.id) }))}
@@ -815,18 +898,35 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
                     </div>
                   </div>
                 )}
-                {!phone && !compare && !focusOpen && (sel || showEvents) && (
+                {rc && rcOpen && model && (
+                  <div className={cn("pointer-events-none absolute z-20 flex flex-col", phone ? "inset-x-2 bottom-[9.25rem]" : "bottom-[5.75rem] right-4 top-[8.5rem] w-[22.5rem]")} style={phone ? { top: toolbarBottom + 8 } : undefined}>
+                    <div className={cn("pointer-events-auto flex min-h-0 flex-col overflow-hidden", GLASS)}>
+                      <RaceControlPanel
+                        rc={rc}
+                        weather={model.ds.weather}
+                        t={rcT}
+                        lightsOutMs={model.ds.lightsOutMs}
+                        durationMs={model.ds.durationMs}
+                        onSeek={(t) => provider.current?.seekTime?.(t)}
+                        onClose={() => setRcOpen(false)}
+                        showSectorFlags={sectorOverlay}
+                        onToggleSectorFlags={() => setSectorOverlay((v) => !v)}
+                      />
+                    </div>
+                  </div>
+                )}
+                {!phone && !comparePanel && !focusOpen && !rcOpen && (sel || showEvents) && (
                   <div className="pointer-events-none absolute bottom-[5.75rem] right-4 top-[8.5rem] flex w-[18.5rem] flex-col gap-2">
                     {sel && <div className="pointer-events-auto shrink-0 [&>div]:border-white/10 [&>div]:bg-surface/70 [&>div]:backdrop-blur-xl">{selectedCard}</div>}
                     {showEvents && <div className={cn("pointer-events-auto flex min-h-0 flex-col overflow-hidden", GLASS)}>{eventsPanel}</div>}
                   </div>
                 )}
-                {phone && sel && !compare && !focusOpen && <div className="pointer-events-auto absolute inset-x-2 bottom-[4.75rem] [&>div]:bg-surface/80 [&>div]:backdrop-blur-xl">{selectedCard}</div>}
+                {phone && sel && !comparePanel && !focusOpen && !rcOpen && <div className="pointer-events-auto absolute inset-x-2 bottom-[4.75rem] [&>div]:bg-surface/80 [&>div]:backdrop-blur-xl">{selectedCard}</div>}
 
                 {/* On-screen "Show all" whenever drivers are hollowed out (or a comparison could re-focus them); hidden while the Drivers panel is open.
                     Phones: below the toolbar, which wraps to two rows there. */}
-                {!focusOpen && (emph.source !== "all" || comparePair) && (
-                  <div className={cn("pointer-events-none absolute inset-x-2 flex justify-center", phone ? "top-[9.5rem]" : "bottom-[7.75rem]")}>
+                {!focusOpen && !rcOpen && (emph.source !== "all" || comparePair) && (
+                  <div className={cn("pointer-events-none absolute inset-x-2 flex justify-center", !phone && "bottom-[7.75rem]")} style={phone ? { top: toolbarBottom + 8 } : undefined}>
                     <div role="status" className={cn("pointer-events-auto flex items-center gap-2 py-1 pl-3 pr-1 text-xs", GLASS)}>
                       <span className="text-muted">
                         {emph.source === "compare" && comparePair
@@ -835,6 +935,11 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
                             ? `Showing ${emph.prominent!.size} of ${drivers.length} drivers`
                             : `All drivers shown`}
                       </span>
+                      {comparePair && !comparePanel && (
+                        <Button size="sm" variant="secondary" className="h-7 px-2.5 text-xs" onClick={() => setCompareShown(true)}>
+                          Open comparison
+                        </Button>
+                      )}
                       {emph.source === "compare" ? (
                         <Button size="sm" variant="secondary" className="h-7 px-2.5 text-xs" onClick={() => setCompareHighlight(false)}>
                           Show all

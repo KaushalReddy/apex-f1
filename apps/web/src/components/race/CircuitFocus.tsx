@@ -71,8 +71,8 @@ export function CircuitFocus({
       {comparing && (
         <p className="border-b border-white/10 px-3 py-2 text-xs text-muted">
           Comparison is focusing on <span className="font-medium text-fg">{comparing[0]}</span> and <span className="font-medium text-fg">{comparing[1]}</span>.{" "}
-          {applied ? `Your focus on ${applied.size} driver${applied.size === 1 ? "" : "s"} returns when you exit the comparison.` : "Everyone is shown again when you exit the comparison."} The comparison panel
-          comes back when you close this.
+          {applied ? `Your focus on ${applied.size} driver${applied.size === 1 ? "" : "s"} returns when you exit the comparison.` : "Everyone is shown again when you exit the comparison."} Reopen the
+          comparison panel with Compare.
         </p>
       )}
       <label className="block px-3 pt-2.5">

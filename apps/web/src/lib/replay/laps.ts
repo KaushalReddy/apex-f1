@@ -1,5 +1,6 @@
 import type { ReplayModel } from "./model";
 import { timelineMarkers } from "./provider";
+import { redPeriods } from "./raceControl";
 
 /**
  * Lap-by-lap analysis for the Race Replay comparison. Official: lap and sector times, pit stops (lap numbers as published), Safety Car /
@@ -15,17 +16,20 @@ export interface LapRow {
   pit: boolean;
   /** The lap overlapped a Safety Car, VSC or red-flag period. */
   neutralised: boolean;
+  /** Which, in race order: "Safety Car", "VSC", "Red flag" (the same names the track status uses). */
+  neutralisedBy: Neutralisation[];
 }
 
-/** Safety Car / VSC periods and red flags from race control, as [start, end] ms. A red flag runs to the next start (resumption). */
-export function neutralisedPeriods(m: ReplayModel): [number, number][] {
+export type Neutralisation = "Safety Car" | "VSC" | "Red flag";
+
+/** Safety Car / VSC periods and red flags from race control, as [start, end] ms with their kind (red flags: see `redPeriods`). */
+export function neutralisedPeriods(m: ReplayModel): { from: number; to: number; kind: Neutralisation }[] {
   const markers = timelineMarkers(m.events, (n) => String(n));
-  const out: [number, number][] = markers.filter((x) => x.kind === "safety-car" && x.end != null).map((x) => [x.t, x.end!]);
-  for (const red of markers.filter((x) => x.kind === "red-flag")) {
-    const resume = markers.find((x) => x.kind === "start" && x.t > red.t);
-    out.push([red.t, resume?.t ?? m.ds.durationMs]);
-  }
-  return out;
+  const out = markers
+    .filter((x) => x.kind === "safety-car" && x.end != null)
+    .map((x) => ({ from: x.t, to: x.end!, kind: (/virtual/i.test(x.label) ? "VSC" : "Safety Car") as Neutralisation }));
+  for (const r of redPeriods(m.ds.raceControl, m.ds.durationMs)) out.push({ from: r.from, to: r.to, kind: "Red flag" });
+  return out.sort((a, b) => a.from - b.from);
 }
 
 export function lapRows(m: ReplayModel, i: number): LapRow[] {
@@ -41,7 +45,8 @@ export function lapRows(m: ReplayModel, i: number): LapRow[] {
       sectors: [l[3] ?? null, l[4] ?? null, l[5] ?? null],
       // OpenF1's pit lap is the in-lap; the out-lap is the next one. Both are slow for reasons other than pace.
       pit: pitLaps.has(l[0]) || pitLaps.has(l[0] - 1),
-      neutralised: periods.some(([a, b]) => a < end && b > l[1]),
+      neutralised: periods.some((p) => p.from < end && p.to > l[1]),
+      neutralisedBy: [...new Set(periods.filter((p) => p.from < end && p.to > l[1]).map((p) => p.kind))],
     };
   });
 }

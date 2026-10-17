@@ -47,6 +47,7 @@ for (const s of sessions) {
     await get(`intervals?session_key=${key}`),
     await get(`pit?session_key=${key}`),
   ];
+  const weather = (await get(`weather?session_key=${key}`)).sort((x, y) => ms(x.date) - ms(y.date));
   const lap1 = laps.filter((l) => l.lap_number === 1 && l.date_start).map((l) => ms(l.date_start));
   if (!lap1.length) {
     console.error(`  ${key} ${s.location}: no lap data published, skipped`);
@@ -99,7 +100,7 @@ for (const s of sessions) {
     source: {
       name: "OpenF1",
       url: "https://openf1.org",
-      endpoints: ["/v1/sessions", "/v1/meetings", "/v1/drivers", "/v1/location", "/v1/laps", "/v1/position", "/v1/intervals", "/v1/pit", "/v1/race_control"],
+      endpoints: ["/v1/sessions", "/v1/meetings", "/v1/drivers", "/v1/location", "/v1/laps", "/v1/position", "/v1/intervals", "/v1/pit", "/v1/race_control", "/v1/weather"],
       fetchedOn: new Date().toISOString().slice(0, 10),
       note: "Recorded OpenF1 data (unofficial, community API; data originating from Formula 1 timing). Positions thinned to samples at least 1 s apart. Non-commercial use; see openf1.org for terms.",
     },
@@ -124,6 +125,17 @@ for (const s of sessions) {
       .filter((p) => p.date)
       .map((p) => ({ t: rel(p.date), number: p.driver_number, lap: p.lap_number ?? null, laneS: num(p.lane_duration ?? p.pit_duration), stopS: num(p.stop_duration) }))
       .sort((a, b) => a.t - b.t),
+    // Weather station readings (about one a minute) as published: °C, %, hPa, m/s, degrees; rainfall 0/1.
+    weather: {
+      t: weather.map((w) => rel(w.date)),
+      air: weather.map((w) => num(w.air_temperature)),
+      track: weather.map((w) => num(w.track_temperature)),
+      humidity: weather.map((w) => num(w.humidity)),
+      pressure: weather.map((w) => num(w.pressure)),
+      rain: weather.map((w) => num(w.rainfall)),
+      windSpeed: weather.map((w) => num(w.wind_speed)),
+      windDir: weather.map((w) => num(w.wind_direction)),
+    },
     raceControl: rc
       .map((r) => ({ t: rel(r.date), category: r.category ?? null, flag: r.flag ?? null, scope: r.scope ?? null, message: r.message ?? "", lap: r.lap_number ?? null, number: r.driver_number ?? null }))
       .sort((a, b) => a.t - b.t),

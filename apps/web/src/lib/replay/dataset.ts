@@ -32,6 +32,18 @@ export interface RaceControlMessage {
   number: number | null;
 }
 
+/** Weather station readings (about one a minute), as published: °C, %, hPa, m/s, degrees; rain 0/1. Null = not published. */
+export interface ReplayWeather {
+  t: number[];
+  air: (number | null)[];
+  track: (number | null)[];
+  humidity: (number | null)[];
+  pressure: (number | null)[];
+  rain: (number | null)[];
+  windSpeed: (number | null)[];
+  windDir: (number | null)[];
+}
+
 export interface ReplayDataset {
   season: number;
   meetingKey: number;
@@ -50,6 +62,8 @@ export interface ReplayDataset {
   order: [number, number, number][];
   pits: { t: number; number: number; lap: number | null; laneS: number | null; stopS: number | null }[];
   raceControl: RaceControlMessage[];
+  /** Absent in files exported before weather support. */
+  weather: ReplayWeather | null;
   /** What validation removed (reported in the UI, never hidden). */
   dropped: { positionSamples: number; orderRows: number; drivers: number };
 }
@@ -173,9 +187,23 @@ export function parseReplay(raw: unknown): Result<ReplayDataset> {
       order,
       pits,
       raceControl,
+      weather: parseWeather(raw.weather),
       dropped,
     },
   };
+}
+
+/** Weather columns aligned to valid, increasing times; anything malformed is dropped (and with no valid rows there is no weather). */
+function parseWeather(raw: unknown): ReplayWeather | null {
+  if (!isObj(raw) || !Array.isArray(raw.t)) return null;
+  const cols = ["air", "track", "humidity", "pressure", "rain", "windSpeed", "windDir"] as const;
+  const out: ReplayWeather = { t: [], air: [], track: [], humidity: [], pressure: [], rain: [], windSpeed: [], windDir: [] };
+  raw.t.forEach((t, i) => {
+    if (!fin(t) || (out.t.length && t <= out.t[out.t.length - 1])) return;
+    out.t.push(t);
+    for (const c of cols) out[c].push(numOrNull(Array.isArray(raw[c]) ? (raw[c] as unknown[])[i] : null));
+  });
+  return out.t.length ? out : null;
 }
 
 export function parseReplayIndex(raw: unknown): Result<ReplayIndexEntry[]> {

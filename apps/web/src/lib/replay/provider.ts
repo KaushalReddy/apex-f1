@@ -8,8 +8,9 @@ import { ReplayModel, type ReplayEvent } from "./model";
 type Marker = NonNullable<RaceProvider["timeline"]>["markers"][number];
 
 /**
- * Timeline markers from the dataset's events: official moments as ticks, each Safety Car / VSC as a period from its "DEPLOYED" message to
- * the next ending message of the same kind ("ENDING", "IN THIS LAP"; open until the flag if none), and published pit stops.
+ * Timeline markers from the dataset's events: official moments as ticks; each Safety Car / VSC as a period from its "DEPLOYED" message to
+ * the next ending message of the same kind ("ENDING", "IN THIS LAP"; open until the flag if none); each red flag as a period until the
+ * restart; and published pit stops.
  */
 export function timelineMarkers(events: readonly ReplayEvent[], code: (n: number) => string): Marker[] {
   const out: Marker[] = [];
@@ -18,6 +19,12 @@ export function timelineMarkers(events: readonly ReplayEvent[], code: (n: number
     if (e.kind === "pit") out.push({ t: e.t, kind: "pit", label: `${code(e.number)} pit stop${e.lap ? `, lap ${e.lap}` : ""}` });
     if (e.kind !== "official") continue;
     if (e.tone !== "safety-car") {
+      // A red flag stops the race and supersedes a Safety Car / VSC still out (e.g. Italian GP 2026: SC at 3.3 min, red flag at 4.2 min,
+      // no "IN THIS LAP" message ever sent); without this the period would run to the finish.
+      if (e.tone === "red-flag") {
+        for (const m of open.values()) m.end = e.t;
+        open.clear();
+      }
       out.push({ t: e.t, kind: e.tone, label: e.text });
       continue;
     }
@@ -33,6 +40,8 @@ export function timelineMarkers(events: readonly ReplayEvent[], code: (n: number
   }
   const finish = out.find((m) => m.kind === "finish")?.t;
   for (const m of open.values()) m.end = finish ?? m.t;
+  // A red flag is a period too: until the next start signal (the restart), else the finish.
+  for (const m of out) if (m.kind === "red-flag") m.end = out.find((x) => x.kind === "start" && x.t > m.t)?.t ?? finish ?? m.t;
   return out.sort((a, b) => a.t - b.t);
 }
 

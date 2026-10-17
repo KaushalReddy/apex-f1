@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { parseReplay } from "./dataset";
 import { driverAt, gapBetween, lapDelta, lapTrace, swapsBetween } from "./compare";
 import { ReplayModel } from "./model";
-import { fixture, project } from "./model.test";
+import { fixture, project } from "./testing/fixture";
 
-// TEST DATA: the synthetic two-car race of model.test.ts (circle of radius 1000; car 1 laps in 100 s, car 2 in 110 s).
+// TEST DATA: the synthetic two-car race of testing/fixture.ts (circle of radius 1000; car 1 laps in 100 s, car 2 in 110 s).
 function model(mut?: (f: ReturnType<typeof fixture>) => void) {
   const f = fixture();
   mut?.(f);

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { ProviderUpdate, Scheduler } from "@/lib/race/providers";
 import { parseReplay } from "./dataset";
 import { ReplayModel } from "./model";
-import { fixture, project } from "./model.test";
+import { fixture, project } from "./testing/fixture";
 import { HistoricalReplayProvider } from "./provider";
 
 /** Deterministic scheduler: time moves and timers fire only when the test says so. */
@@ -90,5 +90,8 @@ describe("timelineMarkers", () => {
     );
     expect(m.map((x) => [x.kind, x.t, x.end])).toEqual([["start", 0, undefined], ["safety-car", 100, 160], ["safety-car", 300, 400], ["pit", 350, undefined], ["finish", 900, undefined]]);
     expect(m[1].label).toBe("Virtual Safety Car");
+    // A red flag ends a Safety Car period that never got its own ending message.
+    const red = timelineMarkers([off(0, "RACE START", "start"), off(200, "SAFETY CAR DEPLOYED", "safety-car"), off(250, "RED FLAG - RACE SUSPENDED", "red-flag"), off(900, "CHEQUERED FLAG", "finish")], String);
+    expect(red.find((x) => x.kind === "safety-car")!.end).toBe(250);
   });
 });

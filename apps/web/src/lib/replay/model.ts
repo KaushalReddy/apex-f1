@@ -14,6 +14,8 @@ import type { ReplayDataset } from "./dataset";
 export const MAX_INTERP_GAP_MS = 5000;
 export const MEASURED_WINDOW_MS = 300;
 export const STALE_INTERVAL_MS = 30_000;
+/** Jumping to an event (timeline marker, race-control message, order change, event list) lands this long before it, to see it happen. */
+export const EVENT_LEAD_IN_MS = 3000;
 
 export interface CarPosition {
   /** Lap fraction on the centerline, 0..1. */
@@ -52,7 +54,7 @@ export function officialTone(m: { category: string | null; flag: string | null; 
   if (m.flag === "CHEQUERED" || msg.includes("CHEQUERED FLAG")) return "finish";
   if (m.flag === "RED" || msg.includes("RED FLAG")) return "red-flag";
   if (m.category === "SafetyCar") return "safety-car";
-  if (/\bRACE (START|RESUM)/.test(msg)) return "start";
+  if (/\bRACE (START|RESUM)|SESSION STARTED/.test(msg)) return "start"; // a restart after a red flag is announced as "SESSION STARTED"
   return null;
 }
 

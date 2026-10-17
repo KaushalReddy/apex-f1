@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import type { TrackPath } from "@/lib/race/track";
 import { driverAt, gapBetween, swapsBetween } from "@/lib/replay/compare";
-import type { ReplayModel } from "@/lib/replay/model";
+import { EVENT_LEAD_IN_MS, type ReplayModel } from "@/lib/replay/model";
 import { lapTime } from "@/lib/telemetry/analysis";
 import { LapAnalysis } from "./LapAnalysis";
 import { LapsTab } from "./LapsTab";
 
+const gapText = (d: { position: number | null; gapToLeaderS: number | null; lapsDown: number | null }) =>
+  d.position === 1 ? "Leader" : d.lapsDown ? `+${d.lapsDown} lap${d.lapsDown === 1 ? "" : "s"}` : d.gapToLeaderS != null ? `+${d.gapToLeaderS.toFixed(3)}` : "—";
 const fmtLap = (s: number | null) => (s == null ? "—" : lapTime(s));
 const fmtS = (s: number | null) => (s == null ? "—" : s.toFixed(3));
 const signed = (v: number | null, digits = 3) => (v == null ? "—" : `${v > 0 ? "+" : v < 0 ? "−" : "±"}${Math.abs(v).toFixed(digits)}`);
@@ -66,29 +68,35 @@ export function ComparePanel({ model, lapLength, t, a, b, teamColour, onSeek, on
 
   return (
     <section aria-labelledby="compare-heading" className="flex min-h-0 flex-1 flex-col">
-      <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-white/10 px-3 py-2">
-        <h2 id="compare-heading" className="flex min-w-0 shrink-0 items-center gap-2 text-sm">
+      {/* Same header pattern as the other docked panels: title and actions on one row; the pair being compared beneath. */}
+      <div className="border-b border-white/10 px-3 py-2">
+        <div className="flex items-center justify-between gap-2">
+          <span className="eyebrow whitespace-nowrap" aria-hidden="true">
+            Compare
+          </span>
+          <span className="flex shrink-0 gap-0.5">
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+              {open ? "Hide" : "Show"}
+            </Button>
+            {onToggleWide && (
+              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" aria-pressed={wide} onClick={onToggleWide}>
+                {wide ? "Narrow" : "Wide"}
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={onSwitch}>
+              Change
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" aria-label="Exit comparison" onClick={onExit}>
+              Exit
+            </Button>
+          </span>
+        </div>
+        <h2 id="compare-heading" className="mt-1 flex min-w-0 items-center gap-2 text-sm">
           <span className="sr-only">Comparing</span>
           {head(a, A.code, SERIES_A, "Driver A")}
           <span className="text-subtle">vs</span>
           {head(b, B.code, SERIES_B, "Driver B")}
         </h2>
-        <span className="ml-auto flex shrink-0 gap-0.5">
-          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
-            {open ? "Hide" : "Show"}
-          </Button>
-          {onToggleWide && (
-            <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" aria-pressed={wide} onClick={onToggleWide}>
-              {wide ? "Narrow" : "Wide"}
-            </Button>
-          )}
-          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={onSwitch}>
-            Change
-          </Button>
-          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={onExit}>
-            Exit
-          </Button>
-        </span>
       </div>
       {open && (
         <>
@@ -121,7 +129,7 @@ export function ComparePanel({ model, lapLength, t, a, b, teamColour, onSeek, on
                 <p className="mt-2 rounded-md bg-surface-2/70 px-2.5 py-2">
                   {gap.seconds != null ? (
                     <>
-                      <span className="font-semibold text-fg tabular-nums">{Math.abs(gap.seconds).toFixed(1)} s</span> between them,{" "}
+                      <span className="font-semibold text-fg tabular-nums">{Math.abs(gap.seconds).toFixed(3)} s</span> between them,{" "}
                       {gap.seconds >= 0 ? B.code : A.code} behind.
                     </>
                   ) : gap.laps != null ? (
@@ -162,7 +170,8 @@ export function ComparePanel({ model, lapLength, t, a, b, teamColour, onSeek, on
                           A.lastSectors?.[k] != null && B.lastSectors?.[k] != null ? signed((B.lastSectors![k] as number) - (A.lastSectors![k] as number)) : "—",
                           "official",
                         ]),
-                        ["Gap to leader", A.lapsDown ? `+${A.lapsDown} lap` : A.gapToLeaderS != null ? signed(A.gapToLeaderS, 1) : "—", B.lapsDown ? `+${B.lapsDown} lap` : B.gapToLeaderS != null ? signed(B.gapToLeaderS, 1) : "—", "", "official"],
+                        // Same format as the race order (formatGap): the leader reads "Leader", others +s.sss or +n lap(s).
+                        ["Gap to leader", gapText(A), gapText(B), "", "official"],
                       ] as [string, string | number, string | number, string, "official" | "calculated"][]
                     ).map(([k, va, vb, dv, kind]) => (
                       <tr key={k}>
@@ -191,7 +200,7 @@ export function ComparePanel({ model, lapLength, t, a, b, teamColour, onSeek, on
                   <ol className="mt-1 divide-y divide-white/10">
                     {swaps.map((s) => (
                       <li key={s.t}>
-                        <button type="button" onClick={() => onSeek(Math.max(0, s.t - 5000))} className="motion-interactive flex w-full items-baseline gap-2 py-1 text-left text-xs hover:text-fg">
+                        <button type="button" onClick={() => onSeek(Math.max(0, s.t - EVENT_LEAD_IN_MS))} className="motion-interactive flex w-full items-baseline gap-2 py-1 text-left text-xs hover:text-fg">
                           <span className="w-14 shrink-0 tabular-nums text-subtle">{clock(s.t - lights)}</span>
                           <span className={cn(s.t <= t ? "text-fg" : "text-muted")}>{s.ahead === A.number ? A.code : B.code} ahead</span>
                         </button>

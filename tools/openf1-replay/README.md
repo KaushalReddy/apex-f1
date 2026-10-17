@@ -50,3 +50,15 @@ Times are ms from the replay start (`startUtc`): 20 s before lights out (first l
 - **Sync:** picking a point on a lap chart seeks the replay to when Driver A was there; while the replay is inside A's chosen lap the
   chart cursor follows it. The replay clock is the only source of time.
 - Not available: telemetry synced to arbitrary race moments (no full-race car data is exported), DRS (null in 2026).
+
+## Weather & Race Control (Phase 12; `apps/web/src/lib/replay/raceControl.ts`, tested)
+- **Weather** (`/weather`): one reading a minute from the track-side station (air and track °C, humidity %, pressure hPa, wind m/s and
+  direction, rainfall 0/1), from before the start. A track temperature of exactly 0 °C is treated as missing (isolated sensor dropouts
+  between ~45 °C readings in Azerbaijan, Singapore and Kuala Lumpur 2026). Readings older than 5 minutes are not shown as current.
+- **Race control messages** are grouped by APEX F1 into key (start, Safety Car/VSC, red flag, chequered flag, penalties, stewards'
+  decisions, black-and-white flags), info and routine (blue flags, deleted lap times, pit-lane notices). Text is as published.
+- **Track status** is calculated: red flag (until the next start signal, including "SESSION STARTED") > Safety Car > VSC > sector
+  yellows > green. Sector flags are set by sector-scoped YELLOW / DOUBLE YELLOW and cleared by CLEAR / GREEN, a track-wide clear or a
+  red flag; a flag with no update for 5 minutes is dropped.
+- **Sector shading on the circuit is approximate**: OpenF1 gives marshal-sector numbers, not their positions, so sector k of N (N =
+  highest sector number seen in that race) is drawn as the k-th equal slice of the lap from the start/finish line.

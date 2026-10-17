@@ -44,7 +44,17 @@ interface Props {
   animating: boolean;
   onSelect: (id: string) => void;
   onHover: (id: string | null) => void;
+  /**
+   * Neutralisation from race control. "safety-car": a bright yellow sphere SAFETY_CAR_AHEAD_M ahead of the leader. APPROXIMATE: the
+   * Safety Car's own position is not in the data; it leads the field, so it is drawn just ahead of P1 and labelled "SC (approx.)".
+   * "vsc": no car exists; the page draws the track outline instead. Labels `[data-label-id="__sc"]` / `"__vsc"` are placed here.
+   */
+  neutral?: { kind: "safety-car" | "vsc"; leaderId: string | null } | null;
 }
+
+/** How far ahead of the leader the approximate Safety Car is drawn (metres along the centerline). */
+export const SAFETY_CAR_AHEAD_M = 80;
+const SAFETY_CAR = "#ffd60a"; // bright yellow, brighter than any team colour or the leader ring
 
 const LEADER = "#f5b83d"; // warning token: a quiet gold ring for P1
 const FOCUS = "#5cb8ff"; // info token: battle focus
@@ -75,7 +85,7 @@ function glowTexture() {
  * scene objects (no React renders per frame); markers keep a constant on-screen size at any zoom. Labels are DOM elements positioned
  * and decluttered here.
  */
-export function DriverLayer({ geometry, drivers, buffer, labels, showLabels, selected, focus, follow, animating, onSelect, onHover }: Props) {
+export function DriverLayer({ geometry, drivers, buffer, labels, showLabels, selected, focus, follow, animating, onSelect, onHover, neutral = null }: Props) {
   const transform = useCircuitTransform();
   // The same world centerline the track mesh is built from, through the same transform: markers cannot disagree with the road.
   const path = useMemo(() => createTrackPath(centerlineToWorld(geometry, transform)), [geometry, transform]);
@@ -110,6 +120,21 @@ export function DriverLayer({ geometry, drivers, buffer, labels, showLabels, sel
     }
     return byColor;
   }, [colorKey, shared.glow]);
+  const scMats = useMemo(
+    () => ({
+      core: new MeshBasicMaterial({ color: SAFETY_CAR, transparent: true, opacity: 1 }),
+      halo: new SpriteMaterial({ map: shared.glow ?? undefined, color: SAFETY_CAR, transparent: true, opacity: 1, blending: AdditiveBlending, depthWrite: false }),
+    }),
+    [shared.glow],
+  );
+  useEffect(
+    () => () => {
+      scMats.core.dispose();
+      scMats.halo.dispose();
+    },
+    [scMats],
+  );
+  const scGroup = useRef<Group | null>(null);
   const ringMats = useMemo(
     () => ({
       selected: new MeshBasicMaterial({ color: SELECTED, side: DoubleSide, depthTest: false, transparent: true, opacity: 0.95 }),
@@ -151,7 +176,7 @@ export function DriverLayer({ geometry, drivers, buffer, labels, showLabels, sel
   const tmp = useMemo(() => [0, 0, 0], []);
   const v = useMemo(() => new Vector3(), []);
 
-  useEffect(() => invalidate(), [selected, focus, showLabels, drivers, invalidate]); // drivers carry `hollow`: a focus change redraws once
+  useEffect(() => invalidate(), [selected, focus, showLabels, drivers, neutral, invalidate]); // drivers carry `hollow`: a focus change redraws once
 
   useFrame((state) => {
     const { camera, size, controls } = state;
@@ -223,6 +248,34 @@ export function DriverLayer({ geometry, drivers, buffer, labels, showLabels, sel
       }
     }
 
+    // Safety Car (approximate) just ahead of the leader, and the VSC label at the start/finish line; both labels follow their 3D point.
+    const placeTag = (id: string, x: number, y: number, z: number, show: boolean) => {
+      const el = container?.querySelector<HTMLElement>(`[data-label-id="${id}"]`);
+      if (!el) return;
+      v.set(x, y, z).project(camera);
+      const on = show && v.z <= 1 && v.z >= -1;
+      el.dataset.visible = String(on);
+      if (on) el.style.transform = `translate3d(${(((v.x + 1) / 2) * size.width + 10).toFixed(1)}px, ${(((1 - v.y) / 2) * size.height - 22).toFixed(1)}px, 0)`;
+    };
+    const sc = scGroup.current;
+    if (sc) {
+      const lp = neutral?.kind === "safety-car" && neutral.leaderId ? progress.get(neutral.leaderId) : undefined;
+      sc.visible = lp != null;
+      if (lp != null) {
+        path.pointAt(lp + SAFETY_CAR_AHEAD_M / path.length, tmp);
+        const dist = camera.position.distanceTo(v.set(tmp[0], tmp[1], tmp[2]));
+        const lens = Math.tan((((camera as unknown as { fov?: number }).fov ?? 40) * Math.PI) / 360) / Math.tan((40 * Math.PI) / 360);
+        const s = Math.max(1.2, dist * 0.0072 * lens) * 1.35;
+        sc.scale.setScalar(s);
+        sc.position.set(tmp[0], tmp[1] + s * 0.9 + 0.5, tmp[2]);
+        placeTag("__sc", sc.position.x, sc.position.y, sc.position.z, true);
+      } else placeTag("__sc", 0, 0, 0, false);
+    }
+    if (neutral?.kind === "vsc") {
+      path.pointAt(0, tmp);
+      placeTag("__vsc", tmp[0], tmp[1] + 2, tmp[2], true);
+    } else placeTag("__vsc", 0, 0, 0, false);
+
     // Follow: move the orbit target with the selected car and carry the camera along, so the user's chosen angle and zoom are kept.
     const ctl = controls as unknown as { target: Vector3; update(): void } | null;
     const sel = selected ? groups.current.get(selected) : undefined;
@@ -243,6 +296,12 @@ export function DriverLayer({ geometry, drivers, buffer, labels, showLabels, sel
 
   return (
     <group name="drivers">
+      {neutral?.kind === "safety-car" && (
+        <group ref={scGroup} name="safety-car" renderOrder={8}>
+          <sprite name="halo" scale={[HALO + 2, HALO + 2, 1]} material={scMats.halo} raycast={() => null} renderOrder={8} />
+          <mesh geometry={shared.core} material={scMats.core} renderOrder={9} raycast={() => null} />
+        </group>
+      )}
       {drivers.map((d) => {
         const m = mats.get(d.color)!;
         const ring = d.id === selected ? ringMats.selected : d.hollow ? null : focus.includes(d.id) ? ringMats.focus : d.position === 1 ? ringMats.leader : null;
