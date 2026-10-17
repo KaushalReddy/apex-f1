@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { decodePositions, parseReplay } from "./dataset";
-import { lastAtOrBefore, ReplayModel } from "./model";
+import { computeProgress, lastAtOrBefore, ReplayModel } from "./model";
 import { fixture, project, R } from "./testing/fixture";
 
 describe("parseReplay", () => {
@@ -77,5 +77,16 @@ describe("ReplayModel", () => {
     expect(lastAtOrBefore([1, 3, 5], 0)).toBe(-1);
     expect(lastAtOrBefore([1, 3, 5], 3)).toBe(1);
     expect(lastAtOrBefore([1, 3, 5], 9)).toBe(2);
+  });
+});
+
+describe("precomputed progress (the replay worker's path)", () => {
+  it("gives the same model as projecting on the main thread", () => {
+    const r = parseReplay(fixture());
+    if (!r.ok) throw new Error(r.error);
+    const direct = new ReplayModel(r.value, project);
+    const viaWorker = new ReplayModel(r.value, null, computeProgress(r.value, project));
+    expect(viaWorker.progress.map((a) => [...a])).toEqual(direct.progress.map((a) => [...a]));
+    for (const t of [0, 50_000, 150_000, 299_000]) expect(viaWorker.positionAt(0, t)).toEqual(direct.positionAt(0, t));
   });
 });

@@ -21,8 +21,8 @@ import { MODE_LABEL, SnapshotBuffer, battles, formatGap, formatLapTime, freshnes
 import type { RaceView } from "@/lib/race/fit";
 import { createTrackPath } from "@/lib/race/track";
 import { fetchReplayTimeline } from "@/lib/replay/api";
-import { parseReplay } from "@/lib/replay/dataset";
 import { ReplayModel } from "@/lib/replay/model";
+import { loadReplayOffThread } from "@/lib/replay/loadOffThread";
 import { HistoricalReplayProvider } from "@/lib/replay/provider";
 import { ComparePanel } from "@/components/replay/ComparePanel";
 import { ComparePicker } from "@/components/replay/ComparePicker";
@@ -209,21 +209,10 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
       const ctrl = new AbortController();
       let detach: (() => void) | null = null;
       const fail = (detail: string) => setUpdate({ snapshot: null, source: { status: "error", detail }, playback: null, at: performance.now(), events: [], eventsReset: true });
-      fetch(source.url, { signal: ctrl.signal })
-        .then((r) => {
-          if (!r.ok) throw new Error(`the replay file answered HTTP ${r.status}`);
-          return r.json();
-        })
-        .then((raw: unknown) => {
+      loadReplayOffThread(source.url, geometry, ctrl.signal)
+        .then(({ ds, progress }) => {
           if (ctrl.signal.aborted) return;
-          const parsed = parseReplay(raw);
-          if (!parsed.ok) throw new Error(`the replay file is invalid (${parsed.error})`);
-          if (parsed.value.coordinateSystem !== geometry.coordinateSystem) throw new Error("the replay and the circuit layout use different coordinate systems");
-          const { transform, path } = frame;
-          const model = new ReplayModel(parsed.value, (x, y, hint) => {
-            const w = transform.toWorld(x, y, transform.origin[2]);
-            return path.project(w[0], w[2], hint);
-          });
+          const model = new ReplayModel(ds, null, progress);
           const p = new HistoricalReplayProvider(model, { circuitSlug: circuit.slug, circuitName: circuit.name });
           setCaps({ speeds: p.speeds, timeline: p.timeline, model: p.model });
           detach = attach(p);
@@ -257,7 +246,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
             sourceName: source.label,
           });
     return attach(p);
-  }, [source, frame, geometry.coordinateSystem, circuit]);
+  }, [source, frame, geometry, circuit]);
 
   useEffect(() => {
     const id = setInterval(() => setNow(performance.now()), 1000);

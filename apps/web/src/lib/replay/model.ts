@@ -58,6 +58,17 @@ export function officialTone(m: { category: string | null; flag: string | null; 
   return null;
 }
 
+/** Every recorded position of every car as a lap fraction on the centerline (zeros without a layout). The heavy part of loading a race. */
+export function computeProgress(ds: ReplayDataset, project: ((x: number, y: number, hint: number | null) => number) | null): Float64Array[] {
+  return ds.drivers.map((d) => {
+    const out = new Float64Array(d.positions.t.length);
+    if (!project) return out;
+    let hint: number | null = null;
+    for (let i = 0; i < out.length; i++) hint = out[i] = project(d.positions.x[i], d.positions.y[i], hint);
+    return out;
+  });
+}
+
 export class ReplayModel {
   readonly progress: Float64Array[];
   private readonly orderByCar = new Map<number, { t: number[]; pos: number[] }>();
@@ -65,18 +76,16 @@ export class ReplayModel {
   private readonly eventTimes: number[];
   readonly chequeredT: number | null;
 
-  /** `project(x, y, hint)` maps an OpenF1 location to a lap fraction on the circuit centerline (null = no layout). */
+  /**
+   * `project(x, y, hint)` maps an OpenF1 location to a lap fraction on the circuit centerline (null = no layout). `progress`, when given,
+   * is that mapping already done (e.g. in a worker by `computeProgress`), so it is not repeated here.
+   */
   constructor(
     readonly ds: ReplayDataset,
     project: ((x: number, y: number, hint: number | null) => number) | null,
+    progress?: Float64Array[],
   ) {
-    this.progress = ds.drivers.map((d) => {
-      const out = new Float64Array(d.positions.t.length);
-      if (!project) return out;
-      let hint: number | null = null;
-      for (let i = 0; i < out.length; i++) hint = out[i] = project(d.positions.x[i], d.positions.y[i], hint);
-      return out;
-    });
+    this.progress = progress ?? computeProgress(ds, project);
     for (const [t, n, p] of ds.order) {
       const o = this.orderByCar.get(n) ?? { t: [], pos: [] };
       o.t.push(t);

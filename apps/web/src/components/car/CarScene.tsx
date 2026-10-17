@@ -56,46 +56,47 @@ const SRGB = Array.from({ length: 256 }, (_, v) => {
 
 /**
  * Renders each component of the real procedural model on its own (everything else hidden) into an offscreen target, for the component
- * cards. Runs once per livery/wing change; restores visibility, render target and clear colour afterwards.
+ * cards. Runs once per livery/wing change, one component per idle moment (rendering them all at once froze the page for ~0.3 s on a fast
+ * desktop, ~0.7 s on a phone-class CPU); each capture restores visibility, render target and clear colour before it returns, so the live
+ * view never shows a half-hidden car. Thumbnails are reported as they arrive.
  */
 function ThumbnailCapture({ livery, wings, onThumbnails }: { livery: Livery; wings: WingAngles; onThumbnails?: CarSceneProps["onThumbnails"] }) {
   const store = useStore();
   useEffect(() => {
     if (!onThumbnails || typeof document === "undefined") return;
-    const { gl, scene, invalidate } = store.getState();
-    const car = scene.getObjectByName("car");
-    if (!car) return;
     const W = THUMB_W * SS;
     const H = THUMB_H * SS;
     const rt = new WebGLRenderTarget(W, H);
     const cam = new PerspectiveCamera(28, W / H, 0.01, 100);
-    const prevTarget = gl.getRenderTarget();
-    const prevClear = gl.getClearColor(new Color());
-    const prevAlpha = gl.getClearAlpha();
-    const hidden: Object3D[] = [];
-    for (const c of scene.children)
-      if (c !== car && c.visible && !(c as { isLight?: boolean }).isLight) {
-        c.visible = false;
-        hidden.push(c);
-      }
     const big = Object.assign(document.createElement("canvas"), { width: W, height: H });
     const small = Object.assign(document.createElement("canvas"), { width: THUMB_W, height: THUMB_H });
     const bctx = big.getContext("2d");
     const sctx = small.getContext("2d");
     const buf = new Uint8Array(W * H * 4);
     const out: Partial<Record<ComponentId, string>> = {};
-    try {
-      if (!bctx || !sctx) return;
-      const img = bctx.createImageData(W, H);
-      gl.setClearColor(0x000000, 0);
-      for (const comp of COMPONENTS) {
+    let cancelled = false;
+
+    const capture = (comp: (typeof COMPONENTS)[number]) => {
+      const { gl, scene, invalidate } = store.getState();
+      const car = scene.getObjectByName("car");
+      if (!car || !bctx || !sctx) return;
+      const prevTarget = gl.getRenderTarget();
+      const prevClear = gl.getClearColor(new Color());
+      const prevAlpha = gl.getClearAlpha();
+      const hidden: Object3D[] = [];
+      for (const c of scene.children)
+        if (c !== car && c.visible && !(c as { isLight?: boolean }).isLight) {
+          c.visible = false;
+          hidden.push(c);
+        }
+      try {
         const box = new Box3();
         for (const g of car.children) {
           const on = g.userData.componentId === comp.id;
           g.visible = on;
           if (on) box.expandByObject(g);
         }
-        if (box.isEmpty()) continue;
+        if (box.isEmpty()) return;
         const centre = box.getCenter(new Vector3());
         const radius = box.getBoundingSphere(new Sphere()).radius;
         const dist = (radius / Math.sin((cam.fov * Math.PI) / 360)) * 0.92;
@@ -104,11 +105,13 @@ function ThumbnailCapture({ livery, wings, onThumbnails }: { livery: Livery; win
         cam.near = dist / 100;
         cam.far = dist * 10;
         cam.updateProjectionMatrix();
+        gl.setClearColor(0x000000, 0);
         gl.setRenderTarget(rt);
         gl.clear();
         gl.render(scene, cam);
         gl.readRenderTargetPixels(rt, 0, 0, W, H, buf);
         // Render targets are linear and bottom-up: flip rows and encode to sRGB for display.
+        const img = bctx.createImageData(W, H);
         for (let y = 0; y < H; y++)
           for (let x = 0; x < W; x++) {
             const s = ((H - 1 - y) * W + x) * 4;
@@ -122,16 +125,33 @@ function ThumbnailCapture({ livery, wings, onThumbnails }: { livery: Livery; win
         sctx.clearRect(0, 0, THUMB_W, THUMB_H);
         sctx.drawImage(big, 0, 0, THUMB_W, THUMB_H);
         out[comp.id] = small.toDataURL("image/png");
+      } finally {
+        for (const g of car.children) g.visible = true;
+        hidden.forEach((h) => (h.visible = true));
+        gl.setRenderTarget(prevTarget);
+        gl.setClearColor(prevClear, prevAlpha);
+        invalidate();
       }
-    } finally {
-      for (const g of car.children) g.visible = true;
-      hidden.forEach((h) => (h.visible = true));
-      gl.setRenderTarget(prevTarget);
-      gl.setClearColor(prevClear, prevAlpha);
+    };
+
+    // One component per idle callback (a short timeout where requestIdleCallback is missing, e.g. Safari).
+    const idle = (f: () => void) => (typeof requestIdleCallback === "function" ? requestIdleCallback(f, { timeout: 500 }) : window.setTimeout(f, 16));
+    let k = 0;
+    const step = () => {
+      if (cancelled) return;
+      if (k >= COMPONENTS.length) {
+        rt.dispose();
+        return;
+      }
+      capture(COMPONENTS[k++]);
+      onThumbnails({ ...out });
+      idle(step);
+    };
+    idle(step);
+    return () => {
+      cancelled = true;
       rt.dispose();
-      invalidate();
-    }
-    onThumbnails(out);
+    };
   }, [livery, wings, onThumbnails, store]);
   return null;
 }
