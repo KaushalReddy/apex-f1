@@ -17,7 +17,7 @@ About 100 requests per race (positions in 30-minute windows per car), spaced 2.1
 | Car positions | `/location` | ~3.7 Hz recorded; **thinned to samples ≥ 1 s apart** (dropped, never synthesised), (0,0,0) "no fix" rows removed, delta-encoded |
 | Running order | `/position` | every official order change, timestamped |
 | Gaps | `/intervals` | gap to leader and interval, ~4 s cadence; "+n LAP(S)" kept as laps down |
-| Laps | `/laps` | lap start and lap time per driver |
+| Laps | `/laps` | lap start, lap time and sector times per driver |
 | Pit stops | `/pit` | time, lap, pit-lane and stationary time |
 | Race control | `/race_control` | every message, timestamped |
 Times are ms from the replay start (`startUtc`): 20 s before lights out (first lap start) to 30 s after the last lap ends.
@@ -29,3 +29,24 @@ Times are ms from the replay start (`startUtc`): 20 s before lights out (first l
 - Events: official race-control moments (start, Safety Car/VSC periods, red flag, chequered flag), published pit stops, and position
   changes from the timing feed (labelled as such: they include pit cycles, so they are not called overtakes).
 - Replays need a generated circuit layout; races at circuits without one (Sepang) are listed but not playable.
+
+## Two-driver comparison (Race Replay → Compare; `apps/web/src/lib/replay/compare.ts`, tested)
+- **Race time** (both drivers at the replay's moment). Official: position, lap, previous and best lap, previous lap's sector times,
+  gap to the leader. Calculated (and labelled): the gap between the two (difference of their published gaps to the leader; laps
+  only when one is lapped), time on the current lap, lap progress (recorded position), swaps in the official order between them.
+- **Lap comparison** (two complete laps, any lap numbers, aligned by distance; never shown as simultaneous). Official lap and sector
+  times; a calculated delta trace from recorded positions about 1 s apart. A lap with a position gap over 5 s is not aligned.
+- **Telemetry:** only each driver's fastest lap has car data (Telemetry Lab export), so the comparison links there; no telemetry is
+  synced to replay time because the replay export holds none.
+
+## Telemetry analysis in the replay (extension of Phases 10–11)
+- **Laps tab:** official lap times of both drivers by lap; pit in/out laps (published pit lap and the next), laps overlapping Safety
+  Car / VSC / red-flag periods (race control) and lap 1 are flagged and left out of the chart and the consistency figure
+  (mean ± sample standard deviation of the remaining laps, at least 3). `apps/web/src/lib/replay/laps.ts`.
+- **Lap comparison:** official sector times with a running total (stops at a missing sector); a distance-aligned delta trace and
+  where it grew most (250 m windows). Car telemetry (speed, throttle, brake on/off, gear, RPM; ~4 Hz) exists only for each driver's
+  fastest valid lap (Telemetry Lab export, served at `/api/telemetry/<session>`), so its traces appear only for those laps; other laps
+  use recorded positions (~1 Hz). Highest speeds are recorded samples, never interpolated values.
+- **Sync:** picking a point on a lap chart seeks the replay to when Driver A was there; while the replay is inside A's chosen lap the
+  chart cursor follows it. The replay clock is the only source of time.
+- Not available: telemetry synced to arbitrary race moments (no full-race car data is exported), DRS (null in 2026).

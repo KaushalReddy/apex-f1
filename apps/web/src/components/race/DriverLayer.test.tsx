@@ -97,6 +97,31 @@ describe("DriverLayer (headless R3F)", () => {
     await r.unmount();
   });
 
+  it("draws hollowed-out drivers as a faint wireframe without glow, core, ring or label, at their real positions", async () => {
+    vi.spyOn(performance, "now").mockReturnValue(10_000);
+    const buffer = new SnapshotBuffer(250);
+    buffer.push(snapshot({ a: 0.1, b: 0.5, c: 0.7 }), 0);
+    // a (the leader) and c hollowed out; b (selected) stays prominent.
+    const r = await ReactThreeTestRenderer.create(<Layer drivers={drivers.map((d) => ({ ...d, hollow: d.id !== "b" }))} buffer={buffer} />);
+    await r.advanceFrames(1, 1 / 60);
+    const group = (id: string) => r.scene.findByProps({ name: `driver-${id}` }).instance as Group;
+    for (const id of ["a", "c"]) {
+      const g = group(id);
+      expect(g.visible).toBe(true); // still on the circuit, for context
+      expect(g.getObjectByName("halo")).toBeUndefined();
+      const vis = g.children.filter((o) => (o as Mesh).isMesh && ((o as Mesh).material as Material).opacity > 0);
+      expect(vis).toHaveLength(1); // the wireframe only: no core, no leader ring
+      expect(((vis[0] as Mesh).material as Material & { wireframe: boolean }).wireframe).toBe(true);
+      expect(((vis[0] as Mesh).material as Material).opacity).toBeLessThan(0.6);
+    }
+    const out = [0, 0, 0];
+    path.pointAt(0.7, out);
+    expect(group("c").position.x).toBeCloseTo(out[0], 3); // the same position as when shown normally
+    expect(group("b").getObjectByName("halo")).toBeDefined();
+    vi.restoreAllMocks();
+    await r.unmount();
+  });
+
   it("disposes its materials when unmounted", async () => {
     const buffer = new SnapshotBuffer(250);
     buffer.push(snapshot({ a: 0.2 }), 0);

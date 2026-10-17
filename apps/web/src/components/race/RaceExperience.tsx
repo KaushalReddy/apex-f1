@@ -14,7 +14,7 @@ import { centerlineToWorld, createWorldTransform } from "@/lib/circuit/transform
 import type { CircuitGeometry } from "@/lib/circuit/types";
 import { cn } from "@/lib/cn";
 import { createDemoRace, paceProfile } from "@/lib/race/demo";
-import { demoEntries, driverColor } from "@/lib/race/entries";
+import { demoEntries, driverColor, NEUTRAL_MARKER } from "@/lib/race/entries";
 import { appendEvents, type RaceEvent } from "@/lib/race/events";
 import { DemoProvider, PLAYBACK_SPEEDS, ReplayProvider, realScheduler, type ProviderUpdate, type RaceProvider } from "@/lib/race/providers";
 import { MODE_LABEL, SnapshotBuffer, battles, formatGap, formatLapTime, freshness, sortByRaceOrder, toggleSelection } from "@/lib/race/session";
@@ -24,6 +24,10 @@ import { fetchReplayTimeline } from "@/lib/replay/api";
 import { parseReplay } from "@/lib/replay/dataset";
 import { ReplayModel } from "@/lib/replay/model";
 import { HistoricalReplayProvider } from "@/lib/replay/provider";
+import { ComparePanel } from "@/components/replay/ComparePanel";
+import { ComparePicker } from "@/components/replay/ComparePicker";
+import { CircuitFocus } from "./CircuitFocus";
+import { emphasis, isHollow, reconcile, type FocusSet } from "@/lib/race/visibility";
 import { useReducedMotion, useWebGL } from "@/lib/use-client-env";
 import { useImmersive } from "@/lib/use-immersive";
 import { Leaderboard } from "./Leaderboard";
@@ -65,6 +69,8 @@ export interface RaceExperienceProps {
   exitHref: string;
   /** Page-specific line under the status chips (Live: no live race, and the previous-race option). */
   notice?: ReactNode;
+  /** Session key whose fastest laps the Telemetry Lab has (links the replay comparison to it), when exported. */
+  telemetrySessionKey?: number | null;
 }
 
 const FRESHNESS_COPY = {
@@ -83,12 +89,23 @@ function initialDriverFromUrl(): string | null {
   return slug && demoEntries().some((e) => e.id === slug) ? slug : null;
 }
 
-export function RaceExperience({ geometry, circuit, source, exitHref, notice }: RaceExperienceProps) {
+export function RaceExperience({ geometry, circuit, source, exitHref, notice, telemetrySessionKey = null }: RaceExperienceProps) {
   const reducedMotion = useReducedMotion();
   const webgl = useWebGL();
   const [update, setUpdate] = useState<ProviderUpdate | null>(null);
   // Capabilities of sources with an exact clock (historical replay), known once the dataset has loaded.
-  const [caps, setCaps] = useState<Pick<RaceProvider, "speeds" | "timeline"> | null>(null);
+  const [caps, setCaps] = useState<(Pick<RaceProvider, "speeds" | "timeline"> & { model: ReplayModel }) | null>(null);
+  // Two-driver comparison (recorded replays): picking, then active with A and B. Uses the same focus highlight as battles.
+  // `resume`: the picker was opened from an active comparison ("Change"), so Cancel returns to it instead of ending it.
+  const [compare, setCompare] = useState<{ stage: "pick" | "active"; a: string | null; b: string | null; resume?: boolean } | null>(null);
+  // Circuit focus: the user's single source of truth for which drivers stay prominent (lib/race/visibility). Comparison never writes it.
+  const [focusSet, setFocusSet] = useState<FocusSet>(null);
+  const [focusOpen, setFocusOpen] = useState(false);
+  const [wideCompare, setWideCompare] = useState(false);
+  // The last compared pair, so reopening the picker (after Exit, or an accidental double-click) starts from it.
+  const [lastPair, setLastPair] = useState<[string, string] | null>(null);
+  // While comparing, the pair is emphasised unless the user chose "Show all" (the comparison itself stays open). A new pair re-enables it.
+  const [compareHighlight, setCompareHighlight] = useState(true);
   const [events, setEvents] = useState<RaceEvent[]>([]);
   // `?driver=<slug>` (e.g. from a driver profile) opens with that driver selected. Driver ids in the demo are the project's driver slugs,
   // the same identity the driver pages use. Read once on the client; on the server there is no URL and no snapshot, so nothing differs.
@@ -120,6 +137,15 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice }: 
     const world = centerlineToWorld(geometry, transform);
     return { transform, path: createTrackPath(world), profile: paceProfile(world) };
   }, [geometry]);
+  // OpenF1 location -> world plane (x, z): stable per circuit, so analyses keyed on it are not recomputed on every replay update.
+  const toPlane = useMemo(
+    () =>
+      (x: number, y: number): [number, number] => {
+        const w = frame.transform.toWorld(x, y, frame.transform.origin[2]);
+        return [w[0], w[2]];
+      },
+    [frame],
+  );
 
   useEffect(() => {
     const attach = (p: RaceProvider) => {
@@ -160,7 +186,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice }: 
             return path.project(w[0], w[2], hint);
           });
           const p = new HistoricalReplayProvider(model, { circuitSlug: circuit.slug, circuitName: circuit.name });
-          setCaps({ speeds: p.speeds, timeline: p.timeline });
+          setCaps({ speeds: p.speeds, timeline: p.timeline, model: p.model });
           detach = attach(p);
         })
         .catch((e: unknown) => {
@@ -210,7 +236,12 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice }: 
   const snapshot = update?.snapshot ?? null;
   const drivers = useMemo(() => (snapshot ? sortByRaceOrder(snapshot.drivers) : []), [snapshot]);
   const byId = useMemo(() => new Map(drivers.map((d) => [d.id, d])), [drivers]);
-  const markerDrivers = useMemo(() => drivers.map((d) => ({ id: d.id, color: driverColor(d), position: d.position, stale: d.stale })), [drivers]);
+  const presentIds = useMemo(() => new Set(drivers.map((d) => d.id)), [drivers]);
+  const comparePair: [string, string] | null = compare?.stage === "active" && compare.a && compare.b ? [compare.a, compare.b] : null;
+  const emph = emphasis(focusSet, compareHighlight ? comparePair : null, presentIds);
+  // Visual only: positions, order and timing come from the snapshot unchanged. Rebuilt with each update (as before), so a focus change
+  // costs one redraw and no extra work per frame.
+  const markerDrivers = drivers.map((d) => ({ id: d.id, color: driverColor(d), position: d.position, stale: d.stale, hollow: isHollow(emph, d.id) }));
   const battlePairs = useMemo(() => (snapshot ? battles(snapshot) : []), [snapshot]);
   const playing = update?.playback?.playing ?? false;
   const fresh = freshness({ snapshot, receivedAt: update?.at ?? null, now: Math.max(now, update?.at ?? 0), playing, sourceStatus: update?.source.status ?? "connecting" });
@@ -403,10 +434,75 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice }: 
   // Space the floating panels take, so the circuit is framed in what is left (desktop: side panels; phone: top bar and bottom stack).
   // Space the floating panels take (below the site bar and HUD row, above the playback bar). Desktop side insets are symmetric so the
   // circuit stays centred on screen; they shrink when no side panel is open.
-  const sidePanels = showOrder || !!sel || showEvents;
+  const sidePanels = showOrder || !!sel || showEvents || !!compare || focusOpen;
+  // The comparison column is wider (22.5rem, or 36rem "wide") than the driver/events column (18.5rem). Wide frames the circuit off-centre
+  // (between the race order and the panel) rather than shrinking it to a sliver.
+  const side = compare ? 392 : 344;
   const insets = phone
-    ? { top: 112, right: 8, bottom: sel || showOrder ? 300 : 120, left: 8 }
-    : { top: 196, right: sidePanels ? 344 : 24, bottom: 92, left: sidePanels ? 344 : 24 };
+    ? { top: 112, right: 8, bottom: compare ? 420 : sel || showOrder ? 300 : 120, left: 8 }
+    : compare && wideCompare
+      ? { top: 196, right: 600, bottom: 92, left: showOrder ? 344 : 24 }
+      : { top: 196, right: sidePanels ? side : 24, bottom: 92, left: sidePanels ? side : 24 };
+
+  // Comparison: drivers by id <-> model index, the active pair highlighted on the circuit with the battle focus ring.
+  const model = caps?.model ?? null;
+  const indexOf = (id: string | null) => (model && id ? model.ds.drivers.findIndex((d) => `car-${d.number}` === id) : -1);
+  const comparing = compare?.stage === "active" && indexOf(compare.a) >= 0 && indexOf(compare.b) >= 0;
+  const shownFocus = comparing ? [compare!.a!, compare!.b!] : focus;
+  const pickDrivers = model
+    ? model.ds.drivers.map((d) => ({ id: `car-${d.number}`, number: d.number, code: d.acronym ?? `#${d.number}`, name: d.fullName, team: d.team, colour: d.teamColour ?? NEUTRAL_MARKER, position: byId.get(`car-${d.number}`)?.position ?? null })).sort((x, y) => (x.position ?? 99) - (y.position ?? 99))
+    : [];
+  const startCompare = () => {
+    setFocusOpen(false);
+    const a = compare?.a ?? selected ?? lastPair?.[0] ?? null;
+    const b = compare?.b ?? (lastPair && lastPair[1] !== a ? lastPair[1] : lastPair && lastPair[0] !== a ? lastPair[0] : null);
+    setCompare({ stage: "pick", a, b });
+  };
+  /**
+   * The toolbar's Compare button does what its state suggests: nothing open -> choose drivers; a comparison hidden under the Drivers panel
+   * -> show it again; the picker opened from "Change" -> back to that comparison; the comparison showing -> end it (same as its Exit).
+   */
+  const onCompareButton = () => {
+    if (!compare) startCompare();
+    else if (focusOpen) setFocusOpen(false);
+    else if (compare.stage === "pick" && compare.resume && compare.a && compare.b) setCompare({ stage: "active", a: compare.a, b: compare.b });
+    else setCompare(null);
+  };
+  const comparePane = compare && model && (
+    <div className={cn("pointer-events-auto flex min-h-0 flex-col overflow-hidden", GLASS)}>
+      {compare.stage === "pick" || !comparing ? (
+        <ComparePicker
+          drivers={pickDrivers}
+          initialA={compare.a}
+          initialB={compare.b}
+          onCancel={() => setCompare(compare.resume && compare.a && compare.b ? { stage: "active", a: compare.a, b: compare.b } : null)}
+          onStart={(a, b) => {
+            setSelected(null);
+            setCompareHighlight(true);
+            setLastPair([a, b]);
+            setCompare({ stage: "active", a, b });
+          }}
+        />
+      ) : (
+        <ComparePanel
+          model={model}
+          lapLength={frame.path.length}
+          t={snapshot?.t ?? 0}
+          a={indexOf(compare.a)}
+          b={indexOf(compare.b)}
+          teamColour={(i) => model.ds.drivers[i].teamColour ?? NEUTRAL_MARKER}
+          onSeek={(t) => provider.current?.seekTime?.(t)}
+          onSwitch={() => setCompare({ ...compare, stage: "pick", resume: true })}
+          onExit={() => setCompare(null)}
+          telemetrySessionKey={telemetrySessionKey}
+          path={frame.path}
+          toWorld={toPlane}
+          wide={wideCompare}
+          onToggleWide={phone ? null : () => setWideCompare((w) => !w)}
+        />
+      )}
+    </div>
+  );
 
   const modeBadge = <Badge tone={mode === "LIVE" ? "accent" : mode === "REPLAY" ? "info" : "warning"}>{MODE_LABEL[mode].label}</Badge>;
   const statusText = finished
@@ -594,7 +690,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice }: 
                     labels={labels}
                     showLabels={labelsOn}
                     selected={selected}
-                    focus={hovered ? [...focus, hovered] : focus}
+                    focus={hovered ? [...shownFocus, hovered] : shownFocus}
                     follow={follow && !!selected}
                     animating={playing}
                     onSelect={selectFromMarker}
@@ -671,13 +767,15 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice }: 
                     {toolButton("Labels", () => setLabelsOn((l) => !l), labelsOn)}
                     {toolButton("Order", () => setShowOrder((o) => !o), showOrder)}
                     <span className="hidden sm:contents">{toolButton("Events", () => setShowEvents((o) => !o), showEvents)}</span>
+                    {toolButton(emph.source === "focus" ? `Drivers · ${emph.prominent!.size}` : "Drivers", () => setFocusOpen((o) => !o), focusOpen || emph.source === "focus")}
+                    {model && toolButton("Compare", onCompareButton, !!compare && !focusOpen)}
                   </div>
                 </div>
 
                 {errorBox}
 
                 {/* Desktop: race order floats on the left, driver details and events on the right. Phone: one bottom sheet at a time. */}
-                {showOrder && phone && !sel && (
+                {showOrder && phone && !sel && !compare && !focusOpen && (
                   <div
                     className={cn(
                       "pointer-events-auto absolute inset-x-2 bottom-[4.75rem] flex max-h-[42vh] flex-col overflow-hidden",
@@ -687,14 +785,74 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice }: 
                     {orderPanel}
                   </div>
                 )}
-                {!phone && (sel || showEvents) && (
+                {/* One owner of the right-hand area at a time: Circuit focus while it is open, else the comparison, else the driver card and
+                    events. The comparison stays mounted (hidden) under the focus panel, so its tab and lap choices survive; each panel keeps
+                    one container across phone and desktop layouts, so crossing the breakpoint does not reset it. */}
+                {compare && (
+                  <div
+                    className={cn(
+                      "pointer-events-none absolute flex flex-col",
+                      focusOpen && "hidden",
+                      phone ? "inset-x-2 bottom-[9.25rem] max-h-[52svh]" : cn("bottom-[5.75rem] right-4 top-[8.5rem]", wideCompare ? "w-[36rem]" : "w-[22.5rem]"),
+                    )}
+                  >
+                    {comparePane}
+                  </div>
+                )}
+                {focusOpen && (
+                  <div className={cn("pointer-events-none absolute z-20 flex flex-col", phone ? "inset-x-2 bottom-[9.25rem] top-[7.25rem]" : "bottom-[5.75rem] right-4 top-[8.5rem] w-[20rem]")}>
+                    <div className={cn("pointer-events-auto flex min-h-0 flex-col overflow-hidden", GLASS)}>
+                      <CircuitFocus
+                        drivers={drivers.map((d) => ({ id: d.id, code: d.code, name: d.name, team: d.teamSlug ? (findTeamBySlug(d.teamSlug)?.name ?? null) : null, number: d.number, colour: driverColor(d), position: d.position, hollow: isHollow(emph, d.id) }))}
+                        applied={reconcile(focusSet, presentIds)}
+                        comparing={comparePair && emph.source === "compare" ? [byId.get(comparePair[0])?.code ?? comparePair[0], byId.get(comparePair[1])?.code ?? comparePair[1]] : null}
+                        onApply={(f) => {
+                          setFocusSet(f);
+                          setFocusOpen(false);
+                        }}
+                        onClose={() => setFocusOpen(false)}
+                      />
+                    </div>
+                  </div>
+                )}
+                {!phone && !compare && !focusOpen && (sel || showEvents) && (
                   <div className="pointer-events-none absolute bottom-[5.75rem] right-4 top-[8.5rem] flex w-[18.5rem] flex-col gap-2">
                     {sel && <div className="pointer-events-auto shrink-0 [&>div]:border-white/10 [&>div]:bg-surface/70 [&>div]:backdrop-blur-xl">{selectedCard}</div>}
                     {showEvents && <div className={cn("pointer-events-auto flex min-h-0 flex-col overflow-hidden", GLASS)}>{eventsPanel}</div>}
                   </div>
                 )}
-                {phone && sel && <div className="pointer-events-auto absolute inset-x-2 bottom-[4.75rem] [&>div]:bg-surface/80 [&>div]:backdrop-blur-xl">{selectedCard}</div>}
+                {phone && sel && !compare && !focusOpen && <div className="pointer-events-auto absolute inset-x-2 bottom-[4.75rem] [&>div]:bg-surface/80 [&>div]:backdrop-blur-xl">{selectedCard}</div>}
 
+                {/* On-screen "Show all" whenever drivers are hollowed out (or a comparison could re-focus them); hidden while the Drivers panel is open.
+                    Phones: below the toolbar, which wraps to two rows there. */}
+                {!focusOpen && (emph.source !== "all" || comparePair) && (
+                  <div className={cn("pointer-events-none absolute inset-x-2 flex justify-center", phone ? "top-[9.5rem]" : "bottom-[7.75rem]")}>
+                    <div role="status" className={cn("pointer-events-auto flex items-center gap-2 py-1 pl-3 pr-1 text-xs", GLASS)}>
+                      <span className="text-muted">
+                        {emph.source === "compare" && comparePair
+                          ? `Comparing ${byId.get(comparePair[0])?.code ?? ""} and ${byId.get(comparePair[1])?.code ?? ""}; others hollowed out`
+                          : emph.source === "focus"
+                            ? `Showing ${emph.prominent!.size} of ${drivers.length} drivers`
+                            : `All drivers shown`}
+                      </span>
+                      {emph.source === "compare" ? (
+                        <Button size="sm" variant="secondary" className="h-7 px-2.5 text-xs" onClick={() => setCompareHighlight(false)}>
+                          Show all
+                        </Button>
+                      ) : emph.source === "focus" ? (
+                        <Button size="sm" variant="secondary" className="h-7 px-2.5 text-xs" onClick={() => setFocusSet(null)}>
+                          Show all
+                        </Button>
+                      ) : (
+                        comparePair && (
+                          <Button size="sm" variant="secondary" className="h-7 px-2.5 text-xs" onClick={() => setCompareHighlight(true)}>
+                            Focus {byId.get(comparePair[0])?.code} and {byId.get(comparePair[1])?.code}
+                          </Button>
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
                 <div className="pointer-events-none absolute inset-x-2 bottom-2 flex justify-center sm:inset-x-4 sm:bottom-4">
                   <div className="pointer-events-auto w-full max-w-3xl [&>div]:border-white/10 [&>div]:bg-surface/70 [&>div]:backdrop-blur-xl">{playbackBar}</div>
                 </div>

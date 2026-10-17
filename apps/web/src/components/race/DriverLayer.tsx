@@ -26,6 +26,8 @@ export interface MarkerDriver {
   color: string;
   position: number | null;
   stale: boolean;
+  /** Circuit focus: drawn as a subdued wireframe without glow or label (lib/race/visibility). Purely visual. */
+  hollow?: boolean;
 }
 
 interface Props {
@@ -85,6 +87,8 @@ export function DriverLayer({ geometry, drivers, buffer, labels, showLabels, sel
       core: new SphereGeometry(1, 20, 14),
       hit: new SphereGeometry(3.2, 10, 8),
       ring: new RingGeometry(1.9, 2.25, 40).rotateX(-Math.PI / 2),
+      // Hollowed-out driver: a coarse wireframe of the core, readable as "a car is here" from any angle without a bright centre.
+      hollow: new SphereGeometry(1.15, 8, 6),
       hitMat: new MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false }),
       glow,
     };
@@ -92,7 +96,7 @@ export function DriverLayer({ geometry, drivers, buffer, labels, showLabels, sel
   // Materials depend only on the set of team colours, not on every 4 Hz update of the driver list.
   const colorKey = useMemo(() => [...new Set(drivers.map((d) => d.color))].sort().join("|"), [drivers]);
   const mats = useMemo(() => {
-    const byColor = new Map<string, { core: MeshBasicMaterial; halo: SpriteMaterial; haloStale: SpriteMaterial }>();
+    const byColor = new Map<string, { core: MeshBasicMaterial; halo: SpriteMaterial; haloStale: SpriteMaterial; hollow: MeshBasicMaterial }>();
     for (const color of colorKey.split("|").filter(Boolean)) {
       const c = new Color(color);
       byColor.set(color, {
@@ -100,6 +104,8 @@ export function DriverLayer({ geometry, drivers, buffer, labels, showLabels, sel
         halo: new SpriteMaterial({ map: shared.glow ?? undefined, color: c, transparent: true, opacity: 0.85, blending: AdditiveBlending, depthWrite: false }),
         // Stale data: a dimmer halo so the marker reads as "last known position".
         haloStale: new SpriteMaterial({ map: shared.glow ?? undefined, color: c, transparent: true, opacity: 0.25, blending: AdditiveBlending, depthWrite: false }),
+        // Team hue pulled towards the neutral subtle tone and kept faint, so it never reads brighter (or more important) than a focused car.
+        hollow: new MeshBasicMaterial({ color: c.clone().lerp(new Color("#8a94a2"), 0.55), wireframe: true, transparent: true, opacity: 0.5, depthWrite: false }),
       });
     }
     return byColor;
@@ -118,6 +124,7 @@ export function DriverLayer({ geometry, drivers, buffer, labels, showLabels, sel
         m.core.dispose();
         m.halo.dispose();
         m.haloStale.dispose();
+        m.hollow.dispose();
       }
     },
     [mats],
@@ -127,6 +134,7 @@ export function DriverLayer({ geometry, drivers, buffer, labels, showLabels, sel
       shared.core.dispose();
       shared.hit.dispose();
       shared.ring.dispose();
+      shared.hollow.dispose();
       shared.hitMat.dispose();
       shared.glow?.dispose();
       Object.values(ringMats).forEach((m) => m.dispose());
@@ -143,7 +151,7 @@ export function DriverLayer({ geometry, drivers, buffer, labels, showLabels, sel
   const tmp = useMemo(() => [0, 0, 0], []);
   const v = useMemo(() => new Vector3(), []);
 
-  useEffect(() => invalidate(), [selected, focus, showLabels, drivers, invalidate]);
+  useEffect(() => invalidate(), [selected, focus, showLabels, drivers, invalidate]); // drivers carry `hollow`: a focus change redraws once
 
   useFrame((state) => {
     const { camera, size, controls } = state;
@@ -169,7 +177,7 @@ export function DriverLayer({ geometry, drivers, buffer, labels, showLabels, sel
       const lens = Math.tan((((camera as unknown as { fov?: number }).fov ?? 40) * Math.PI) / 360) / Math.tan((40 * Math.PI) / 360);
       const s = Math.max(1.2, dist * 0.0072 * lens);
       g.scale.setScalar(s);
-      g.children[0]?.scale.set(halo, halo, 1); // the halo sprite (first child)
+      g.getObjectByName("halo")?.scale.set(halo, halo, 1); // hollowed-out markers have none
       g.position.set(tmp[0], tmp[1] + s * 0.9 + 0.5, tmp[2]);
       // Marker core radius on screen, so labels clear the marker at any zoom.
       const fov = (camera as unknown as { fov?: number }).fov ?? 40;
@@ -191,6 +199,8 @@ export function DriverLayer({ geometry, drivers, buffer, labels, showLabels, sel
           labelSizes.current.set(d.id, { w, wCompact: w - (pos ? pos.offsetWidth + 4 : 0), h: el.offsetHeight });
         }
         const sz = labelSizes.current.get(d.id)!;
+        // Hollowed-out drivers keep no label (unless selected), so the focused ones stay readable.
+        if (d.hollow && d.id !== selected) continue;
         anchors.push({ id: d.id, mx, my, ...sz, priority: labelPriority({ selected: d.id === selected, focused: focus.includes(d.id), position: d.position }) });
       }
     }
@@ -235,7 +245,7 @@ export function DriverLayer({ geometry, drivers, buffer, labels, showLabels, sel
     <group name="drivers">
       {drivers.map((d) => {
         const m = mats.get(d.color)!;
-        const ring = d.id === selected ? ringMats.selected : focus.includes(d.id) ? ringMats.focus : d.position === 1 ? ringMats.leader : null;
+        const ring = d.id === selected ? ringMats.selected : d.hollow ? null : focus.includes(d.id) ? ringMats.focus : d.position === 1 ? ringMats.leader : null;
         return (
           <group
             key={d.id}
@@ -255,8 +265,14 @@ export function DriverLayer({ geometry, drivers, buffer, labels, showLabels, sel
             }}
             onPointerOut={() => onHover(null)}
           >
-            <sprite scale={[HALO, HALO, 1]} material={d.stale ? m.haloStale : m.halo} raycast={() => null} renderOrder={5} />
-            <mesh geometry={shared.core} material={m.core} renderOrder={6} raycast={() => null} />
+            {d.hollow ? (
+              <mesh geometry={shared.hollow} material={m.hollow} renderOrder={4} raycast={() => null} />
+            ) : (
+              <>
+                <sprite name="halo" scale={[HALO, HALO, 1]} material={d.stale ? m.haloStale : m.halo} raycast={() => null} renderOrder={5} />
+                <mesh geometry={shared.core} material={m.core} renderOrder={6} raycast={() => null} />
+              </>
+            )}
             {ring && <mesh geometry={shared.ring} material={ring} renderOrder={7} raycast={() => null} />}
             {/* Invisible, larger pick target so small markers stay easy to tap. */}
             <mesh geometry={shared.hit} material={shared.hitMat} />

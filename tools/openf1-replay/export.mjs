@@ -76,7 +76,7 @@ for (const s of sessions) {
     const dl = laps
       .filter((l) => l.driver_number === n && l.date_start)
       .sort((a, b) => a.lap_number - b.lap_number)
-      .map((l) => [l.lap_number, rel(l.date_start), num(l.lap_duration)]);
+      .map((l) => [l.lap_number, rel(l.date_start), num(l.lap_duration), num(l.duration_sector_1), num(l.duration_sector_2), num(l.duration_sector_3)]);
     const iv = intervals
       .filter((r) => r.driver_number === n)
       .map((r) => ({ t: rel(r.date), gap: num(r.gap_to_leader), int: num(r.interval), down: lapsDown(r.gap_to_leader) }))

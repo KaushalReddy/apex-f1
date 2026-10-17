@@ -3,6 +3,7 @@ import { RaceExperience } from "@/components/race/RaceExperience";
 import { circuitByShortName } from "@/lib/circuit/catalog";
 import { loadCircuitGeometry } from "@/lib/circuit/load";
 import { loadReplayIndex, replayUrl } from "@/lib/replay/load";
+import { loadTelemetryIndex } from "@/lib/telemetry/load";
 
 export const dynamicParams = false;
 
@@ -35,7 +36,7 @@ export async function generateMetadata({ params }: Props) {
 export default async function Page({ params }: Props) {
   const f = await find((await params).session);
   if (!f) notFound();
-  const geometry = await loadCircuitGeometry(f.circuit.id);
+  const [geometry, telemetry] = await Promise.all([loadCircuitGeometry(f.circuit.id), loadTelemetryIndex()]);
   if (geometry.status !== "ok") notFound();
   return (
     <RaceExperience
@@ -43,6 +44,7 @@ export default async function Page({ params }: Props) {
       circuit={{ slug: f.circuit.id, name: f.circuit.shortName }}
       source={{ kind: "history", sessionKey: f.r.sessionKey, url: replayUrl(f.r.season, f.r.sessionKey), label: `${f.r.eventName} ${f.r.season} · Race · OpenF1 session ${f.r.sessionKey}` }}
       exitHref="/replay"
+      telemetrySessionKey={telemetry.some((s) => s.sessionKey === f.r.sessionKey) ? f.r.sessionKey : null}
       notice={
         (f.r.positionCoverage ?? 1) < 0.9 ? (
           <span className="text-warning">

@@ -59,7 +59,7 @@ export class HistoricalReplayProvider implements RaceProvider {
   private readonly idOf: (n: number) => string;
 
   constructor(
-    private readonly model: ReplayModel,
+    readonly model: ReplayModel,
     private readonly session: { circuitSlug: string; circuitName: string },
     private readonly scheduler: Scheduler = realScheduler,
     timeSource?: TimeSource,

@@ -7,6 +7,7 @@ import { loadCircuitGeometry } from "@/lib/circuit/load";
 import { loadSeasons } from "@/lib/drivers/load";
 import { previousRace } from "@/lib/race/previous";
 import { loadReplayIndex, replayUrl } from "@/lib/replay/load";
+import { loadTelemetryIndex } from "@/lib/telemetry/load";
 
 export const metadata = { title: "Live Race" };
 
@@ -117,6 +118,7 @@ export default async function Page({ searchParams }: Props) {
       }
       exitHref="/"
       notice={notice}
+      telemetrySessionKey={recorded && (await loadTelemetryIndex()).some((s) => s.sessionKey === recorded.sessionKey) ? recorded.sessionKey : null}
     />
   );
 }

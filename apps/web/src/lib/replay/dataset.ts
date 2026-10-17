@@ -5,6 +5,9 @@
  */
 export const REPLAY_SCHEMA = "apex-f1/race-replay@1";
 
+/** [lap number, start (ms), lap time (s), sector 1, 2, 3 (s)]; times null when not published. */
+export type ReplayLap = [number, number, number | null, (number | null)?, (number | null)?, (number | null)?];
+
 export interface ReplayDriver {
   number: number;
   acronym: string | null;
@@ -13,8 +16,8 @@ export interface ReplayDriver {
   teamColour: string | null;
   /** Recorded positions, decoded: strictly increasing t (ms), OpenF1 location x/y. */
   positions: { t: number[]; x: number[]; y: number[] };
-  /** [lap number, start (ms), lap time (s) or null], in lap order. */
-  laps: [number, number, number | null][];
+  /** In lap order. Sector times are present in files exported since sector support (older files have 3 entries). */
+  laps: ReplayLap[];
   /** Published gaps: to the leader and to the car ahead (s), or whole laps down. */
   intervals: { t: number[]; gap: (number | null)[]; interval: (number | null)[]; lapsDown: (number | null)[] };
 }
@@ -117,7 +120,7 @@ export function parseReplay(raw: unknown): Result<ReplayDataset> {
     const positions = decodePositions(d.positions);
     dropped.positionSamples += positions.dropped;
     const laps = (Array.isArray(d.laps) ? d.laps : [])
-      .filter((l): l is [number, number, number | null] => Array.isArray(l) && Number.isInteger(l[0]) && fin(l[1]) && (l[2] === null || fin(l[2])))
+      .filter((l): l is ReplayLap => Array.isArray(l) && l.length >= 3 && Number.isInteger(l[0]) && fin(l[1]) && l.slice(2).every((v: unknown) => v === null || fin(v)))
       .sort((a, b) => a[0] - b[0]);
     const iv = isObj(d.intervals) ? d.intervals : {};
     const ivT = Array.isArray(iv.t) ? iv.t : [];

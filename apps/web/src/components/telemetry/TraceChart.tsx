@@ -34,12 +34,16 @@ interface Props {
   summary: string;
   /** Each series' value at the cursor, shown beside the label (so the reading stays next to the trace at any screen width). */
   readout?: { color: string; text: string }[];
+  /** Click (or Enter on the focused chart) picks the cursor position, e.g. to seek a replay there. */
+  onPick?: (x: number) => void;
+  /** Cursor drawn when the pointer is not over any chart (e.g. the replay's current position); dashed to tell it apart. */
+  followX?: number | null;
 }
 
 const M = { l: 48, r: 12, t: 8, b: 8 };
 const AXIS_H = 22;
 
-export function TraceChart({ label, unit, height, xDomain, yDomain, yTicks, yFormat = String, traces, hoverX, onHover, reference, xAxis, summary, readout }: Props) {
+export function TraceChart({ label, unit, height, xDomain, yDomain, yTicks, yFormat = String, traces, hoverX, onHover, reference, xAxis, summary, readout, onPick, followX = null }: Props) {
   const box = useRef<HTMLDivElement>(null);
   const [W, setW] = useState(640);
   useEffect(() => {
@@ -90,6 +94,7 @@ export function TraceChart({ label, unit, height, xDomain, yDomain, yTicks, yFor
       e.preventDefault();
       onHover(e.key === "Home" ? x0 : x1);
     } else if (e.key === "Escape") onHover(null);
+    else if (e.key === "Enter" && onPick && hoverX != null) onPick(hoverX);
   };
 
   return (
@@ -115,12 +120,19 @@ export function TraceChart({ label, unit, height, xDomain, yDomain, yTicks, yFor
         height={H}
         className="block max-w-full touch-none rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-accent-strong"
         role="img"
-        aria-label={`${label}. ${summary} Use the left and right arrow keys to move the cursor.`}
+        aria-label={`${label}. ${summary} Use the left and right arrow keys to move the cursor${onPick ? ", Enter to go there in the replay" : ""}.`}
         tabIndex={0}
         onPointerMove={move}
         onPointerDown={move}
         onPointerLeave={(e) => e.pointerType === "mouse" && onHover(null)}
         onKeyDown={keys}
+        onClick={(e) => {
+          if (!onPick) return;
+          const r = e.currentTarget.getBoundingClientRect();
+          const v = invert(e.clientX - r.left);
+          if (v >= x0 && v <= x1) onPick(v);
+        }}
+        style={onPick ? { cursor: "pointer" } : undefined}
       >
         {yTicks.map((t) => (
           <g key={t}>
@@ -135,6 +147,9 @@ export function TraceChart({ label, unit, height, xDomain, yDomain, yTicks, yFor
           <path key={t.id} d={path(t)} fill="none" stroke={t.color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
         ))}
         {hoverX != null && <line x1={sx(hoverX)} x2={sx(hoverX)} y1={M.t} y2={height - M.b} stroke="var(--color-fg)" strokeOpacity="0.55" strokeWidth="1" />}
+        {hoverX == null && followX != null && followX >= x0 && followX <= x1 && (
+          <line x1={sx(followX)} x2={sx(followX)} y1={M.t} y2={height - M.b} stroke="var(--color-accent-strong)" strokeOpacity="0.8" strokeWidth="1" strokeDasharray="3 3" />
+        )}
         {xAxis &&
           xAxis.ticks.map((t) => (
             <text key={t} x={sx(t)} y={height + 14} textAnchor="middle" className="fill-subtle text-[10px] tabular-nums">
