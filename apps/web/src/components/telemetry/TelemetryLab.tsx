@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ErrorBoundary } from "@/components/circuit/ErrorBoundary";
 import { SERIES_A, SERIES_B } from "@/components/drivers/charts";
 import { TeamMarker } from "@/components/data/team-marker";
@@ -11,7 +11,7 @@ import { cn } from "@/lib/cn";
 import { createTrackPath, wrap01 } from "@/lib/race/track";
 import { alignLap, byDistance, deltaTrace, distanceAtTime, interpAt, lapTime, smooth, valuesAtTime, type Channel } from "@/lib/telemetry/analysis";
 import type { LapTelemetry } from "@/lib/telemetry/types";
-import { useWebGL } from "@/lib/use-client-env";
+import { useNearViewport, useWebGL } from "@/lib/use-client-env";
 import { niceTicks, TraceChart, type Trace } from "./TraceChart";
 
 const Scene = dynamic(() => import("./TelemetryScene"), {
@@ -39,6 +39,9 @@ interface Props {
 
 export function TelemetryLab({ a, b, geometry }: Props) {
   const webgl = useWebGL();
+  // The map loads the 3D engine; on phones it starts two screens down, so it is only built when the user scrolls near it.
+  const mapRef = useRef<HTMLDivElement | null>(null);
+  const mapNear = useNearViewport(mapRef);
   // One world frame for projection and drawing: the transform and centerline the circuit scene builds (as in the race view).
   const frame = useMemo(() => {
     if (!geometry) return null;
@@ -278,11 +281,13 @@ export function TelemetryLab({ a, b, geometry }: Props) {
 
       <aside className="flex flex-col gap-4 lg:sticky lg:top-28 lg:self-start">
         <div className="overflow-hidden rounded-lg border border-line bg-surface">
-          <div className="relative h-64 sm:h-80 lg:h-72">
+          <div ref={mapRef} className="relative h-64 sm:h-80 lg:h-72">
             {!geometry ? (
               <p className="flex h-full items-center justify-center p-6 text-center text-sm text-muted">No generated layout for this circuit, so the cars cannot be placed on a map. Time traces are still available.</p>
             ) : webgl === false ? (
               <p className="flex h-full items-center justify-center p-6 text-center text-sm text-muted">The circuit map needs WebGL, which this browser does not provide.</p>
+            ) : !mapNear ? (
+              <p className="flex h-full items-center justify-center text-sm text-muted">Loading the circuit…</p>
             ) : (
               <ErrorBoundary fallback={(e) => <p className="flex h-full items-center justify-center p-6 text-center text-sm text-muted">The circuit map could not start ({e.message}).</p>}>
                 <Scene
