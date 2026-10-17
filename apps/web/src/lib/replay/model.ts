@@ -52,7 +52,7 @@ export function lastAtOrBefore(xs: ArrayLike<number>, x: number): number {
 export function officialTone(m: { category: string | null; flag: string | null; message: string }): OfficialTone | null {
   const msg = m.message.toUpperCase();
   if (m.flag === "CHEQUERED" || msg.includes("CHEQUERED FLAG")) return "finish";
-  if (m.flag === "RED" || msg.includes("RED FLAG")) return "red-flag";
+  if (m.flag === "RED" || /\bRED FLAG\b/.test(msg)) return "red-flag";
   if (m.category === "SafetyCar") return "safety-car";
   if (/\bRACE (START|RESUM)|SESSION STARTED/.test(msg)) return "start"; // a restart after a red flag is announced as "SESSION STARTED"
   return null;

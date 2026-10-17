@@ -20,6 +20,7 @@ About 100 requests per race (positions in 30-minute windows per car), spaced 2.1
 | Laps | `/laps` | lap start, lap time and sector times per driver |
 | Pit stops | `/pit` | time, lap, pit-lane and stationary time |
 | Race control | `/race_control` | every message, timestamped |
+| Tyre stints | `/stints` | stint number, compound, first and last lap, tyre age at the start |
 Times are ms from the replay start (`startUtc`): 20 s before lights out (first lap start) to 30 s after the last lap ends.
 
 ## What the app derives (tested in `apps/web/src/lib/replay`)
@@ -62,3 +63,13 @@ Times are ms from the replay start (`startUtc`): 20 s before lights out (first l
   red flag; a flag with no update for 5 minutes is dropped.
 - **Sector shading on the circuit is approximate**: OpenF1 gives marshal-sector numbers, not their positions, so sector k of N (N =
   highest sector number seen in that race) is drawn as the k-th equal slice of the lap from the start/finish line.
+
+## Strategy (Phase 13; `apps/web/src/lib/strategy`, tested)
+- **Stints** as published. A compound change with no matching published pit stop (pit lap = the stint's previous last lap, the lap
+  after, or its first lap) is flagged, not hidden (e.g. three lap-1 changes in Singapore 2026). Missing compounds show as "not published".
+- **Degradation** (calculated): least-squares slope of lap time against tyre age over the stint's comparable laps (not lap 1, pit
+  in/out, Safety Car / VSC / red-flag laps, nor the stint's first lap), with its standard error and lap count; needs 5 laps. It includes
+  fuel burn-off, which cannot be separated, so true tyre wear is somewhat larger.
+- **What-if** (SIMULATION, always labelled): moving one stop re-predicts the two stints around it from the driver's own fitted lines; the
+  number of stops is unchanged so pit-lane time cancels. Range from slopes ± one standard error. Finishing position assumes everyone else
+  unchanged, from each driver's last published gap. Not modelled: traffic, Safety Cars, warm-up, track/fuel changes, rivals reacting.

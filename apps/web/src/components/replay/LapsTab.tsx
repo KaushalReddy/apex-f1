@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { SERIES_A, SERIES_B } from "@/components/drivers/charts";
 import { niceTicks, TraceChart } from "@/components/telemetry/TraceChart";
+import Link from "next/link";
+import { compound } from "@/components/strategy/StrategyView";
 import { cn } from "@/lib/cn";
 import { comparable, consistency, lapRows } from "@/lib/replay/laps";
 import type { ReplayModel } from "@/lib/replay/model";
@@ -32,6 +34,8 @@ export function LapsTab({ model, a, b, codeA, codeB, t, onSeek }: { model: Repla
   const cb = consistency(rowsB);
   const byLapB = new Map(rowsB.map((r) => [r.lap, r]));
   const lapAt = (n: number) => Math.round(n);
+  // Same x scale as the chart (lap 1 at the left edge, maxLap at the right), clamped to the plot.
+  const lapX = (lap: number) => Math.min(100, Math.max(0, ((lap - 1) / Math.max(1, maxLap - 1)) * 100));
   const current = rowsA.filter((r) => r.start <= t).at(-1)?.lap ?? null;
 
   if (!vals.length) return <p className="text-xs text-muted">Neither driver has comparable timed laps (all laps are pit, Safety Car or untimed).</p>;
@@ -72,6 +76,38 @@ export function LapsTab({ model, a, b, codeA, codeB, t, onSeek }: { model: Repla
           xAxis={{ ticks: niceTicks(1, maxLap, 5).filter((v) => v >= 1), format: (v) => `L${v}` }}
           summary={`Comparable lap times of ${codeA} and ${codeB} by lap number.`}
         />
+      </div>
+      {/* Tyre stints of both drivers on the same lap axis as the chart (OpenF1 stints; colours as on the Strategy page). */}
+      {/* Labels sit in the chart's 48 px y-axis gutter and the bars use its lap scale, so stints line up with the laps above. */}
+      <div className="mt-1 space-y-1 pr-3" aria-label="Tyre stints">
+        {(
+          [
+            [a, codeA, SERIES_A],
+            [b, codeB, SERIES_B],
+          ] as const
+        ).map(([i, code, colour]) => (
+          <div key={code} className="flex items-center">
+            <span className="w-12 shrink-0 pr-1.5 text-right text-[10px] font-semibold" style={{ color: colour }}>
+              {code}
+            </span>
+            <div className="relative h-2.5 flex-1">
+              {model.ds.drivers[i].stints.length === 0 ? (
+                <span className="text-[10px] text-subtle">no stints published</span>
+              ) : (
+                model.ds.drivers[i].stints.map((s) =>
+                  s.lapStart == null ? null : (
+                    <span
+                      key={s.stint}
+                      title={`${compound(s.compound).label}, laps ${s.lapStart}–${s.lapEnd ?? "?"}`}
+                      className="absolute inset-y-0 rounded-[2px]"
+                      style={{ left: `calc(${lapX(s.lapStart - 0.5)}% + 1px)`, width: `calc(${lapX((s.lapEnd ?? maxLap) + 0.5) - lapX(s.lapStart - 0.5)}% - 2px)`, backgroundColor: compound(s.compound).colour }}
+                    />
+                  ),
+                )
+              )}
+            </div>
+          </div>
+        ))}
       </div>
       <dl className="mt-2 grid grid-cols-2 gap-2 text-xs">
         {(
@@ -123,6 +159,9 @@ export function LapsTab({ model, a, b, codeA, codeB, t, onSeek }: { model: Repla
         </tbody>
       </table>
       <p className="mt-1 text-[11px] text-subtle">Δ is {codeB} minus {codeA}; green where {codeB} was faster. A lap-time difference is not the gap between the cars on track.</p>
+      <Link href={`/strategy?session=${model.ds.sessionKey}&driver=${codeA}`} className="mt-2 inline-block text-xs font-medium text-fg underline decoration-white/30 underline-offset-4 hover:decoration-white">
+        Tyre strategy and a what-if for this race
+      </Link>
     </>
   );
 }

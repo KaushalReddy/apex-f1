@@ -44,8 +44,9 @@ export function classify(m: RaceControlMessage): ClassifiedMessage {
   const sector = m.scope === "Sector" ? Number(SECTOR.exec(msg)?.[1] ?? NaN) : NaN;
   const out = (kind: MessageKind, importance: Importance): ClassifiedMessage => ({ ...m, kind, importance, sector: Number.isFinite(sector) ? sector : null });
   if (m.category === "SafetyCar") return out(/\bVSC\b|VIRTUAL/.test(msg) ? "vsc" : "safety-car", "key");
-  if (m.flag === "RED" || msg.includes("RED FLAG")) return out("red-flag", "key");
+  // Chequered first, and "RED FLAG" as whole words: "CHEQUERED FLAG" contains the letters "RED FLAG".
   if (m.flag === "CHEQUERED" || msg.includes("CHEQUERED FLAG")) return out("finish", "key");
+  if (m.flag === "RED" || /\bRED FLAG\b/.test(msg)) return out("red-flag", "key");
   if (/\bRACE (START|RESUM)|SESSION STARTED/.test(msg)) return out("start", "key");
   if (m.flag === "BLACK AND WHITE") return out("black-white", "key");
   if (m.flag === "DOUBLE YELLOW") return out("double-yellow", "info");

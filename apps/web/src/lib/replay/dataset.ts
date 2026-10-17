@@ -20,6 +20,17 @@ export interface ReplayDriver {
   laps: ReplayLap[];
   /** Published gaps: to the leader and to the car ahead (s), or whole laps down. */
   intervals: { t: number[]; gap: (number | null)[]; interval: (number | null)[]; lapsDown: (number | null)[] };
+  /** Tyre stints as published, in order (empty in files exported before stint support). */
+  stints: ReplayStint[];
+}
+
+/** A tyre stint: compound as published (e.g. "SOFT"; null if not published), laps it covers, tyre age in laps at its start. */
+export interface ReplayStint {
+  stint: number;
+  compound: string | null;
+  lapStart: number | null;
+  lapEnd: number | null;
+  ageAtStart: number | null;
 }
 
 export interface RaceControlMessage {
@@ -149,6 +160,10 @@ export function parseReplay(raw: unknown): Result<ReplayDataset> {
       positions: { t: positions.t, x: positions.x, y: positions.y },
       laps,
       intervals: { t: keep.map((i) => ivT[i] as number), gap: keep.map((i) => numOrNull(col("gap")[i])), interval: keep.map((i) => numOrNull(col("interval")[i])), lapsDown: keep.map((i) => numOrNull(col("lapsDown")[i])) },
+      stints: (Array.isArray(d.stints) ? d.stints : [])
+        .filter((x): x is unknown[] => Array.isArray(x) && Number.isInteger(x[0]))
+        .map((x) => ({ stint: x[0] as number, compound: typeof x[1] === "string" ? x[1].toUpperCase() : null, lapStart: numOrNull(x[2]), lapEnd: numOrNull(x[3]), ageAtStart: numOrNull(x[4]) }))
+        .sort((a, b) => a.stint - b.stint),
     });
   }
   if (drivers.length === 0) return { ok: false, error: "no valid drivers" };

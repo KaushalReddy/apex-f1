@@ -48,6 +48,7 @@ for (const s of sessions) {
     await get(`pit?session_key=${key}`),
   ];
   const weather = (await get(`weather?session_key=${key}`)).sort((x, y) => ms(x.date) - ms(y.date));
+  const stints = await get(`stints?session_key=${key}`);
   const lap1 = laps.filter((l) => l.lap_number === 1 && l.date_start).map((l) => ms(l.date_start));
   if (!lap1.length) {
     console.error(`  ${key} ${s.location}: no lap data published, skipped`);
@@ -92,6 +93,11 @@ for (const s of sessions) {
       positions: { dt: delta("t"), dx: delta("x"), dy: delta("y") },
       laps: dl,
       intervals: { t: iv.map((r) => r.t), gap: iv.map((r) => r.gap), interval: iv.map((r) => r.int), lapsDown: iv.map((r) => r.down) },
+      // Tyre stints as published: [stint number, compound, first lap, last lap, tyre age (laps) at the start].
+      stints: stints
+        .filter((x) => x.driver_number === n)
+        .sort((a, b) => a.stint_number - b.stint_number)
+        .map((x) => [x.stint_number, x.compound ?? null, x.lap_start ?? null, x.lap_end ?? null, x.tyre_age_at_start ?? null]),
     });
   }
   const m = meetings.get(s.meeting_key) ?? {};
@@ -100,7 +106,7 @@ for (const s of sessions) {
     source: {
       name: "OpenF1",
       url: "https://openf1.org",
-      endpoints: ["/v1/sessions", "/v1/meetings", "/v1/drivers", "/v1/location", "/v1/laps", "/v1/position", "/v1/intervals", "/v1/pit", "/v1/race_control", "/v1/weather"],
+      endpoints: ["/v1/sessions", "/v1/meetings", "/v1/drivers", "/v1/location", "/v1/laps", "/v1/position", "/v1/intervals", "/v1/pit", "/v1/race_control", "/v1/weather", "/v1/stints"],
       fetchedOn: new Date().toISOString().slice(0, 10),
       note: "Recorded OpenF1 data (unofficial, community API; data originating from Formula 1 timing). Positions thinned to samples at least 1 s apart. Non-commercial use; see openf1.org for terms.",
     },

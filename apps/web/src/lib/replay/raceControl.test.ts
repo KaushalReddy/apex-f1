@@ -12,6 +12,9 @@ describe("classify", () => {
     expect(classify(msg("SAFETY CAR DEPLOYED", { category: "SafetyCar" }))).toMatchObject({ kind: "safety-car", importance: "key" });
     expect(classify(msg("VSC DEPLOYED", { category: "SafetyCar" }))).toMatchObject({ kind: "vsc", importance: "key" }); // not called a Safety Car
     expect(classify(msg("RED FLAG", { category: "Flag", flag: "RED", scope: "Track" })).kind).toBe("red-flag");
+    expect(classify(msg("RED FLAG - RACE SUSPENDED")).kind).toBe("red-flag");
+    // "CHEQUERED FLAG" contains the letters "RED FLAG": it must stay the finish, never a red flag.
+    expect(classify(msg("CHEQUERED FLAG")).kind).toBe("finish");
     expect(classify(msg("YELLOW IN TRACK SECTOR 7", { category: "Flag", flag: "YELLOW", scope: "Sector" }))).toMatchObject({ kind: "yellow", sector: 7 });
     expect(classify(msg("WAVED BLUE FLAG FOR CAR 18 (STR)", { category: "Flag", flag: "BLUE", scope: "Driver" })).importance).toBe("routine");
     expect(classify(msg("FIA STEWARDS: 5 SECOND TIME PENALTY FOR CAR 87 (BEA) - CAUSING A COLLISION")).kind).toBe("penalty");
@@ -89,6 +92,7 @@ describe("real data: Singapore 2026 (exported OpenF1 replay)", () => {
     const vscTimes = rc.messages.filter((m) => m.message === "VSC DEPLOYED").map((m) => m.t + 30_000);
     expect(vscTimes.map((t) => rc.statusAt(t))).toEqual(vscTimes.map(() => "vsc"));
     expect(r.value.weather!.t.length).toBeGreaterThan(100);
+    expect(rc.messages.filter((m) => m.kind === "red-flag")).toHaveLength(0); // Singapore 2026 had no red flag
   });
 });
 

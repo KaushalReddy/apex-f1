@@ -7,10 +7,11 @@ import { ANALYSIS_HUB, PRODUCT_NAV } from "@/domain/navigation";
 
 export const metadata = { title: "Analysis" };
 
-/** Index of the analysis tools. States each tool's real status: the Telemetry Lab and Race Replay are available, the rest are planned. */
+/** Index of the analysis tools. States each tool's real status: the Telemetry Lab, Race Replay and Strategy are available, the rest are planned. */
 const STATUS: Record<string, { label: string; tone: "info" | "success" }> = {
   "/replay": { label: "Available · 2026 races", tone: "success" },
   "/telemetry": { label: "Available · 2026 laps", tone: "success" },
+  "/strategy": { label: "Available · 2026 races", tone: "success" },
 };
 
 export default function AnalysisPage() {
