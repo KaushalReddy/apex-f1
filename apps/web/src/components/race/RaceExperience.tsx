@@ -28,6 +28,7 @@ import { ComparePanel } from "@/components/replay/ComparePanel";
 import { ComparePicker } from "@/components/replay/ComparePicker";
 import { CircuitFocus } from "./CircuitFocus";
 import { RaceControlPanel } from "@/components/replay/RaceControlPanel";
+import { EngineerPanel } from "@/components/engineer/EngineerPanel";
 import { messageText, RaceControl, weatherAt, type TrackStatus } from "@/lib/replay/raceControl";
 import { EVENT_LEAD_IN_MS } from "@/lib/replay/model";
 import { emphasis, isHollow, reconcile, type FocusSet } from "@/lib/race/visibility";
@@ -121,6 +122,9 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
   const [lastPair, setLastPair] = useState<[string, string] | null>(null);
   // Race control & conditions (Phase 12): its panel, and the approximate sector-flag shading on the circuit (on by default).
   const [rcOpen, setRcOpen] = useState(false);
+  // AI Race Engineer (Phase 14): its panel, kept mounted once opened so the conversation survives closing it.
+  const [engOpen, setEngOpen] = useState(false);
+  const [engMounted, setEngMounted] = useState(false);
   // Whether the comparison PANEL is open. The comparison itself (pair, highlight, on-screen bar) stays active when another panel takes the
   // right-hand area; that panel's Close then closes only itself, and the Compare button reopens the comparison where it was left.
   const [compareShown, setCompareShown] = useState(true);
@@ -219,6 +223,9 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
           const p = new HistoricalReplayProvider(model, { circuitSlug: circuit.slug, circuitName: circuit.name });
           setCaps({ speeds: p.speeds, timeline: p.timeline, model: p.model });
           detach = attach(p);
+          // `#t=<ms>` (links from the Race Engineer page): start at that moment, with the usual lead-in.
+          const at = /^#t=(\d+)$/.exec(window.location.hash);
+          if (at) p.seekTime(Math.max(0, Number(at[1]) - EVENT_LEAD_IN_MS));
         })
         .catch((e: unknown) => {
           if (!ctrl.signal.aborted) fail(e instanceof Error ? e.message : "the replay could not be loaded");
@@ -465,8 +472,10 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
   // Space the floating panels take, so the circuit is framed in what is left (desktop: side panels; phone: top bar and bottom stack).
   // Space the floating panels take (below the site bar and HUD row, above the playback bar). Desktop side insets are symmetric so the
   // circuit stays centred on screen; they shrink when no side panel is open.
-  const comparePanel = !!compare && compareShown && !focusOpen && !rcOpen;
-  const sidePanels = showOrder || !!sel || showEvents || comparePanel || focusOpen || rcOpen;
+  // One docked panel (Drivers, Race control or the Engineer) owns the right-hand area at a time.
+  const dockOpen = focusOpen || rcOpen || engOpen;
+  const comparePanel = !!compare && compareShown && !dockOpen;
+  const sidePanels = showOrder || !!sel || showEvents || comparePanel || dockOpen;
   // The comparison column is wider (22.5rem, or 36rem "wide") than the driver/events column (18.5rem). Wide frames the circuit off-centre
   // (between the race order and the panel) rather than shrinking it to a sliver.
   const side = comparePanel ? 392 : 344;
@@ -492,6 +501,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
   const startCompare = () => {
     setFocusOpen(false);
     setRcOpen(false);
+    setEngOpen(false);
     setCompareShown(true);
     const a = compare?.a ?? selected ?? lastPair?.[0] ?? null;
     const b = compare?.b ?? (lastPair && lastPair[1] !== a ? lastPair[1] : lastPair && lastPair[0] !== a ? lastPair[0] : null);
@@ -507,13 +517,16 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
       // Comparison active but its panel closed (another panel took the area): reopen it as it was.
       setFocusOpen(false);
       setRcOpen(false);
+      setEngOpen(false);
       setCompareShown(true);
     } else if (compare.stage === "pick" && compare.resume && compare.a && compare.b) setCompare({ stage: "active", a: compare.a, b: compare.b });
     else setCompare(null);
   };
   /** Race control and Drivers take the right-hand area by closing the comparison panel (not stacking over it). */
-  const openDock = (which: "rc" | "focus" | null) => {
+  const openDock = (which: "rc" | "focus" | "eng" | null) => {
     setRcOpen(which === "rc");
+    setEngOpen(which === "eng");
+    if (which === "eng") setEngMounted(true);
     setFocusOpen(which === "focus");
     if (which) setCompareShown(false);
   };
@@ -852,13 +865,14 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
                       openDock(rcOpen ? null : "rc");
                     }, rcOpen)}
                     {model && toolButton("Compare", onCompareButton, comparePanel)}
+                    {model && source.kind === "history" && toolButton("Engineer", () => openDock(engOpen ? null : "eng"), engOpen)}
                   </div>
                 </div>
 
                 {errorBox}
 
                 {/* Desktop: race order floats on the left, driver details and events on the right. Phone: one bottom sheet at a time. */}
-                {showOrder && phone && !sel && !comparePanel && !focusOpen && !rcOpen && (
+                {showOrder && phone && !sel && !comparePanel && !dockOpen && (
                   <div
                     className={cn(
                       "pointer-events-auto absolute inset-x-2 bottom-[4.75rem] flex max-h-[42vh] flex-col overflow-hidden",
@@ -915,17 +929,24 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
                     </div>
                   </div>
                 )}
-                {!phone && !comparePanel && !focusOpen && !rcOpen && (sel || showEvents) && (
+                {engMounted && model && source.kind === "history" && (
+                  <div className={cn("pointer-events-none absolute z-20 flex flex-col", !engOpen && "hidden", phone ? "inset-x-2 bottom-[9.25rem]" : "bottom-[5.75rem] right-4 top-[8.5rem] w-[24rem]")} style={phone ? { top: toolbarBottom + 8 } : undefined}>
+                    <div className={cn("pointer-events-auto flex min-h-0 flex-1 flex-col overflow-hidden", GLASS)}>
+                      <EngineerPanel sessionKey={source.sessionKey} t={rcT} onSeek={(t) => provider.current?.seekTime?.(Math.max(0, t - EVENT_LEAD_IN_MS))} onClose={() => setEngOpen(false)} />
+                    </div>
+                  </div>
+                )}
+                {!phone && !comparePanel && !dockOpen && (sel || showEvents) && (
                   <div className="pointer-events-none absolute bottom-[5.75rem] right-4 top-[8.5rem] flex w-[18.5rem] flex-col gap-2">
                     {sel && <div className="pointer-events-auto shrink-0 [&>div]:border-white/10 [&>div]:bg-surface/70 [&>div]:backdrop-blur-xl">{selectedCard}</div>}
                     {showEvents && <div className={cn("pointer-events-auto flex min-h-0 flex-col overflow-hidden", GLASS)}>{eventsPanel}</div>}
                   </div>
                 )}
-                {phone && sel && !comparePanel && !focusOpen && !rcOpen && <div className="pointer-events-auto absolute inset-x-2 bottom-[4.75rem] [&>div]:bg-surface/80 [&>div]:backdrop-blur-xl">{selectedCard}</div>}
+                {phone && sel && !comparePanel && !dockOpen && <div className="pointer-events-auto absolute inset-x-2 bottom-[4.75rem] [&>div]:bg-surface/80 [&>div]:backdrop-blur-xl">{selectedCard}</div>}
 
                 {/* On-screen "Show all" whenever drivers are hollowed out (or a comparison could re-focus them); hidden while the Drivers panel is open.
                     Phones: below the toolbar, which wraps to two rows there. */}
-                {!focusOpen && !rcOpen && (emph.source !== "all" || comparePair) && (
+                {!dockOpen && (emph.source !== "all" || comparePair) && (
                   <div className={cn("pointer-events-none absolute inset-x-2 flex justify-center", !phone && "bottom-[7.75rem]")} style={phone ? { top: toolbarBottom + 8 } : undefined}>
                     <div role="status" className={cn("pointer-events-auto flex items-center gap-2 py-1 pl-3 pr-1 text-xs", GLASS)}>
                       <span className="text-muted">

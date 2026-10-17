@@ -129,6 +129,13 @@ Three.js coordinates, shared to scene children via context. Source values are ne
 committed under `apps/web/src/data/circuits/`, validated at load, and labelled "scale not calibrated" unless the spike supports it.
 A missing artifact shows an explicit empty state; no layout is ever guessed.
 
+**ADR-020 The Race Engineer runs in the web app, not `apps/ai` (Phase 14; supersedes the AI part of ADR-008).** Race data lives in
+the exported replay files and is analysed by tested TypeScript (`lib/replay`, `lib/strategy`). The engineer is a Next.js route
+(`/api/engineer`) using Google Gemini through its official SDK (`@google/genai`; model `gemini-2.5-flash` unless `GEMINI_MODEL` is set); its tools (`lib/engineer/tools.ts`) call that same code, so its numbers
+match the pages and rule 4 holds in spirit: the model sees race data only through our tools. The key (`GEMINI_API_KEY`) stays on the
+server; without it the page and replay panel say "not configured". In the replay, the dataset is cut at the replay moment before any
+tool runs, so answers cannot spoil the rest of the race. `apps/ai` stays a placeholder.
+
 ## 4. What exists today
 
 | Area | State |

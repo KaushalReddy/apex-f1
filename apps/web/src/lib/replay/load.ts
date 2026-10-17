@@ -1,6 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { parseReplayIndex, type ReplayIndexEntry } from "./dataset";
+import { parseReplay, parseReplayIndex, type ReplayDataset, type ReplayIndexEntry } from "./dataset";
 
 /** Replay files live in public/ (fetched by the browser one race at a time); the server only reads the per-season indexes. */
 const DIR = path.join(process.cwd(), "public", "replay");
@@ -26,4 +26,15 @@ export async function loadReplayIndex(): Promise<(ReplayIndexEntry & { season: n
     }
   }
   return out.sort((a, b) => b.date.localeCompare(a.date));
+}
+
+/** SERVER ONLY. One race's dataset, validated (for server-side analysis: Strategy, the Race Engineer). */
+export async function loadReplayDataset(season: number, sessionKey: number): Promise<{ ok: true; value: ReplayDataset } | { ok: false; error: string }> {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(await readFile(path.join(DIR, String(season), `${sessionKey}.json`), "utf8"));
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : "unreadable" };
+  }
+  return parseReplay(raw);
 }

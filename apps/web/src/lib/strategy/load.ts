@@ -1,6 +1,4 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
-import { parseReplay } from "@/lib/replay/dataset";
+import { loadReplayDataset } from "@/lib/replay/load";
 import { lapRows, neutralisedPeriods, type Neutralisation } from "@/lib/replay/laps";
 import { ReplayModel } from "@/lib/replay/model";
 import { finalGaps, stintsOf, type FinalGap, type StintView } from "./strategy";
@@ -31,13 +29,7 @@ export interface StrategyData {
 
 /** SERVER ONLY. One race's strategy data from its replay dataset (public/replay), computed once per request; never the whole file to the browser. */
 export async function loadStrategy(season: number, sessionKey: number): Promise<{ ok: true; data: StrategyData } | { ok: false; error: string }> {
-  let raw: unknown;
-  try {
-    raw = JSON.parse(await readFile(path.join(process.cwd(), "public", "replay", String(season), `${sessionKey}.json`), "utf8"));
-  } catch (e) {
-    return { ok: false, error: e instanceof Error ? e.message : "unreadable" };
-  }
-  const parsed = parseReplay(raw);
+  const parsed = await loadReplayDataset(season, sessionKey);
   if (!parsed.ok) return { ok: false, error: parsed.error };
   const m = new ReplayModel(parsed.value, null);
   const drivers = m.ds.drivers.map((d, i) => {

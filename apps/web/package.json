@@ -12,6 +12,7 @@
     "verify:routes": "node scripts/verify-routes.mjs"
   },
   "dependencies": {
+    "@google/genai": "^2.30.0",
     "@react-three/drei": "^10.7.9",
     "@react-three/fiber": "^9.8.1",
     "next": "^16.4.0",
