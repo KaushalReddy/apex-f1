@@ -3,7 +3,7 @@
 import { useLayoutEffect, useMemo, useRef, type ComponentRef } from "react";
 import { OrbitControls } from "@react-three/drei";
 import { useFrame, useStore, useThree } from "@react-three/fiber";
-import { Box3, Sphere, Vector3 } from "three";
+import { Box3, Sphere, Vector3, type Mesh, type PerspectiveCamera } from "three";
 import { CAR_TARGET, cameraPreset, fitSphere, zoomLimits } from "@/lib/car/camera";
 import type { ComponentId, ViewName } from "@/lib/car/types";
 
@@ -11,14 +11,24 @@ export type CarViewPreset = { name: ViewName; nonce: number };
 /** Car Lab: glide to frame one component (as currently drawn, including any explode offset), keeping the viewing angle. */
 export type CarFocus = { id: ComponentId; nonce: number };
 
+/** Screen space (px) taken by panels over the full-window canvas; the car is framed in what is left. */
+export type FrameInsets = { left: number; right: number };
+
 /**
  * Orbit / pan / zoom around the car. Choosing a preset glides the camera there (or jumps, with reduced motion); touching the controls
- * cancels a glide. Presets are fitted to the canvas aspect and leave room for the exploded car. Arrow keys pan when the canvas has focus.
+ * cancels a glide. Presets are fitted to the free area's aspect and leave room for the exploded car. Arrow keys pan when the canvas has
+ * focus. With `insets`, the canvas stays full-window and the view centre glides to the middle of the free area (a projection offset), so
+ * opening or closing a side panel never resizes the canvas: resizing it made the car jump.
  */
-export function CarCamera({ preset, exploded, autoRotate, reducedMotion, focus }: { preset: CarViewPreset; exploded: boolean; autoRotate: boolean; reducedMotion: boolean; focus?: CarFocus | null }) {
+export function CarCamera({ preset, exploded, autoRotate, reducedMotion, focus, insets }: { preset: CarViewPreset; exploded: boolean; autoRotate: boolean; reducedMotion: boolean; focus?: CarFocus | null; insets?: FrameInsets }) {
   const controls = useRef<ComponentRef<typeof OrbitControls>>(null);
   const store = useStore();
-  const aspect = useThree((s) => s.size.width / Math.max(s.size.height, 1));
+  const size = useThree((s) => s.size);
+  const left = insets?.left ?? 0;
+  const right = insets?.right ?? 0;
+  // The aspect of the free area: presets and zoom limits fit the car there, not to the whole canvas.
+  const aspect = Math.max(size.width - left - right, 1) / Math.max(size.height, 1);
+  const shift = useRef(0);
   const goal = useRef<{ position: Vector3; target: Vector3 } | null>(null);
   const mounted = useRef(false);
   const interacted = useRef(false);
@@ -43,14 +53,17 @@ export function CarCamera({ preset, exploded, autoRotate, reducedMotion, focus }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [preset, store, reducedMotion, exploded]);
 
-  // Until the user moves the camera, a resize re-fits the current view to the new aspect (renderer and projection are resized by R3F).
+  // Until the user moves the camera, a change of the free area (window resize, a panel opened or closed) re-fits the current view: a
+  // glide, so a panel toggle zooms smoothly instead of snapping (a jump with reduced motion).
   useLayoutEffect(() => {
-    if (!mounted.current || interacted.current || goal.current) return;
+    if (!mounted.current || interacted.current) return;
     const { camera, invalidate } = store.getState();
     const p = cameraPreset(preset.name, aspect, exploded);
-    camera.position.set(...p.position);
-    controls.current?.target.set(...p.target);
-    controls.current?.update();
+    if (reducedMotion) {
+      camera.position.set(...p.position);
+      controls.current?.target.set(...p.target);
+      controls.current?.update();
+    } else goal.current = { position: new Vector3(...p.position), target: new Vector3(...p.target) };
     invalidate();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [aspect]);
@@ -59,8 +72,9 @@ export function CarCamera({ preset, exploded, autoRotate, reducedMotion, focus }
     if (!focus) return;
     const { camera, scene, invalidate } = store.getState();
     const box = new Box3();
+    // Only what is drawn: hidden parts stay mounted (invisible), and must not stretch the framing.
     scene.getObjectByName("car")?.children.forEach((g) => {
-      if (g.userData.componentId === focus.id) box.expandByObject(g);
+      if (g.userData.componentId === focus.id) g.traverseVisible((o) => void ((o as Mesh).isMesh && box.expandByObject(o)));
     });
     const c = controls.current;
     if (box.isEmpty() || !c) return;
@@ -85,7 +99,20 @@ export function CarCamera({ preset, exploded, autoRotate, reducedMotion, focus }
     controls.current?.listenToKeyEvents(el);
   }, [store]);
 
+  // View centre: glide towards the middle of the free area (re-applied when the canvas size changes, since the offset is in pixels).
+  const applied = useRef({ shift: 0, w: 0, h: 0 });
   useFrame(({ camera, invalidate }, dt) => {
+    const want = (left - right) / 2;
+    shift.current = reducedMotion ? want : shift.current + (want - shift.current) * (1 - Math.exp(-Math.min(dt, 1 / 30) * 9));
+    if (Math.abs(want - shift.current) < 0.5) shift.current = want;
+    const a = applied.current;
+    if (a.shift !== shift.current || a.w !== size.width || a.h !== size.height) {
+      const cam = camera as PerspectiveCamera;
+      if (shift.current === 0) cam.clearViewOffset();
+      else cam.setViewOffset(size.width, size.height, -shift.current, 0, size.width, size.height);
+      applied.current = { shift: shift.current, w: size.width, h: size.height };
+      invalidate();
+    }
     const g = goal.current;
     const c = controls.current;
     if (!g || !c) return;

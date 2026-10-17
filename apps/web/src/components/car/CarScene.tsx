@@ -10,7 +10,7 @@ import { assembleCar, buildBodyGeometry, buildWingGeometry, disposeCarGeometry, 
 import { COMPONENTS } from "@/lib/car/components";
 import type { ComponentId, Livery } from "@/lib/car/types";
 import { Airflow, type AeroLayers } from "./Airflow";
-import { CarCamera, type CarFocus, type CarViewPreset } from "./CarCamera";
+import { CarCamera, type CarFocus, type CarViewPreset, type FrameInsets } from "./CarCamera";
 import type { AeroFocus, PartMode } from "@/lib/car/lab";
 import type { CfdResult } from "@/lib/cfd/model";
 import type { FieldName } from "./cfdPaint";
@@ -41,6 +41,8 @@ export interface CarSceneProps {
   modes?: Readonly<Record<string, PartMode>>;
   annotate?: boolean;
   focus?: CarFocus | null;
+  /** Panels over the canvas (Car Lab, large screens): the car is framed in the space between them. */
+  insets?: FrameInsets;
   aeroFocus?: AeroFocus;
   /** A computed SU2 flow-field slice to draw at its section (replaces the conceptual airflow while shown). */
   cfdSlice?: { result: CfdResult; field: FieldName } | null;
@@ -76,10 +78,11 @@ function ThumbnailCapture({ livery, wings, onThumbnails }: { livery: Livery; win
     const out: Partial<Record<ComponentId, string>> = {};
     let cancelled = false;
 
-    const capture = (comp: (typeof COMPONENTS)[number]) => {
+    /** Captures one component; false when the car is not in the scene yet (it builds asynchronously), so the caller tries again later. */
+    const capture = (comp: (typeof COMPONENTS)[number]): boolean => {
       const { gl, scene, invalidate } = store.getState();
       const car = scene.getObjectByName("car");
-      if (!car || !bctx || !sctx) return;
+      if (!car || !bctx || !sctx) return false;
       const prevTarget = gl.getRenderTarget();
       const prevClear = gl.getClearColor(new Color());
       const prevAlpha = gl.getClearAlpha();
@@ -96,7 +99,7 @@ function ThumbnailCapture({ livery, wings, onThumbnails }: { livery: Livery; win
           g.visible = on;
           if (on) box.expandByObject(g);
         }
-        if (box.isEmpty()) return;
+        if (box.isEmpty()) return true;
         const centre = box.getCenter(new Vector3());
         const radius = box.getBoundingSphere(new Sphere()).radius;
         const dist = (radius / Math.sin((cam.fov * Math.PI) / 360)) * 0.92;
@@ -125,6 +128,7 @@ function ThumbnailCapture({ livery, wings, onThumbnails }: { livery: Livery; win
         sctx.clearRect(0, 0, THUMB_W, THUMB_H);
         sctx.drawImage(big, 0, 0, THUMB_W, THUMB_H);
         out[comp.id] = small.toDataURL("image/png");
+        return true;
       } finally {
         for (const g of car.children) g.visible = true;
         hidden.forEach((h) => (h.visible = true));
@@ -137,14 +141,17 @@ function ThumbnailCapture({ livery, wings, onThumbnails }: { livery: Livery; win
     // One component per idle callback (a short timeout where requestIdleCallback is missing, e.g. Safari).
     const idle = (f: () => void) => (typeof requestIdleCallback === "function" ? requestIdleCallback(f, { timeout: 500 }) : window.setTimeout(f, 16));
     let k = 0;
+    let waits = 0;
     const step = () => {
       if (cancelled) return;
-      if (k >= COMPONENTS.length) {
+      if (k >= COMPONENTS.length || waits > 600) {
         rt.dispose();
         return;
       }
-      capture(COMPONENTS[k++]);
-      onThumbnails({ ...out });
+      if (capture(COMPONENTS[k])) {
+        k++;
+        onThumbnails({ ...out });
+      } else waits++; // car not built yet (slow devices): retry the same component; give up after ~600 idle slots
       idle(step);
     };
     idle(step);
@@ -276,7 +283,7 @@ export default function CarScene(p: CarSceneProps) {
       {/* The flow is modelled around the assembled car; drawing it through exploded parts would mislead. */}
       {p.aero && !exploded && !p.cfdSlice && <Airflow settings={p.flow} layers={p.aeroLayers} playing={p.aeroPlaying} focus={p.aeroFocus} />}
       {p.cfdSlice && <CfdSlice result={p.cfdSlice.result} field={p.cfdSlice.field} />}
-      <CarCamera preset={p.preset} exploded={exploded} autoRotate={p.autoRotate} reducedMotion={p.reducedMotion} focus={p.focus} />
+      <CarCamera preset={p.preset} exploded={exploded} autoRotate={p.autoRotate} reducedMotion={p.reducedMotion} focus={p.focus} insets={p.insets} />
       <ThumbnailCapture livery={p.livery} wings={p.wings} onThumbnails={p.onThumbnails} />
     </Canvas>
   );

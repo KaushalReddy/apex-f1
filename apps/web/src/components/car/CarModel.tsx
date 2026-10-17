@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Html } from "@react-three/drei";
 import { useFrame, useThree, type ThreeEvent } from "@react-three/fiber";
 import {
@@ -117,8 +117,19 @@ const PartCtx = createContext<PartApi | null>(null);
 function Part({ partKey, mode, children }: { partKey: string; mode: PartMode; children: ReactNode }) {
   const api = useContext(PartCtx)!;
   const component = PARTS.find((p) => p.key === partKey)!.component;
-  const label = api.showLabels && mode !== "hidden" ? LABEL_AT[partKey] : undefined;
+  const hidden = mode === "hidden";
+  const label = api.showLabels && !hidden ? LABEL_AT[partKey] : undefined;
   const { parts } = api;
+  // Hidden parts stay mounted but are not drawn or pickable. Unmounting them (as before) re-created every mesh when shown again, so the
+  // GPU re-uploaded geometry and recompiled shaders: a visible hitch each time a part was hidden or shown. The material mode a hidden part
+  // keeps is the last one it was shown with, so showing it again changes nothing on the GPU.
+  const [shownMode, setShownMode] = useState<PartMode>(hidden ? "solid" : mode);
+  if (!hidden && mode !== shownMode) setShownMode(mode);
+  const inner = useRef<Group | null>(null);
+  useLayoutEffect(() => {
+    // Layer 31 is neither rendered nor raycast (the camera and pointer use layer 0), so a hidden part never blocks a click behind it.
+    inner.current?.traverse((o) => (hidden ? o.layers.set(31) : o.layers.set(0)));
+  }, [hidden]);
   const ref = useCallback(
     (el: Group | null) => {
       if (el) parts.set(partKey, el);
@@ -142,12 +153,11 @@ function Part({ partKey, mode, children }: { partKey: string; mode: PartMode; ch
       }}
       onPointerOut={() => api.onHover(null)}
     >
-      {/* A hidden part keeps its (empty) group so the explode loop and picking stay consistent; nothing is drawn or pickable. */}
-      {mode !== "hidden" && (
-        <ModeCtx.Provider value={mode}>
+      <group ref={inner} visible={!hidden}>
+        <ModeCtx.Provider value={shownMode}>
           <ComponentCtx.Provider value={component}>{children}</ComponentCtx.Provider>
         </ModeCtx.Provider>
-      )}
+      </group>
       {label && (
         <Html position={label[1]} center zIndexRange={[20, 0]} style={{ pointerEvents: "none" }}>
           <span aria-hidden="true" className="whitespace-nowrap rounded-sm border border-line-strong bg-surface-3/90 px-1.5 py-0.5 text-xs font-medium text-fg">

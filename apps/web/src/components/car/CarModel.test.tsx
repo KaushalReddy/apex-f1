@@ -116,10 +116,18 @@ describe("CarModel Car Lab modes (headless R3F)", () => {
     <CarModel geometry={geometry} livery={NEUTRAL_LIVERY} selected={null} hovered={null} exploded={false} reducedMotion onSelect={noop} onHover={noop} labels={false} {...props} />
   );
 
-  it("draws nothing for a hidden part but keeps its group; ghosted parts use one shared transparent material", async () => {
+  it("draws nothing for a hidden part but keeps it mounted (invisible, unpickable); ghosted parts use one shared transparent material", async () => {
     const r = await ReactThreeTestRenderer.create(lab({ modes: { "rear-wing": "hidden", floor: "ghost" } }));
-    expect(groups(r.scene.instance).get("rear-wing")).toBeDefined();
-    expect(meshesIn(r.scene.instance, "rear-wing")).toBe(0);
+    const wing = groups(r.scene.instance).get("rear-wing")!;
+    // Meshes stay mounted, so showing the part again needs no new GPU work (unmounting caused a visible hitch on every toggle).
+    expect(meshesIn(r.scene.instance, "rear-wing")).toBeGreaterThan(0);
+    const drawn: Mesh[] = [];
+    wing.traverseVisible((o) => void ((o as Mesh).isMesh && drawn.push(o as Mesh)));
+    expect(drawn).toHaveLength(0);
+    // On layer 31: neither rendered nor hit by the pointer (camera and raycaster use layer 0).
+    wing.traverse((o) => {
+      if ((o as Mesh).isMesh) expect(o.layers.isEnabled(0)).toBe(false);
+    });
     const ghostMats = new Set<unknown>();
     groups(r.scene.instance).get("floor")!.traverse((o) => {
       if ((o as Mesh).isMesh) ghostMats.add((o as Mesh).material);
@@ -130,10 +138,16 @@ describe("CarModel Car Lab modes (headless R3F)", () => {
     await r.unmount();
   });
 
-  it("restores a hidden part when its mode returns to solid", async () => {
+  it("restores a hidden part when its mode returns to solid, reusing the same meshes", async () => {
     const r = await ReactThreeTestRenderer.create(lab({ modes: { "rear-wing": "hidden" } }));
+    const before: Mesh[] = [];
+    groups(r.scene.instance).get("rear-wing")!.traverse((o) => void ((o as Mesh).isMesh && before.push(o as Mesh)));
     await r.update(lab({ modes: {} }));
-    expect(meshesIn(r.scene.instance, "rear-wing")).toBeGreaterThan(0);
+    const wing = groups(r.scene.instance).get("rear-wing")!;
+    const drawn: Mesh[] = [];
+    wing.traverseVisible((o) => void ((o as Mesh).isMesh && drawn.push(o as Mesh)));
+    expect(drawn.length).toBeGreaterThan(0);
+    expect(drawn.every((m) => before.includes(m) && m.layers.isEnabled(0))).toBe(true);
     await r.unmount();
   });
 

@@ -9,7 +9,7 @@ import {
   useReducer,
   useRef,
   useState,
-
+  useSyncExternalStore,
   type ReactNode,
 } from "react";
 import { ErrorBoundary } from "@/components/circuit/ErrorBoundary";
@@ -107,6 +107,19 @@ function Toggle({
       {children}
     </Button>
   );
+}
+
+/** Width the side panels take on large screens (18rem and 23rem, at 16 px per rem): the car is framed in the space between them. */
+const PANEL_LEFT_PX = 288;
+const PANEL_RIGHT_PX = 368;
+
+const subscribeResize = (cb: () => void) => {
+  window.addEventListener("resize", cb);
+  return () => window.removeEventListener("resize", cb);
+};
+/** Whether the window is at least `px` wide (false while server-rendering). */
+function useMinWidth(px: number) {
+  return useSyncExternalStore(subscribeResize, () => window.innerWidth >= px, () => false);
 }
 
 /** Liquid-glass surface for the fullscreen HUD (same treatment as the race view's immersive panels). */
@@ -264,6 +277,7 @@ export function CarLab({
   const [focus, setFocus] = useState<CarFocus | null>(null);
   const [hovered, setHovered] = useState<ComponentId | null>(null);
   const [panels, setPanels] = useState({ left: true, right: true });
+  const large = useMinWidth(1024);
   // The Lab is full-window only: a fixed layer over the whole tab. Browser fullscreen (which also hides the browser's toolbars) is an
   // optional extra on top of it, since browsers only allow it after a click; it never changes the layout. "Exit" leaves the page.
   const theater = useRef<HTMLDivElement | null>(null);
@@ -768,11 +782,9 @@ export function CarLab({
         aria-label={`Car Lab 3D view: generic procedural car in ${teamName} colours${info ? `, ${info.label} selected` : ""}`}
         className={cn(
           "absolute inset-0 overflow-hidden bg-bg",
-          // Phone sheet open: the car keeps the top half, above the sheet. Large screens: the car sits between the side panels.
+          // Phone sheet open: the car keeps the top half, above the sheet. Large screens: the canvas stays full-window and the camera
+          // frames the car between the side panels (insets below), so showing or hiding a panel glides instead of making the car jump.
           sheet && "max-lg:bottom-[50svh]",
-          panels.left && "lg:left-[18rem]",
-          panels.right &&
-            "lg:right-[23rem]",
         )}
       >
         {webgl === null ? (
@@ -817,6 +829,7 @@ export function CarLab({
               pressure={pressure}
               flow={flow}
               autoRotate={autoRotate && !reducedMotion}
+              insets={large ? { left: panels.left ? PANEL_LEFT_PX : 0, right: panels.right ? PANEL_RIGHT_PX : 0 } : undefined}
               reducedMotion={reducedMotion}
               onSelect={select}
               onHover={hover}
