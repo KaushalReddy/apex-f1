@@ -21,7 +21,7 @@ export default async function TeamsPage() {
       <PageHeader
         eyebrow="Teams"
         title="Teams"
-        description="The constructors, their line-ups and their season, from official classifications and published standings."
+        description="The constructors, their line-ups and their season, race by race."
         badges={data.length ? <Badge tone="info">Official classifications · OpenF1</Badge> : <Badge tone="warning">Not available</Badge>}
         actions={
           <ButtonLink href="/teams/compare" variant="secondary" size="sm">
@@ -32,9 +32,8 @@ export default async function TeamsPage() {
       {data.length ? (
         <TeamDirectory seasons={data} />
       ) : (
-        <EmptyState title="No results dataset in this build" status="Not available" statusTone="warning" headingLevel="h2">
-          Teams are listed from exported season snapshots (tools/openf1-results; see src/data/results/README.md). None are present, so no teams,
-          line-ups or standings are shown.
+        <EmptyState title="No race results yet" status="Not available" statusTone="warning" headingLevel="h2">
+          Teams, line-ups and standings appear here once results are published after the first race.
         </EmptyState>
       )}
     </PageContainer>

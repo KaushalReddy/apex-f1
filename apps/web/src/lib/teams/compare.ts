@@ -23,7 +23,7 @@ export function compareTeams(seasons: readonly SeasonResults[], q: { season?: st
   if (!seasons.length) return null;
   const notices: string[] = [];
   let season = seasons.find((s) => String(s.season) === q.season);
-  if (q.season && !season) notices.push(`No exported results for ${q.season}; showing ${seasons[0].season}.`);
+  if (q.season && !season) notices.push(`No results for ${q.season}; showing ${seasons[0].season}.`);
   season ??= seasons[0];
   const entered = TEAMS.filter((t) => seasonName(season!, t));
   const byStanding = [...entered].sort((x, y) => (teamSeasonStats(season!, x).championship?.position ?? 99) - (teamSeasonStats(season!, y).championship?.position ?? 99));

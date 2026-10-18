@@ -35,13 +35,13 @@ export default async function Page() {
       <PageHeader
         eyebrow="Analysis"
         title="Race Replay"
-        description="Play back a recorded Grand Prix on its 3D circuit: every car's recorded position, the official running order, gaps, laps, pit stops and race-control messages at any moment, with seeking and speed control."
+        description="Recorded 2026 Grands Prix on their 3D circuits, as they happened: positions, running order, gaps, pit stops and race control at any moment. Scrub, change speed, compare two drivers, rewind a battle."
         badges={<Badge tone="info">Recorded data · OpenF1</Badge>}
       />
       <DataFreshness className="-mt-4 mb-8" />
       {rows.length === 0 ? (
-        <EmptyState title="No race replays in this build" status="Unavailable" headingLevel="h2">
-          Replays are exported from OpenF1 with tools/openf1-replay (see tools/openf1-replay/README.md). Nothing is shown rather than invented.
+        <EmptyState title="No race replays yet" status="Unavailable" headingLevel="h2">
+          Replays appear here once a race has been recorded. Nothing is shown rather than invented.
         </EmptyState>
       ) : (
         seasons.map((season) => (

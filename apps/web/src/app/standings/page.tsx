@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { StandingsView } from "@/components/drivers/StandingsView";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -23,7 +22,7 @@ export default async function StandingsPage() {
       <PageHeader
         eyebrow="Standings"
         title="Championship standings"
-        description="Drivers' and constructors' championships as published after each race, for the seasons APEX F1 has exported."
+        description="Both championships, as published after every round."
         badges={tables.length ? <Badge tone="info">Published standings · OpenF1</Badge> : <Badge tone="warning">Not available</Badge>}
         actions={
           <ButtonLink href="/drivers/compare" variant="secondary" size="sm">
@@ -35,13 +34,8 @@ export default async function StandingsPage() {
       {tables.length ? (
         <StandingsView seasons={tables} />
       ) : (
-        <EmptyState title="No results dataset in this build" status="Not available" statusTone="warning" headingLevel="h2">
-          Standings come from exported season snapshots (tools/openf1-results; see src/data/results/README.md). None are present, so no positions
-          or points are shown. See{" "}
-          <Link href="/drivers" className="text-fg underline underline-offset-4">
-            drivers
-          </Link>
-          .
+        <EmptyState title="No standings yet" status="Not available" statusTone="warning" headingLevel="h2">
+          The championships appear here once results are published after the first race. No positions or points are guessed.
         </EmptyState>
       )}
     </PageContainer>

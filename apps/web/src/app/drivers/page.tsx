@@ -23,7 +23,7 @@ export default async function DriversPage() {
       <PageHeader
         eyebrow="Drivers"
         title="Drivers"
-        description="Every driver who started a race in the seasons APEX F1 has exported, with published championship standings and results. Open a profile for season trends and results, or compare two drivers."
+        description="Every driver who has started a race since 2024: results, form and championship position. Open a profile, or put two drivers side by side."
         badges={
           data.length ? (
             <>
@@ -46,9 +46,8 @@ export default async function DriversPage() {
         <DriverDirectory seasons={data} />
       ) : (
         <>
-          <EmptyState title="No results dataset in this build" status="Unavailable" headingLevel="h2" className="mb-6">
-            Season results are generated with tools/openf1-results (see src/data/results/README.md). Until then only the static preview below is
-            shown, with names and teams and no statistics.
+          <EmptyState title="No race results yet" status="Unavailable" headingLevel="h2" className="mb-6">
+            Results appear after the first classified race. Until then the grid below shows names and teams only, with no statistics.
           </EmptyState>
           <ul className="grid grid-cols-1 gap-4 min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
             {DEMO_DRIVERS.map((d) => (

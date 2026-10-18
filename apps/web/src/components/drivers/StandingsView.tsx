@@ -150,7 +150,7 @@ export function StandingsView({ seasons }: { seasons: SeasonStandings[] }) {
               </table>
             </div>
           ) : (
-            <p className="px-3 py-4 text-sm text-muted">This season&apos;s snapshot has no published constructors&apos; standings. Nothing is summed in their place.</p>
+            <p className="px-3 py-4 text-sm text-muted">No constructors&apos; standings were published for this season. Nothing is summed in their place.</p>
           )}
         </section>
       </div>

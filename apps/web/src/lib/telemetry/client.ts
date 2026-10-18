@@ -12,7 +12,7 @@ export function fetchSessionTelemetry(sessionKey: number): Promise<SessionTeleme
   if (!p) {
     p = fetch(`/api/telemetry/${sessionKey}`)
       .then((r) => {
-        if (!r.ok) throw new Error(r.status === 404 ? "no telemetry was exported for this race" : `the telemetry request answered HTTP ${r.status}`);
+        if (!r.ok) throw new Error(r.status === 404 ? "no car telemetry is available for this race" : `the telemetry request answered HTTP ${r.status}`);
         return r.json();
       })
       .then((raw: unknown) => {

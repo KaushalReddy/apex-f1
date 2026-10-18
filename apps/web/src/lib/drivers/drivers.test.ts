@@ -218,7 +218,7 @@ describe("profile and comparison views", () => {
     expect(reset.notices.join(" ")).toMatch(/did not race in 2024/);
     const same = compare([fixture], { a: "aesir", b: "aesir" })!;
     expect(same.a.acronym).not.toBe(same.b.acronym);
-    expect(compare([fixture], { season: "1999" })!.notices[0]).toMatch(/No exported results for 1999/);
+    expect(compare([fixture], { season: "1999" })!.notices[0]).toMatch(/No results for 1999/);
     expect(compare([], {})).toBeNull();
     // Leader marking: positions lower-is-better; starts are context only.
     const m = Object.fromEntries(c.metrics.map((x) => [x.label, x]));

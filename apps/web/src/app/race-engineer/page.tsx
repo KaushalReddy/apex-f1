@@ -24,7 +24,7 @@ export default async function Page({ searchParams }: Props) {
     <PageHeader
       eyebrow="Analysis"
       title="AI Race Engineer"
-      description="Ask about a race in plain English. The engineer looks up the answer in this app's race data (results, laps, pit stops, tyres, race control, weather), shows what it looked up, and says when the data does not cover something."
+      description="Ask about a race in plain English. The engineer answers from the race data (results, laps, pit stops, tyres, race control, weather), shows every look-up, and says so when the data doesn't cover it."
       badges={
         <>
           <Badge tone="info">Answers from OpenF1 race data</Badge>
@@ -37,9 +37,8 @@ export default async function Page({ searchParams }: Props) {
     return (
       <PageContainer>
         {header}
-        <EmptyState title="The race engineer is not configured" status="Unavailable" headingLevel="h2">
-          It needs a Google Gemini API key on the server. Add <code className="font-mono text-fg">GEMINI_API_KEY=…</code> to <code className="font-mono text-fg">apps/web/.env.local</code> and restart the
-          server. The key is only used by the server and is never sent to the browser.
+        <EmptyState title="The race engineer is offline" status="Unavailable" headingLevel="h2">
+          This server has no AI key configured, so the engineer cannot answer questions here. Replay, Strategy and Rewind work without it.
         </EmptyState>
       </PageContainer>
     );
@@ -48,8 +47,8 @@ export default async function Page({ searchParams }: Props) {
     return (
       <PageContainer>
         {header}
-        <EmptyState title="No races exported in this build" status="Unavailable" headingLevel="h2">
-          The engineer reads the Race Replay datasets (tools/openf1-replay).
+        <EmptyState title="No races to ask about yet" status="Unavailable" headingLevel="h2">
+          The engineer answers from recorded races, and none are available yet.
         </EmptyState>
       </PageContainer>
     );
@@ -73,7 +72,7 @@ export default async function Page({ searchParams }: Props) {
         </label>
         <Button type="submit">Show</Button>
       </PickerForm>
-      {q.session && String(chosen.sessionKey) !== q.session && <p className="mb-3 text-sm text-warning">Race {q.session} is not in the exported data; showing {chosen.eventName}.</p>}
+      {q.session && String(chosen.sessionKey) !== q.session && <p className="mb-3 text-sm text-warning">Race {q.session} is not available; showing {chosen.eventName}.</p>}
       <EngineerPage key={chosen.sessionKey} sessionKey={chosen.sessionKey} raceName={`${chosen.eventName} ${chosen.season}`} hasReplay={hasReplay} />
     </PageContainer>
   );

@@ -3,7 +3,6 @@ import { DriverProfile } from "@/components/drivers/DriverProfile";
 import { ComingSoon } from "@/components/ui/coming-soon";
 import { PageContainer } from "@/components/ui/page-container";
 import { DEMO_DRIVERS, findDriver, findTeam } from "@/domain/demo";
-import { getNavItem } from "@/domain/navigation";
 import { driverRegistry } from "@/lib/drivers/identity";
 import { loadSeasons } from "@/lib/drivers/load";
 import { profile } from "@/lib/drivers/views";
@@ -51,10 +50,8 @@ export default async function DriverPage({ params }: Props) {
     <ComingSoon
       eyebrow={`Driver · ${demo.code}${team ? ` · ${team.name}` : ""}`}
       title={demo.name}
-      description="No exported season results include this driver yet, so only the name and team are shown. Nothing is estimated."
-      phase={getNavItem("/drivers").phase}
-      preview
-      planned={["Generate season results with tools/openf1-results (see src/data/results/README.md)"]}
+      description="On the grid, but not yet in the race results we have."
+      reason="This driver has no classified race in the results yet, so there are no results, form or comparisons to show. The profile appears after their first classified race."
       back={{ href: "/drivers", label: "All drivers" }}
     />
   );

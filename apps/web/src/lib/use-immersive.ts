@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type RefObject } from "react";
 import { useRouter } from "next/navigation";
+import { cameFromSite } from "@/components/layout/back-link";
 
 /**
  * Shared behaviour of the full-window views (Live race, Car Lab, Circuit explorer): the page behind the fixed layer does not scroll,
@@ -42,7 +43,7 @@ export function useImmersive(theater: RefObject<HTMLElement | null>, fallbackHre
   };
   const leave = () => {
     void toggleBrowserFullscreen(false);
-    if (document.referrer.startsWith(window.location.origin) && window.history.length > 1) router.back();
+    if (cameFromSite()) router.back();
     else router.push(fallbackHref);
   };
   return { nativeFs, fsSupported, toggleBrowserFullscreen, leave };

@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { useId, useMemo, useState } from "react";
-import { CARD_LINK, CardArrow } from "@/components/ui/card-arrow";
 import { EmptyState } from "@/components/ui/empty-state";
+import { gridRank, portraitOf, teamRank } from "@/lib/drivers/grid";
 import type { DirectoryEntry, SeasonMeta } from "@/lib/drivers/views";
+import { DriverShowcaseCard } from "./DriverShowcaseCard";
 
-type Sort = "championship" | "name" | "wins" | "number";
+type Sort = "grid" | "championship" | "name" | "wins" | "number";
 
 /** Searchable, filterable driver directory for one season at a time. All filtering is client-side over the season's line-up. */
 export function DriverDirectory({ seasons }: { seasons: Array<{ meta: SeasonMeta; drivers: DirectoryEntry[] }> }) {
@@ -14,7 +14,7 @@ export function DriverDirectory({ seasons }: { seasons: Array<{ meta: SeasonMeta
   const [season, setSeason] = useState(seasons[0]?.meta.season ?? 0);
   const [query, setQuery] = useState("");
   const [team, setTeam] = useState("");
-  const [sort, setSort] = useState<Sort>("championship");
+  const [sort, setSort] = useState<Sort>("grid");
   const current = seasons.find((s) => s.meta.season === season) ?? seasons[0];
   const teams = useMemo(() => [...new Set(current.drivers.map((d) => d.team).filter((t): t is string => !!t))].sort(), [current]);
   const list = useMemo(() => filterDrivers(current.drivers, { query, team, sort }), [current, query, team, sort]);
@@ -57,6 +57,7 @@ export function DriverDirectory({ seasons }: { seasons: Array<{ meta: SeasonMeta
         <label className="flex flex-col gap-1 text-sm">
           <span className="text-muted">Sort by</span>
           <select value={sort} onChange={(e) => setSort(e.target.value as Sort)} className={select}>
+            <option value="grid">Grid order</option>
             <option value="championship">Championship position</option>
             <option value="wins">Wins</option>
             <option value="name">Name</option>
@@ -74,37 +75,10 @@ export function DriverDirectory({ seasons }: { seasons: Array<{ meta: SeasonMeta
           Nothing in the {current.meta.season} line-up matches “{query}”{team ? ` in ${team}` : ""}. Clear the search or choose another team.
         </EmptyState>
       ) : (
-        <ul className="grid grid-cols-1 gap-3 min-[480px]:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-          {list.map((d) => (
+        <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:gap-5">
+          {list.map((d, i) => (
             <li key={d.acronym}>
-              <Link href={`/drivers/${d.slug}`} className={`${CARD_LINK} relative overflow-hidden pl-6`}>
-                <span aria-hidden="true" className="absolute inset-y-0 left-0 w-1" style={{ backgroundColor: d.teamColour }} />
-                <div className="flex items-start justify-between gap-2">
-                  <div>
-                    <p className="font-display text-3xl font-semibold leading-none tracking-[0.04em]">{d.acronym}</p>
-                    <p className="mt-2 text-base font-medium">{d.name}</p>
-                    <p className="mt-0.5 text-sm text-muted">
-                      {d.team ?? "Team not published"}
-                      {d.number != null && ` · #${d.number}`}
-                    </p>
-                  </div>
-                  <CardArrow />
-                </div>
-                <dl className="mt-3 grid grid-cols-3 gap-2 border-t border-line pt-3 text-sm tabular-nums">
-                  <div>
-                    <dt className="text-[11px] uppercase tracking-wider text-subtle">Pos</dt>
-                    <dd className="font-medium">{d.championshipPosition != null ? `P${d.championshipPosition}` : "—"}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[11px] uppercase tracking-wider text-subtle">Points</dt>
-                    <dd className="font-medium">{d.championshipPoints ?? "—"}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-[11px] uppercase tracking-wider text-subtle">Wins</dt>
-                    <dd className="font-medium">{d.wins}</dd>
-                  </div>
-                </dl>
-              </Link>
+              <DriverShowcaseCard d={d} portrait={portraitOf(d.acronym)} priority={i < 2} />
             </li>
           ))}
         </ul>
@@ -124,6 +98,9 @@ export function filterDrivers(drivers: readonly DirectoryEntry[], o: { query: st
       if (o.sort === "name") return a.name.localeCompare(b.name);
       if (o.sort === "wins") return b.wins - a.wins || (a.championshipPosition ?? 99) - (b.championshipPosition ?? 99);
       if (o.sort === "number") return (a.number ?? 999) - (b.number ?? 999);
+      // Grid order: the grid (lib/drivers/grid.ts) team by team; anyone not on it (e.g. a replaced driver) follows, by team, then standing.
+      if (o.sort === "grid")
+        return gridRank(a.acronym) - gridRank(b.acronym) || teamRank(a.team) - teamRank(b.team) || (a.championshipPosition ?? 99) - (b.championshipPosition ?? 99) || a.name.localeCompare(b.name);
       return (a.championshipPosition ?? 99) - (b.championshipPosition ?? 99) || a.name.localeCompare(b.name);
     });
 }

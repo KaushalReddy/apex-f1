@@ -2,13 +2,16 @@ import Image from "next/image";
 import Link from "next/link";
 import type { TeamCardData } from "@/lib/teams/views";
 
-/** Halftone dots, densest at the bottom where the car sits (decorative). */
-const HALFTONE = {
+/** Halftone dots, densest at the bottom where the car sits (decorative). Shared with the driver cards. */
+export const HALFTONE = {
   backgroundImage: "radial-gradient(rgb(255 255 255 / 0.22) 1px, transparent 1.6px)",
   backgroundSize: "9px 9px",
   maskImage: "linear-gradient(to top, black 5%, transparent 75%)",
   WebkitMaskImage: "linear-gradient(to top, black 5%, transparent 75%)",
 } as const;
+
+/** Light sheen from the top-left, darkening to the bottom-right (decorative). Shared with the driver cards. */
+export const SHEEN = "bg-[linear-gradient(140deg,rgb(255_255_255/0.10),transparent_45%,rgb(0_0_0/0.28))]";
 
 /**
  * Large team card for the directory: name and line-up top-left, identity mark top-right, the car across the bottom. The whole card is one
@@ -23,7 +26,7 @@ export function TeamShowcaseCard({ t, season, priority }: { t: TeamCardData; sea
       style={{ backgroundColor: t.shade }}
     >
       <span aria-hidden="true" className="absolute inset-0 -z-10" style={HALFTONE} />
-      <span aria-hidden="true" className="absolute inset-0 -z-10 bg-[linear-gradient(140deg,rgb(255_255_255/0.10),transparent_45%,rgb(0_0_0/0.28))]" />
+      <span aria-hidden="true" className={`absolute inset-0 -z-10 ${SHEEN}`} />
 
       <div className="flex items-start justify-between gap-3 p-4 sm:p-6">
         <div className="min-w-0">

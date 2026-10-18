@@ -1,46 +1,29 @@
-import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
-import { CardArrow } from "@/components/ui/card-arrow";
+import { CapabilityCard } from "@/components/data/capability-card";
+import type { Tone } from "@/components/ui/badge";
 import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
 import { ANALYSIS_HUB, PRODUCT_NAV } from "@/domain/navigation";
+import { configured as engineerConfigured } from "@/lib/engineer/engineer";
 
 export const metadata = { title: "Analysis" };
 
-/** Index of the analysis tools. States each tool's real status: the Telemetry Lab, Race Replay, Strategy and the Race Engineer are available, the rest are planned. */
-const STATUS: Record<string, { label: string; tone: "info" | "success" }> = {
-  "/replay": { label: "Available · 2026 races", tone: "success" },
-  "/telemetry": { label: "Available · 2026 laps", tone: "success" },
-  "/strategy": { label: "Available · 2026 races", tone: "success" },
-  "/race-engineer": { label: "Available · needs an API key", tone: "info" },
-};
-
+/** The analysis tools, each with its real availability (the engineer depends on the server having an AI key). */
 export default function AnalysisPage() {
+  const status: Record<string, { label: string; tone: Tone }> = {
+    "/replay": { label: "2026 races", tone: "success" },
+    "/telemetry": { label: "2026 laps", tone: "success" },
+    "/strategy": { label: "2026 races", tone: "success" },
+    "/race-engineer": engineerConfigured() ? { label: "AI · answers from race data", tone: "info" } : { label: "Offline on this server", tone: "neutral" },
+  };
   return (
     <PageContainer>
-      <PageHeader eyebrow="Analysis" title="Analysis tools" description={ANALYSIS_HUB.summary} />
-      <ul className="border-b border-line">
-        {PRODUCT_NAV.map((t, i) => {
-          const status = STATUS[t.href] ?? { label: `Planned · Phase ${t.phase}`, tone: "info" as const };
-          return (
-            <li key={t.href}>
-              <Link
-                href={t.href}
-                className="group motion-interactive grid grid-cols-[2.5rem_1fr_auto] items-start gap-x-4 gap-y-1 border-t border-line px-1 py-5 hover:bg-surface/60 sm:grid-cols-[3rem_1fr_auto]"
-              >
-                <span className="font-display text-2xl leading-none text-subtle tabular-nums">{String(i + 1).padStart(2, "0")}</span>
-                <span>
-                  <span className="block text-lg font-medium leading-snug">{t.label}</span>
-                  <span className="mt-1 block max-w-prose text-sm leading-relaxed text-muted">{t.summary}</span>
-                </span>
-                <span className="flex items-center gap-3 pt-1">
-                  <Badge tone={status.tone}>{status.label}</Badge>
-                  <CardArrow />
-                </span>
-              </Link>
-            </li>
-          );
-        })}
+      <PageHeader eyebrow="Analysis" title="Read the race" description={ANALYSIS_HUB.summary} />
+      <ul className="border-b border-line [&>li:first-child>a]:border-t-0">
+        {PRODUCT_NAV.map((t) => (
+          <li key={t.href}>
+            <CapabilityCard item={t} status={status[t.href]} />
+          </li>
+        ))}
       </ul>
     </PageContainer>
   );

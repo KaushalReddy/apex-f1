@@ -36,7 +36,7 @@ export default async function TeamPage({ params }: Props) {
         <>
           <PageHeader eyebrow="Team" title={profile.team.name} />
           <EmptyState
-            title="No results in this dataset"
+            title="No race results for this team yet"
             status="Not available"
             statusTone="warning"
             headingLevel="h2"
@@ -46,8 +46,7 @@ export default async function TeamPage({ params }: Props) {
               </ButtonLink>
             }
           >
-            The exported seasons have no race entries for this team, so no
-            line-up, points or results are shown.
+            This team has no classified race in the results yet, so there is no line-up, points or results to show.
           </EmptyState>
         </>
       )}

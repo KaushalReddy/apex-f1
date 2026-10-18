@@ -29,7 +29,8 @@ test.describe("live timing status", () => {
   test("live: the order, and both the source time and the retrieval time", async ({ page }) => {
     await fakeLive(page, live);
     await page.goto("/live");
-    await expect(status(page)).toContainText("Live · United States · Race");
+    // /live also loads a full 3D race: under parallel 3D tests the page can take longer than the default to hydrate.
+    await expect(status(page)).toContainText("Live · United States · Race", { timeout: 45_000 });
     await expect(status(page)).toContainText("recorded by OpenF1 at");
     await expect(status(page)).toContainText("received just now");
     const order = page.getByRole("list", { name: "Live running order" });

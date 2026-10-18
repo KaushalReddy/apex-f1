@@ -265,7 +265,7 @@ export function LapAnalysis({ model, lapLength, a, b, codeA, codeB, t, onSeek, p
 
       <div className="mt-3 text-xs">
         {tel.status === "loading" && <p className="text-muted">Loading car telemetry…</p>}
-        {tel.status === "none" && <p className="text-muted">No car telemetry is exported for this race, so only timing and position comparisons are shown.</p>}
+        {tel.status === "none" && <p className="text-muted">No car telemetry is available for this race, so only timing and position comparisons are shown.</p>}
         {tel.status === "error" && <p className="text-warning">Car telemetry could not be loaded: {tel.error}. Timing and position comparisons still work.</p>}
         {tel.status === "ok" && !useTel && (
           <div className="rounded-md border border-white/10 px-2.5 py-2 text-muted">
@@ -285,7 +285,7 @@ export function LapAnalysis({ model, lapLength, a, b, codeA, codeB, t, onSeek, p
                 </Button>
               </>
             ) : (
-              <>No car telemetry was exported for {!telA ? codeA : codeB} in this race.</>
+              <>No car telemetry was recorded for {!telA ? codeA : codeB} in this race.</>
             )}
           </div>
         )}

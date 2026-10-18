@@ -29,7 +29,7 @@ export default async function Page({ searchParams }: Props) {
     <PageHeader
       eyebrow="Analysis"
       title="Telemetry Lab"
-      description="Two drivers' fastest laps of a session, trace by trace: speed, throttle, brake, gear and engine speed against track distance or lap time, with both cars placed on the 3D circuit."
+      description="Two drivers' fastest laps, trace against trace: speed, throttle, brake, gear and RPM by distance or time, with both cars on the 3D circuit."
       badges={<Badge tone="info">Car data · OpenF1</Badge>}
     />
   );
@@ -37,8 +37,8 @@ export default async function Page({ searchParams }: Props) {
     return (
       <PageContainer>
         {header}
-        <EmptyState title="No telemetry in this build" status="Unavailable" headingLevel="h2">
-          The lab reads lap telemetry exported from OpenF1 with tools/openf1-telemetry (see src/data/telemetry/README.md). Nothing is shown rather than invented.
+        <EmptyState title="No telemetry yet" status="Unavailable" headingLevel="h2">
+          Lap telemetry appears here once a qualifying session or race has been recorded. Nothing is shown rather than invented.
         </EmptyState>
       </PageContainer>
     );
@@ -51,7 +51,7 @@ export default async function Page({ searchParams }: Props) {
       <PageContainer>
         {header}
         <EmptyState title="This session's telemetry could not be read" status="Error" statusTone="danger" headingLevel="h2">
-          {chosen.eventName} {chosen.sessionName}: {loaded.error}. Re-export it with tools/openf1-telemetry.
+          {chosen.eventName} {chosen.sessionName}: {loaded.error}. Try another session.
         </EmptyState>
       </PageContainer>
     );
@@ -126,7 +126,7 @@ export default async function Page({ searchParams }: Props) {
       <details className="mt-6 text-sm text-muted">
         <summary className="cursor-pointer hover:text-fg">How these traces are made</summary>
         <ul className="mt-3 max-w-prose list-disc space-y-1.5 pl-5 leading-relaxed">
-          <li>Source: OpenF1 car data (about 4 samples per second) and position data for each lap, exported on {s.source.fetchedOn}. {s.source.note}</li>
+          <li>Source: OpenF1 car data (about 4 samples per second) and position data for each lap, retrieved on {s.source.fetchedOn}. {s.source.note}</li>
           <li>Brake is published as on or off only, not as pressure. 2026 cars have no DRS, so none is shown.</li>
           <li>
             Distance is derived: each sample&apos;s position is projected onto the circuit centerline the 3D track is drawn from, measured from the start/finish line. Both laps use the same reference line, so

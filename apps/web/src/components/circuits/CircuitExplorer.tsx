@@ -332,6 +332,7 @@ export function CircuitExplorer({
       </section>
 
       <ImmersiveNav
+        onBack={leave}
         actions={
           <>
             {fsSupported && (

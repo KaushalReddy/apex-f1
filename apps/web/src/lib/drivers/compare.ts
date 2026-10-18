@@ -33,7 +33,7 @@ export function compare(seasons: readonly SeasonResults[], q: { season?: string;
   const notices: string[] = [];
   const requested = Number(q.season);
   let season = seasons.find((s) => s.season === requested);
-  if (q.season && !season) notices.push(`No exported results for ${q.season}; showing ${seasons[0].season}.`);
+  if (q.season && !season) notices.push(`No results for ${q.season}; showing ${seasons[0].season}.`);
   season ??= seasons[0];
 
   const reg = driverRegistry(seasons);

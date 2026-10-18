@@ -3,23 +3,21 @@ import { ButtonLink } from "./button";
 import { PageContainer } from "./page-container";
 import { PageHeader } from "./page-header";
 import { Panel } from "./panel";
-import { SectionMarker } from "./section-header";
 
-/** Honest "not built yet" state. Shows what is planned and when; never fake data. */
+/** Honest "nothing to show here yet" state for a page whose data is missing: says why in plain words; never shows fake data. */
 export function ComingSoon({
   eyebrow,
   title,
   description,
-  phase,
-  planned,
+  reason,
   back,
   preview,
 }: {
   eyebrow: string;
   title: string;
   description: string;
-  phase: number;
-  planned: readonly string[];
+  /** Plain-language explanation of what is missing. */
+  reason: string;
   back?: { href: string; label: string };
   preview?: boolean;
 }) {
@@ -31,30 +29,16 @@ export function ComingSoon({
         description={description}
         badges={
           <>
-            <Badge tone="info">Planned · Phase {phase}</Badge>
+            <Badge tone="neutral">Not available</Badge>
             {preview && <DemoBadge />}
           </>
         }
       />
       <Panel as="section" aria-labelledby="coming-heading" className="max-w-3xl">
         <h2 id="coming-heading" className="font-display text-2xl font-semibold tracking-[0.01em]">
-          Not available yet
+          Nothing to show yet
         </h2>
-        <p className="mt-2 text-sm leading-relaxed text-muted">
-          This area is part of the platform plan and is scheduled for Phase {phase}. Nothing on this page is live or simulated.
-        </p>
-        <h3 className="eyebrow mt-7 flex items-center">
-          <SectionMarker />
-          Planned
-        </h3>
-        <ul className="mt-3 space-y-2.5 text-sm text-fg">
-          {planned.map((p) => (
-            <li key={p} className="flex gap-3">
-              <span aria-hidden="true" className="mt-2 size-1 shrink-0 bg-subtle" />
-              <span>{p}</span>
-            </li>
-          ))}
-        </ul>
+        <p className="mt-2 text-sm leading-relaxed text-muted">{reason}</p>
         {back && (
           <div className="mt-8">
             <ButtonLink href={back.href} variant="secondary" size="sm">

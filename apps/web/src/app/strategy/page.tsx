@@ -38,8 +38,8 @@ export default async function Page({ searchParams }: Props) {
     return (
       <PageContainer>
         {header}
-        <EmptyState title="No races exported in this build" status="Unavailable" headingLevel="h2">
-          Strategy reads the Race Replay datasets (tools/openf1-replay). Nothing is shown rather than invented.
+        <EmptyState title="No races yet" status="Unavailable" headingLevel="h2">
+          Strategy appears here once a race has been recorded. Nothing is shown rather than invented.
         </EmptyState>
       </PageContainer>
     );
@@ -66,14 +66,14 @@ export default async function Page({ searchParams }: Props) {
         </label>
         <Button type="submit">Show</Button>
       </PickerForm>
-      {q.session && String(chosen.sessionKey) !== q.session && <p className="mb-3 text-sm text-warning">Race {q.session} is not in the exported data; showing {chosen.eventName}.</p>}
+      {q.session && String(chosen.sessionKey) !== q.session && <p className="mb-3 text-sm text-warning">Race {q.session} is not available; showing {chosen.eventName}.</p>}
       {!loaded.ok ? (
         <EmptyState title="This race could not be read" status="Error" statusTone="danger" headingLevel="h2">
-          {chosen.eventName}: {loaded.error}. Re-export it with tools/openf1-replay.
+          {chosen.eventName}: {loaded.error}. Try another race.
         </EmptyState>
       ) : noStints ? (
         <EmptyState title="No tyre stints published for this race" status="Unavailable" headingLevel="h2">
-          OpenF1 has no stint records for {chosen.eventName} in this export (re-export with tools/openf1-replay to include them).
+          OpenF1 published no tyre stints for {chosen.eventName}, so there is no strategy to show.
         </EmptyState>
       ) : (
         <StrategyView key={chosen.sessionKey} data={loaded.data} initialDriver={q.driver ?? null} replayHref={replayHref} />

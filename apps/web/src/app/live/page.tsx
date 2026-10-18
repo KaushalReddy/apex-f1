@@ -2,7 +2,6 @@ import Link from "next/link";
 import { LiveTimingStatus } from "@/components/live/LiveTimingStatus";
 import { RaceExperience } from "@/components/race/RaceExperience";
 import { ComingSoon } from "@/components/ui/coming-soon";
-import { getNavItem } from "@/domain/navigation";
 import { circuitByShortName, findCircuitById } from "@/lib/circuit/catalog";
 import { loadCircuitGeometry } from "@/lib/circuit/load";
 import { loadSeasons } from "@/lib/drivers/load";
@@ -73,9 +72,8 @@ export default async function Page({ searchParams }: Props) {
       <ComingSoon
         eyebrow="Live"
         title="Live Race"
-        description="The replay needs the circuit's generated layout, and none is available in this build, so nothing is drawn rather than guessing a layout."
-        phase={getNavItem("/live").phase}
-        planned={["Generate geometry with tools/openf1-spike (see src/data/circuits/README.md)"]}
+        description="The latest Grand Prix, replayed on its circuit."
+        reason="This circuit's 3D layout isn't available, so the race can't be drawn. We don't guess a layout."
         back={{ href: "/circuits", label: "All circuits" }}
       />
     );
@@ -102,7 +100,7 @@ export default async function Page({ searchParams }: Props) {
         </Link>
       ) : (
         <>
-          Previous race: {prevTitle}. Its replay is not available: {prevGeometry?.status !== "ok" ? "the circuit has no generated layout" : "its car positions are not in the APEX F1 API (not ingested, or the API is offline)"}.
+          Previous race: {prevTitle}. Its replay is not available: {prevGeometry?.status !== "ok" ? "the circuit has no generated layout" : "its car positions are not available"}.
           {" Showing the stored Monaco sample instead."}
         </>
       )}

@@ -40,8 +40,8 @@ export function chooseDrivers(laps: readonly LapTelemetry[], q: TelemetryQuery) 
 export function selectionNotes(q: TelemetryQuery, shown: Entry, candidates: readonly Entry[], a: LapTelemetry | undefined): string[] {
   const what = `${shown.eventName} ${shown.sessionName}`;
   return [
-    q.session && String(shown.sessionKey) !== q.session && `Session ${q.session} is not in the exported data; showing ${what}.`,
-    q.circuit && !q.session && !candidates.some((c) => c.sessionKey === shown.sessionKey) && `No exported session at that circuit${q.a ? " with that driver" : ""}; showing ${what}.`,
+    q.session && String(shown.sessionKey) !== q.session && `Session ${q.session} is not available; showing ${what}.`,
+    q.circuit && !q.session && !candidates.some((c) => c.sessionKey === shown.sessionKey) && `No recorded session at that circuit${q.a ? " with that driver" : ""}; showing ${what}.`,
     q.a && a && String(a.driverNumber) !== q.a && a.acronym !== q.a.toUpperCase() && `${q.a.toUpperCase()} has no valid timed lap in this session; showing the fastest driver instead.`,
   ].filter((n): n is string => typeof n === "string");
 }

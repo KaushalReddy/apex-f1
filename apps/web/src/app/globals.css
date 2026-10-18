@@ -62,6 +62,14 @@
   --ease-apex: cubic-bezier(0.22, 1, 0.36, 1);
 
   --animate-pulse-soft: pulse-soft 2.4s ease-in-out infinite;
+  --animate-lap: lap 9s linear infinite;
+}
+
+/* A marker running round a path drawn with pathLength="100". */
+@keyframes lap {
+  to {
+    stroke-dashoffset: -100;
+  }
 }
 
 @keyframes pulse-soft {

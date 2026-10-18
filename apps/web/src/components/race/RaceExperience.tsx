@@ -469,6 +469,10 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
   const dockOpen = focusOpen || rcOpen || engOpen || rewindOpen;
   const comparePanel = !!compare && compareShown && !dockOpen;
   const sidePanels = showOrder || !!sel || showEvents || comparePanel || dockOpen;
+  // Desktop, Events open with a docked panel or the comparison: Events stays on top of the right-hand column and the panel sits below it.
+  const eventsStacked = !phone && showEvents && (dockOpen || comparePanel);
+  const dockTop = eventsStacked ? "top-[calc(9rem+min(16rem,30vh))]" : "top-[8.5rem]";
+  const dockW = focusOpen ? "w-[20rem]" : engOpen ? "w-[24rem]" : comparePanel && wideCompare ? "w-[36rem]" : "w-[22.5rem]";
   // The comparison column is wider (22.5rem, or 36rem "wide") than the driver/events column (18.5rem). Wide frames the circuit off-centre
   // (between the race order and the panel) rather than shrinking it to a sliver.
   const side = comparePanel ? 392 : 344;
@@ -888,14 +892,14 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
                     className={cn(
                       "pointer-events-none absolute flex flex-col",
                       !comparePanel && "hidden",
-                      phone ? "inset-x-2 bottom-[9.25rem] max-h-[52svh]" : cn("bottom-[5.75rem] right-4 top-[8.5rem]", wideCompare ? "w-[36rem]" : "w-[22.5rem]"),
+                      phone ? "inset-x-2 bottom-[9.25rem] max-h-[52svh]" : cn("bottom-[5.75rem] right-4", dockTop, wideCompare ? "w-[36rem]" : "w-[22.5rem]"),
                     )}
                   >
                     {comparePane}
                   </div>
                 )}
                 {focusOpen && (
-                  <div className={cn("pointer-events-none absolute z-20 flex flex-col", phone ? "inset-x-2 bottom-[9.25rem]" : "bottom-[5.75rem] right-4 top-[8.5rem] w-[20rem]")} style={phone ? { top: toolbarBottom + 8 } : undefined}>
+                  <div className={cn("pointer-events-none absolute z-20 flex flex-col", phone ? "inset-x-2 bottom-[9.25rem]" : cn("bottom-[5.75rem] right-4 w-[20rem]", dockTop))} style={phone ? { top: toolbarBottom + 8 } : undefined}>
                     <div className={cn("pointer-events-auto flex min-h-0 flex-col overflow-hidden", GLASS)}>
                       <CircuitFocus
                         drivers={drivers.map((d) => ({ id: d.id, code: d.code, name: d.name, team: d.teamSlug ? (findTeamBySlug(d.teamSlug)?.name ?? null) : null, number: d.number, colour: driverColor(d), position: d.position, hollow: isHollow(emph, d.id) }))}
@@ -911,7 +915,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
                   </div>
                 )}
                 {rc && rcOpen && model && (
-                  <div className={cn("pointer-events-none absolute z-20 flex flex-col", phone ? "inset-x-2 bottom-[9.25rem]" : "bottom-[5.75rem] right-4 top-[8.5rem] w-[22.5rem]")} style={phone ? { top: toolbarBottom + 8 } : undefined}>
+                  <div className={cn("pointer-events-none absolute z-20 flex flex-col", phone ? "inset-x-2 bottom-[9.25rem]" : cn("bottom-[5.75rem] right-4 w-[22.5rem]", dockTop))} style={phone ? { top: toolbarBottom + 8 } : undefined}>
                     <div className={cn("pointer-events-auto flex min-h-0 flex-col overflow-hidden", GLASS)}>
                       <RaceControlPanel
                         rc={rc}
@@ -928,7 +932,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
                   </div>
                 )}
                 {rewindOpen && model && (
-                  <div className={cn("pointer-events-none absolute z-20 flex flex-col", phone ? "inset-x-2 bottom-[9.25rem]" : "bottom-[5.75rem] right-4 top-[8.5rem] w-[22.5rem]")} style={phone ? { top: toolbarBottom + 8 } : undefined}>
+                  <div className={cn("pointer-events-none absolute z-20 flex flex-col", phone ? "inset-x-2 bottom-[9.25rem]" : cn("bottom-[5.75rem] right-4 w-[22.5rem]", dockTop))} style={phone ? { top: toolbarBottom + 8 } : undefined}>
                     <div className={cn("pointer-events-auto flex min-h-0 flex-1 flex-col overflow-hidden", GLASS)}>
                       <RewindPanel
                         model={model}
@@ -949,7 +953,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
                   </div>
                 )}
                 {engMounted && model && source.kind === "history" && (
-                  <div className={cn("pointer-events-none absolute z-20 flex flex-col", !engOpen && "hidden", phone ? "inset-x-2 bottom-[9.25rem]" : "bottom-[5.75rem] right-4 top-[8.5rem] w-[24rem]")} style={phone ? { top: toolbarBottom + 8 } : undefined}>
+                  <div className={cn("pointer-events-none absolute z-20 flex flex-col", !engOpen && "hidden", phone ? "inset-x-2 bottom-[9.25rem]" : cn("bottom-[5.75rem] right-4 w-[24rem]", dockTop))} style={phone ? { top: toolbarBottom + 8 } : undefined}>
                     <div className={cn("pointer-events-auto flex min-h-0 flex-1 flex-col overflow-hidden", GLASS)}>
                       <EngineerPanel sessionKey={source.sessionKey} t={rcT} onSeek={(t) => provider.current?.seekTime?.(Math.max(0, t - EVENT_LEAD_IN_MS))} onClose={() => setEngOpen(false)} prefill={engPrefill} />
                     </div>
@@ -959,6 +963,11 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
                   <div className="pointer-events-none absolute bottom-[5.75rem] right-4 top-[8.5rem] flex w-[18.5rem] flex-col gap-2">
                     {sel && <div className="pointer-events-auto shrink-0 [&>div]:border-white/10 [&>div]:bg-surface/70 [&>div]:backdrop-blur-xl">{selectedCard}</div>}
                     {showEvents && <div className={cn("pointer-events-auto flex min-h-0 flex-col overflow-hidden", GLASS)}>{eventsPanel}</div>}
+                  </div>
+                )}
+                {eventsStacked && (
+                  <div className={cn("pointer-events-none absolute right-4 top-[8.5rem] z-20 flex h-[min(16rem,30vh)] flex-col", dockW)}>
+                    <div className={cn("pointer-events-auto flex min-h-0 flex-1 flex-col overflow-hidden", GLASS)}>{eventsPanel}</div>
                   </div>
                 )}
                 {phone && sel && !comparePanel && !dockOpen && <div className="pointer-events-auto absolute inset-x-2 bottom-[4.75rem] [&>div]:bg-surface/80 [&>div]:backdrop-blur-xl">{selectedCard}</div>}

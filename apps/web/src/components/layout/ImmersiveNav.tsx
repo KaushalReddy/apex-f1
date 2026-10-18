@@ -10,9 +10,9 @@ import { BrandMark } from "./brand";
 /**
  * Top bar for the full-window views (Live race, Car Lab), which cover the site header: the main sections stay one click away, the
  * current one is marked, and the view's own actions (browser fullscreen, Exit) sit on the right. Thin and translucent so the 3D scene
- * stays the focus.
+ * stays the focus. `onBack` adds a back arrow at the far left (the view's leave: previous page on this site, else its section).
  */
-export function ImmersiveNav({ actions }: { actions?: ReactNode }) {
+export function ImmersiveNav({ actions, onBack }: { actions?: ReactNode; onBack?: () => void }) {
   const pathname = usePathname();
   const link = (href: string, label: string) => {
     const active = isActivePath(pathname, href);
@@ -37,6 +37,19 @@ export function ImmersiveNav({ actions }: { actions?: ReactNode }) {
       aria-label="Site"
       className="absolute inset-x-0 top-0 z-30 flex h-12 items-center gap-2 border-b border-white/10 bg-bg/75 px-2 backdrop-blur-xl supports-[not(backdrop-filter:blur(1px))]:bg-bg sm:px-4"
     >
+      {onBack && (
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label="Back"
+          title="Back"
+          className="motion-interactive inline-flex size-8 shrink-0 items-center justify-center rounded-md text-muted hover:bg-white/5 hover:text-fg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          <svg aria-hidden="true" viewBox="0 0 20 20" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M16 10H4m5-5-5 5 5 5" />
+          </svg>
+        </button>
+      )}
       <Link
         href="/"
         aria-label="APEX F1, home"

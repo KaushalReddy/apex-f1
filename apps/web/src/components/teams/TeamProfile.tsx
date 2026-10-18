@@ -350,7 +350,7 @@ export function TeamProfile({ profile }: { profile: Profile }) {
       <section aria-labelledby="dataset-heading" className="mt-6 grid gap-3 lg:grid-cols-3">
         <div className="rounded-lg border border-line bg-surface p-4">
           <h2 id="dataset-heading" className="eyebrow">
-            In this dataset · {dataset.seasons.length > 1 ? `${Math.min(...dataset.seasons)}–${Math.max(...dataset.seasons)}` : dataset.seasons[0]}
+            Totals · {dataset.seasons.length > 1 ? `${Math.min(...dataset.seasons)}–${Math.max(...dataset.seasons)}` : dataset.seasons[0]}
           </h2>
           <dl className="mt-3 grid grid-cols-3 gap-3 text-sm tabular-nums">
             {[

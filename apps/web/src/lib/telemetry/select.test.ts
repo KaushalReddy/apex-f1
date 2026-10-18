@@ -27,9 +27,9 @@ describe("chooseSession", () => {
     const q = { circuit: "spa" };
     const { chosen, candidates } = chooseSession(index, q, idOf);
     expect(chosen.sessionKey).toBe(3);
-    expect(selectionNotes(q, chosen, candidates, undefined)).toEqual(["No exported session at that circuit; showing Monza GP Qualifying."]);
+    expect(selectionNotes(q, chosen, candidates, undefined)).toEqual(["No recorded session at that circuit; showing Monza GP Qualifying."]);
     const r = chooseSession(index, { session: "999" }, idOf);
-    expect(selectionNotes({ session: "999" }, r.chosen, r.candidates, undefined)[0]).toMatch(/not in the exported data/);
+    expect(selectionNotes({ session: "999" }, r.chosen, r.candidates, undefined)[0]).toMatch(/is not available; showing/);
   });
 });
 

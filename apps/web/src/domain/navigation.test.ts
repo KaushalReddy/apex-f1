@@ -22,10 +22,10 @@ describe("navigation structure", () => {
     expect(existsSync(path.join(appDir, href, "page.tsx"))).toBe(true);
   });
 
-  it("every NAV_ITEMS entry resolves through getNavItem and carries a roadmap phase", () => {
+  it("every NAV_ITEMS entry resolves through getNavItem and has a description", () => {
     for (const i of NAV_ITEMS) {
       expect(getNavItem(i.href)).toBe(i);
-      expect(Number.isInteger(i.phase)).toBe(true);
+      expect(i.summary.length).toBeGreaterThan(20);
     }
     expect(() => getNavItem("/nope")).toThrow();
   });

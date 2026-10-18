@@ -551,7 +551,7 @@ export function CfdLab({ setups, onShowInCar }: Props) {
           </span>
         </div>
         {all.length === 0 ? (
-          <p className="text-muted">No CFD results in this build.</p>
+          <p className="text-muted">No CFD results yet.</p>
         ) : (
           <label className="flex flex-col gap-1">
             <span className="sr-only">CFD case</span>

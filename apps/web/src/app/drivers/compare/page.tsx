@@ -35,8 +35,8 @@ export default async function ComparePage({ searchParams }: Props) {
         }
       />
       {!c ? (
-        <EmptyState title="No results dataset in this build" status="Unavailable" headingLevel="h2">
-          Comparisons need exported season results (tools/openf1-results).
+        <EmptyState title="No race results yet" status="Unavailable" headingLevel="h2">
+          Comparisons need race results, which appear after the first classified race.
         </EmptyState>
       ) : (
         <>
