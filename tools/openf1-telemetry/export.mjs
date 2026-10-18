@@ -9,21 +9,23 @@
 // interpolation are derived (and tested) in the app. A lap whose time race control deleted (track limits etc.) is never chosen as the
 // fastest lap; deletions are read from OpenF1 /race_control and listed in the file. Requests are rate-limited and retried like
 // tools/openf1-results.
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { ms, openf1 } from "../openf1-client.mjs";
+import { ms, openf1, writeAtomic } from "../openf1-client.mjs";
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((acc, a, i, all) => (a.startsWith("--") ? [...acc, [a.slice(2), all[i + 1]]] : acc), []));
 const year = Number(args.year);
 const out = args.out;
 const SESSIONS = (args.sessions ?? "Qualifying,Race").split(",");
+// --keys limits the export to these session keys (the sync worker exports only new sessions); other files in --out are kept.
+const KEYS = args.keys ? new Set(args.keys.split(",").map(Number)) : null;
 if (!Number.isInteger(year) || !out) {
-  console.error("usage: node export.mjs --year <yyyy> --out <dir> [--sessions Qualifying,Race]");
+  console.error("usage: node export.mjs --year <yyyy> --out <dir> [--sessions Qualifying,Race] [--keys <key,key>]");
   process.exit(2);
 }
 
-const get = openf1(join(dirname(fileURLToPath(import.meta.url)), ".cache"));
+const get = openf1(process.env.OPENF1_CACHE_DIR ? join(process.env.OPENF1_CACHE_DIR, "telemetry") : join(dirname(fileURLToPath(import.meta.url)), ".cache"));
 
 const iso = (t) => new Date(t).toISOString();
 /** Padding either side of the lap so the app can interpolate exactly at the start and finish line. */
@@ -43,7 +45,7 @@ function deletedLaps(messages) {
 }
 
 const sessions = (await get(`sessions?year=${year}`))
-  .filter((s) => SESSIONS.includes(s.session_name) && ms(s.date_end) < Date.now())
+  .filter((s) => SESSIONS.includes(s.session_name) && ms(s.date_end) < Date.now() && (!KEYS || KEYS.has(s.session_key)))
   .sort((a, b) => a.date_start.localeCompare(b.date_start));
 const meetings = new Map((await get(`meetings?year=${year}`)).map((m) => [m.meeting_key, m]));
 mkdirSync(out, { recursive: true });
@@ -118,7 +120,7 @@ for (const s of sessions) {
     laps: out_laps,
     excluded,
   };
-  writeFileSync(target, JSON.stringify(doc) + "\n");
+  writeAtomic(target, JSON.stringify(doc) + "\n");
   console.error(`  ${s.session_key} ${doc.eventName} ${s.session_name}: ${out_laps.length} laps, ${excluded.length} deleted laps excluded`);
 }
 
@@ -128,5 +130,5 @@ const index = readdirSync(out)
   .map((f) => JSON.parse(readFileSync(join(out, f), "utf8")))
   .map((d) => ({ sessionKey: d.sessionKey, meetingKey: d.meetingKey, sessionName: d.sessionName, eventName: d.eventName, circuitShortName: d.circuitShortName, date: d.date, drivers: d.laps.length, acronyms: d.laps.map((l) => l.acronym).filter(Boolean) }))
   .sort((a, b) => a.date.localeCompare(b.date) || a.sessionName.localeCompare(b.sessionName));
-writeFileSync(join(out, "index.json"), JSON.stringify({ schema: "apex-f1/lap-telemetry-index@1", season: year, sessions: index }, null, 1) + "\n");
+writeAtomic(join(out, "index.json"), JSON.stringify({ schema: "apex-f1/lap-telemetry-index@1", season: year, sessions: index }, null, 1) + "\n");
 console.error(`wrote ${index.length} sessions to ${out}`);

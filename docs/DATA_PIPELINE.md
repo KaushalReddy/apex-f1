@@ -98,3 +98,32 @@ and response shapes are **[VERIFY]** when that phase starts.
    `self_proximity_points_within_20m`, best smoothing sigma.
 5. Share the reports; only then update ADR-004 to ACCEPTED / ACCEPTED WITH CAVEATS / REJECTED.
 6. Also confirm current OpenF1 terms for real-time access and rate limits.
+
+## 6. Automatic synchronisation (implemented, not yet deployed)
+
+The site no longer needs a redeploy for new data. Two independent paths:
+
+**Historical (no account).** `tools/openf1-sync` (README there) exports new races, telemetry and season results into `DATA_DIR`, a
+persistent directory. The website reads `DATA_DIR` first and the snapshot bundled with its build second (`apps/web/src/lib/data/store.ts`;
+a damaged synced file falls back to the bundled one). Race files are served by `/api/replay/<sessionKey>` (streamed, Brotli/gzip, ETag).
+Pages that show race data refresh in the background every 15 minutes (ISR) and at once when the worker calls `POST /api/revalidate`
+(shared secret). `/api/data-status` reports freshness publicly (source, last successful sync, fresh/stale/failing/bundled);
+`/api/sync/health` gives operators the full record behind the same secret. The replay datasets stay the Phase 11 persistence model:
+timestamped source records per race (positions, order, gaps, laps and sectors, pit stops, stints, race control, weather, overtakes) with
+provenance (`source.endpoints`, `fetchedOn`) and completeness (`positionCoverage`); seeking uses binary search over the time arrays.
+
+**Live (paid OpenF1 subscription).** `apps/web/src/lib/openf1/`: a server-side token manager (`POST /token`, form `username`/`password`,
+1 h tokens, renewed a minute early, 5 min cooldown after a rejected login), a REST client with hard limits (spacing, timeout, bounded
+retries with jitter, 429 pauses everything until `Retry-After`, circuit breaker, shared identical requests), and a live feed polled **on
+demand**: at most one OpenF1 poll set per `OPENF1_LIVE_POLL_MS` for all visitors, nothing when nobody watches, incremental (`date>`),
+deduplicated and bounded. `/api/live` serves it; `/live` shows it with source time vs retrieval time, and "Reconnecting" with the age of
+the last data when a poll fails. Without credentials, live is reported as unavailable with the next session from the public schedule.
+
+Why polling, not MQTT: OpenF1 also pushes over MQTT (`mqtt.openf1.org:8883`) and WebSocket (`wss://mqtt.openf1.org:8084/mqtt`), using
+the token as password, which is the better transport once a persistent process exists. The hosting choice is still open (Phase 18), and
+on-demand polling works on every host, including serverless. A persistent worker can later feed the same `LiveFeed` state from MQTT.
+
+**Verified vs not verified.** Real OpenF1 historical requests were made (session discovery, a full sync of the 2026 season results, an
+idempotent second run). Live mode is tested only against mocked responses: no subscription was available and no session was running
+(next: US GP, 23 Oct 2026). OpenF1 publishes no numeric rate limits; the pacing above is conservative and configurable. Deprecations noted
+from the docs: `drivers.country_code` and `pit.pit_duration` are removed after 2026 (the exporters already tolerate both being absent).

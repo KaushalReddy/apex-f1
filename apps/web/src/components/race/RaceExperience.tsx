@@ -826,7 +826,8 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
                       </div>
                     )}
                     <div className="mt-1 sm:hidden">{modeBadge}</div>
-                    {notice && <p className="mt-1.5 text-xs leading-relaxed text-muted">{notice}</p>}
+                    {/* A div, not a p: notices may hold block content (the live-timing status and its running order). */}
+                    {notice && <div className="mt-1.5 text-xs leading-relaxed text-muted">{notice}</div>}
                     <details className="mt-1.5 text-xs">
                       <summary className="cursor-pointer text-muted hover:text-fg">Source and data</summary>
                       <p className="mt-2">{sourceLine}</p>

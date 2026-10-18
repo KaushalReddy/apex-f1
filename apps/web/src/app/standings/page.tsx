@@ -4,9 +4,14 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageContainer } from "@/components/ui/page-container";
+import { DataFreshness } from "@/components/data/DataFreshness";
 import { PageHeader } from "@/components/ui/page-header";
 import { loadSeasons } from "@/lib/drivers/load";
 import { seasonStandings } from "@/lib/drivers/standings";
+
+// Race data can change after the build (tools/openf1-sync writes DATA_DIR): rebuilt in the background at most every 15 minutes, and at once
+// when the sync worker calls /api/revalidate.
+export const revalidate = 900;
 
 export const metadata = { title: "Standings" };
 
@@ -26,6 +31,7 @@ export default async function StandingsPage() {
           </ButtonLink>
         }
       />
+      <DataFreshness className="-mt-4 mb-8" />
       {tables.length ? (
         <StandingsView seasons={tables} />
       ) : (

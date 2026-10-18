@@ -7,6 +7,10 @@ import { PageHeader } from "@/components/ui/page-header";
 import { loadSeasons } from "@/lib/drivers/load";
 import { teamDirectory } from "@/lib/teams/views";
 
+// Race data can change after the build (tools/openf1-sync writes DATA_DIR): rebuilt in the background at most every 15 minutes, and at once
+// when the sync worker calls /api/revalidate.
+export const revalidate = 900;
+
 export const metadata = { title: "Teams" };
 
 export default async function TeamsPage() {

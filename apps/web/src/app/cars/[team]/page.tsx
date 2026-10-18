@@ -11,6 +11,10 @@ import { findTeamBySlug } from "@/lib/teams/registry";
 import { REGULATION_SPECS, allSpecValues, specsFor, type SpecStatus, type SpecValue } from "@/lib/car/specs";
 import { CAR_CONFIGS, carConfigFor, carDriversFor, DRIVER_NUMBERS_SOURCE } from "@/lib/car/teams";
 
+// Race data can change after the build (tools/openf1-sync writes DATA_DIR): rebuilt in the background at most every 15 minutes, and at once
+// when the sync worker calls /api/revalidate.
+export const revalidate = 900;
+
 export const dynamicParams = false;
 export const generateStaticParams = () => CAR_CONFIGS.map((c) => ({ team: c.teamSlug }));
 

@@ -7,10 +7,10 @@
 // Everything is SOURCE data as published, with one reduction: car positions (about 3.7 Hz) are thinned to recorded samples at least
 // MIN_STEP_MS apart (samples are dropped, never synthesised) and delta-encoded. Running order (/position), gaps (/intervals), laps,
 // pit stops and race-control messages are kept as published. Interpolation between samples happens in the app and is labelled there.
-import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { ms, openf1 } from "../openf1-client.mjs";
+import { ms, openf1, writeAtomic } from "../openf1-client.mjs";
 
 const args = Object.fromEntries(process.argv.slice(2).reduce((acc, a, i, all) => (a.startsWith("--") ? [...acc, [a.slice(2), all[i + 1]]] : acc), []));
 const year = Number(args.year);
@@ -20,7 +20,7 @@ if (!Number.isInteger(year) || !out) {
   console.error("usage: node export.mjs --year <yyyy> --out <dir> [--sessions <key,key>]");
   process.exit(2);
 }
-const get = openf1(join(dirname(fileURLToPath(import.meta.url)), ".cache"));
+const get = openf1(process.env.OPENF1_CACHE_DIR ? join(process.env.OPENF1_CACHE_DIR, "replay") : join(dirname(fileURLToPath(import.meta.url)), ".cache"));
 const iso = (t) => new Date(t).toISOString();
 /** Keep recorded position samples at least this far apart (ms). */
 const MIN_STEP_MS = 1000;
@@ -152,7 +152,7 @@ for (const s of sessions) {
       .map((r) => ({ t: rel(r.date), category: r.category ?? null, flag: r.flag ?? null, scope: r.scope ?? null, message: r.message ?? "", lap: r.lap_number ?? null, number: r.driver_number ?? null }))
       .sort((a, b) => a.t - b.t),
   };
-  writeFileSync(join(out, `${key}.json`), JSON.stringify(doc));
+  writeAtomic(join(out, `${key}.json`), JSON.stringify(doc));
   console.error(`  ${key} ${doc.eventName}: ${drivers.length} drivers, ${drivers.reduce((n, d) => n + d.positions.dt.length, 0)} position samples, ${(JSON.stringify(doc).length / 1e6).toFixed(1)} MB`);
 }
 
@@ -178,5 +178,5 @@ const index = readdirSync(out)
   .map((f) => JSON.parse(readFileSync(join(out, f), "utf8")))
   .map((d) => ({ sessionKey: d.sessionKey, meetingKey: d.meetingKey, eventName: d.eventName, circuitShortName: d.circuitShortName, date: d.date, durationMs: d.durationMs, drivers: d.drivers.length, laps: Math.max(0, ...d.drivers.flatMap((x) => x.laps.map((l) => l[0]))), positionCoverage: coverage(d) }))
   .sort((a, b) => a.date.localeCompare(b.date));
-writeFileSync(join(out, "index.json"), JSON.stringify({ schema: "apex-f1/race-replay-index@1", season: year, sessions: index }, null, 1) + "\n");
+writeAtomic(join(out, "index.json"), JSON.stringify({ schema: "apex-f1/race-replay-index@1", season: year, sessions: index }, null, 1) + "\n");
 console.error(`wrote ${index.length} replays to ${out}`);

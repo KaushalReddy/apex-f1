@@ -26,6 +26,8 @@ jobs:
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test
+      # Sync worker and OpenF1 client tests (Node's built-in runner; no network).
+      - run: node --test "../../tools/**/*.test.mjs"
       - run: npm run build
       - run: npm run verify:routes
       # Browser tests (Phase 17) against the build above: Chromium with software WebGL, a fake engineer key (tests fake the API).

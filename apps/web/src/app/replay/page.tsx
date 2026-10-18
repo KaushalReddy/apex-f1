@@ -4,9 +4,14 @@ import { CardArrow } from "@/components/ui/card-arrow";
 import { EmptyState } from "@/components/ui/empty-state";
 import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
+import { DataFreshness } from "@/components/data/DataFreshness";
 import { circuitByShortName } from "@/lib/circuit/catalog";
 import { availableGeometrySlugs } from "@/lib/circuit/load";
 import { loadReplayIndex } from "@/lib/replay/load";
+
+// Race data can change after the build (tools/openf1-sync writes DATA_DIR): rebuilt in the background at most every 15 minutes, and at once
+// when the sync worker calls /api/revalidate.
+export const revalidate = 900;
 
 export const metadata = { title: "Race Replay" };
 
@@ -33,6 +38,7 @@ export default async function Page() {
         description="Play back a recorded Grand Prix on its 3D circuit: every car's recorded position, the official running order, gaps, laps, pit stops and race-control messages at any moment, with seeking and speed control."
         badges={<Badge tone="info">Recorded data · OpenF1</Badge>}
       />
+      <DataFreshness className="-mt-4 mb-8" />
       {rows.length === 0 ? (
         <EmptyState title="No race replays in this build" status="Unavailable" headingLevel="h2">
           Replays are exported from OpenF1 with tools/openf1-replay (see tools/openf1-replay/README.md). Nothing is shown rather than invented.

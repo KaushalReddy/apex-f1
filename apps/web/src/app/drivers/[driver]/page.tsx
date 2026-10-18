@@ -8,7 +8,12 @@ import { driverRegistry } from "@/lib/drivers/identity";
 import { loadSeasons } from "@/lib/drivers/load";
 import { profile } from "@/lib/drivers/views";
 
-export const dynamicParams = false;
+// Race data can change after the build (tools/openf1-sync writes DATA_DIR): rebuilt in the background at most every 15 minutes, and at once
+// when the sync worker calls /api/revalidate.
+export const revalidate = 900;
+
+// Races and drivers synced after the build render on demand; unknown ones still 404 (notFound below).
+export const dynamicParams = true;
 
 /** Every driver in the exported seasons, plus the project's existing slugs (so their links never break even without a dataset). */
 export async function generateStaticParams() {
@@ -22,7 +27,10 @@ type Props = { params: Promise<{ driver: string }> };
 export async function generateMetadata({ params }: Props) {
   const slug = (await params).driver;
   const { seasons } = await loadSeasons();
-  return { title: driverRegistry(seasons).find((d) => d.slug === slug)?.name ?? findDriver(slug)?.name ?? "Driver" };
+  const name = driverRegistry(seasons).find((d) => d.slug === slug)?.name ?? findDriver(slug)?.name;
+  // An unknown driver is a 404 before anything is sent (metadata resolves first: next.config htmlLimitedBots).
+  if (!name) notFound();
+  return { title: name };
 }
 
 export default async function DriverPage({ params }: Props) {

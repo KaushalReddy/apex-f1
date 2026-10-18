@@ -8,12 +8,11 @@
 // qualifying classification (position only) and the drivers' and constructors' championship standings after the race, plus each driver's identity and team
 // as OpenF1 reports them for that session. Nothing is computed or filled in here: a value OpenF1 does not provide is written as null.
 // Requests are rate-limited (OpenF1's free tier) and retried on 429/5xx.
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { createHash } from "node:crypto";
+import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { openf1, writeAtomic } from "../openf1-client.mjs";
 
-const API = "https://api.openf1.org/v1";
 const args = Object.fromEntries(process.argv.slice(2).reduce((acc, a, i, all) => (a.startsWith("--") ? [...acc, [a.slice(2), all[i + 1]]] : acc), []));
 const year = Number(args.year);
 const out = args.out;
@@ -22,39 +21,9 @@ if (!Number.isInteger(year) || !out) {
   process.exit(2);
 }
 
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-// Response cache (gitignored): an interrupted export resumes without re-fetching. Completed sessions do not change, but delete the cache to
-// pick up later corrections by the source.
-const CACHE = join(dirname(fileURLToPath(import.meta.url)), ".cache");
-mkdirSync(CACHE, { recursive: true });
-let last = 0;
-async function get(path) {
-  const file = join(CACHE, createHash("sha1").update(path).digest("hex") + ".json");
-  if (existsSync(file)) return JSON.parse(readFileSync(file, "utf8"));
-  const body = await fetchJson(path);
-  // Do not cache answers for sessions that may still be updated (the current season's latest data is re-fetched on the next run).
-  if (body.length) writeFileSync(file, JSON.stringify(body));
-  return body;
-}
-async function fetchJson(path) {
-  for (let attempt = 0; attempt < 8; attempt++) {
-    const wait = Math.max(0, last + 2100 - Date.now());
-    if (wait) await sleep(wait);
-    last = Date.now();
-    const res = await fetch(`${API}/${path}`);
-    if (res.status === 404) return [];
-    if (res.ok) {
-      const body = await res.json();
-      return Array.isArray(body) ? body : [];
-    }
-    if (res.status === 429 || res.status >= 500) {
-      await sleep(8000 * (attempt + 1));
-      continue;
-    }
-    throw new Error(`${path}: HTTP ${res.status}`);
-  }
-  throw new Error(`${path}: gave up after retries`);
-}
+// Shared client (tools/openf1-client.mjs): request spacing, timeouts, bounded retries, Retry-After, and a response cache so an interrupted
+// export resumes. OPENF1_CACHE_DIR moves the cache (the sync worker keeps it on its persistent disk); OPENF1_FRESH=1 bypasses it.
+const get = openf1(process.env.OPENF1_CACHE_DIR ? join(process.env.OPENF1_CACHE_DIR, "results") : join(dirname(fileURLToPath(import.meta.url)), ".cache"));
 
 const now = Date.now();
 const day = (iso) => iso.slice(0, 10);
@@ -174,5 +143,5 @@ const doc = {
     .sort((a, b) => a.acronym.localeCompare(b.acronym)),
 };
 mkdirSync(dirname(out), { recursive: true });
-writeFileSync(out, JSON.stringify(doc) + "\n");
+writeAtomic(out, JSON.stringify(doc) + "\n");
 console.error(`wrote ${out}: ${events.length}/${races.length} races, ${doc.drivers.length} drivers`);

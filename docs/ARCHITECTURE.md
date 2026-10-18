@@ -136,6 +136,14 @@ match the pages and rule 4 holds in spirit: the model sees race data only throug
 server; without it the page and replay panel say "not configured". In the replay, the dataset is cut at the replay moment before any
 tool runs, so answers cannot spoil the rest of the race. `apps/ai` stays a placeholder.
 
+**ADR-021 Data updates without redeploys: a sync worker writing a shared directory, read before the bundled snapshot.** The web app
+stays file-based (no database added): race data are immutable per-session documents read whole, so a persistent directory (`DATA_DIR`)
+written atomically by one worker (`tools/openf1-sync`, reusing the export tools) and read by the site, with the build's snapshot as
+fallback, meets the need with the least machinery. Pages refresh by ISR plus a secret-protected `/api/revalidate`. Live timing is a
+separate, server-side, on-demand polled feed (`apps/web/src/lib/openf1`) because the hosting choice is open; MQTT is the upgrade path once a
+persistent process exists. Requires a host where the web server and the worker share a disk; object storage or Postgres behind
+`lib/data/store.ts` is the change for hosts without one.
+
 ## 4. What exists today
 
 | Area | State |

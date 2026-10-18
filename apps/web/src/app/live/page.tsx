@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LiveTimingStatus } from "@/components/live/LiveTimingStatus";
 import { RaceExperience } from "@/components/race/RaceExperience";
 import { ComingSoon } from "@/components/ui/coming-soon";
 import { getNavItem } from "@/domain/navigation";
@@ -83,7 +84,11 @@ export default async function Page({ searchParams }: Props) {
   const link = "font-medium text-fg underline decoration-line underline-offset-2 hover:decoration-fg";
   const notice = (
     <>
-      <span className="font-medium text-fg">No live race right now.</span>{" "}
+      {/* Real-time status from /api/live (OpenF1 subscription, server-side): unavailable, next session, or live order and freshness. */}
+      <span className="mb-2 block">
+        <LiveTimingStatus />
+      </span>
+      <span className="font-medium text-fg">The 3D view shows a recorded race.</span>{" "}
       {showPrevious ? (
         <>
           Showing the previous race, {prevTitle}{recorded ? ", recorded in full" : ""}.{" "}

@@ -5,7 +5,12 @@ import { loadCircuitGeometry } from "@/lib/circuit/load";
 import { loadReplayIndex, replayUrl } from "@/lib/replay/load";
 import { loadTelemetryIndex } from "@/lib/telemetry/load";
 
-export const dynamicParams = false;
+// Race data can change after the build (tools/openf1-sync writes DATA_DIR): rebuilt in the background at most every 15 minutes, and at once
+// when the sync worker calls /api/revalidate.
+export const revalidate = 900;
+
+// Races and drivers synced after the build render on demand; unknown ones still 404 (notFound below).
+export const dynamicParams = true;
 
 /** One page per exported race whose circuit has a generated layout (the rest are listed, as unavailable, on /replay). */
 export async function generateStaticParams() {
@@ -29,7 +34,9 @@ async function find(session: string) {
 
 export async function generateMetadata({ params }: Props) {
   const f = await find((await params).session);
-  return { title: f ? `${f.r.eventName} ${f.r.season} · Replay` : "Race Replay" };
+  // An unknown race is a 404 before anything is sent (metadata resolves first: next.config htmlLimitedBots), so the HTML is the not-found page.
+  if (!f) notFound();
+  return { title: `${f.r.eventName} ${f.r.season} · Replay` };
 }
 
 /** `/replay/<sessionKey>`: full-window replay of one recorded race on its 3D circuit. */

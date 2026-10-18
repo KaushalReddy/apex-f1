@@ -7,6 +7,10 @@ import { availableGeometrySlugs, loadCircuitGeometry } from "@/lib/circuit/load"
 import { loadSeasons } from "@/lib/drivers/load";
 import { loadTelemetryIndex } from "@/lib/telemetry/load";
 
+// Race data can change after the build (tools/openf1-sync writes DATA_DIR): rebuilt in the background at most every 15 minutes, and at once
+// when the sync worker calls /api/revalidate.
+export const revalidate = 900;
+
 export const dynamicParams = false;
 export const generateStaticParams = () => CIRCUITS.map((c) => ({ circuit: c.id }));
 

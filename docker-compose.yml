@@ -22,8 +22,19 @@ services:
   web:
     build: { context: ., dockerfile: infra/docker/web.Dockerfile }
     env_file: .env
+    environment: { DATA_DIR: /data }
     depends_on: [api]
     ports: ["3000:3000"]
+    volumes: [apexdata:/data]
+
+  # OpenF1 sync worker: new races, telemetry and standings land in the shared volume without a redeploy (tools/openf1-sync/README.md).
+  sync:
+    build: { context: ., dockerfile: infra/docker/sync.Dockerfile }
+    env_file: .env
+    environment: { DATA_DIR: /data, WEB_URL: "http://web:3000" }
+    depends_on: [web]
+    restart: unless-stopped
+    volumes: [apexdata:/data]
 
   # Thin placeholder until the AI Race Engineer phase: start with `--profile ai`.
   ai:
@@ -33,3 +44,4 @@ services:
 
 volumes:
   pgdata:
+  apexdata:
