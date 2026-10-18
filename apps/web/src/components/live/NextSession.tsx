@@ -44,7 +44,11 @@ export function countdown(ms: number) {
  * The next session as a running countdown (OpenF1's public schedule, start shown in the viewer's time zone). On track: says so and opens
  * Live. When the countdown ends it asks the schedule again rather than assuming the session started.
  */
-export function NextSessionCountdown() {
+/**
+ * The schedule, a one-second clock, and the start picked from it (null while live or unknown). Once the start passes it asks the schedule
+ * again (OpenF1 lists a session as current shortly after its start) rather than assuming the session began.
+ */
+function useCountdownTo(pick: (s: LiveSnapshot) => string | null | undefined) {
   const [nonce, setNonce] = useState(0);
   const s = useLive(nonce);
   const [now, setNow] = useState<number | null>(null);
@@ -58,13 +62,65 @@ export function NextSessionCountdown() {
       clearInterval(id);
     };
   }, []);
-  const start = s && s !== "error" && s.status !== "live" && s.next ? Date.parse(s.next.start) : null;
+  const iso = s && s !== "error" && s.status !== "live" ? pick(s) : null;
+  const start = iso ? Date.parse(iso) : null;
   const ended = start != null && now != null && now >= start;
   useEffect(() => {
     if (!ended) return;
-    const id = setTimeout(() => setNonce((n) => n + 1), 30_000); // OpenF1 lists a session as current shortly after its start
+    const id = setTimeout(() => setNonce((n) => n + 1), 30_000);
     return () => clearTimeout(id);
   }, [ended]);
+  return { s, now, start, ended };
+}
+
+/** Compact "5d 06:41:22". */
+export const shortCountdown = (ms: number) => {
+  const c = countdown(ms);
+  const p = (v: number) => String(v).padStart(2, "0");
+  return `${c.d ? `${c.d}d ` : ""}${p(c.h)}:${p(c.m)}:${p(c.s)}`;
+};
+
+/**
+ * A small tab for the Live view: a running countdown to the next race (the schedule's next session named Race; the next session when no
+ * race is listed yet), or "on track" during a session. Renders nothing when the schedule is unavailable.
+ */
+export function NextRaceTab({ className }: { className?: string }) {
+  const { s, now, start, ended } = useCountdownTo((x) => (x.nextRace ?? x.next)?.start);
+  if (s === null || s === "error") return null;
+  const target = s.nextRace ?? s.next;
+  const live = s.status === "live" && s.session;
+  if (!live && !target) return null;
+  return (
+    <div role="status" className={`flex items-center gap-2 px-3 py-1.5 text-xs ${className ?? ""}`}>
+      {live ? (
+        <>
+          <StatusDot tone="accent" pulse />
+          <span className="truncate">
+            <span className="font-semibold">{s.session!.event ?? "Session"}</span> <span className="text-muted">{s.session!.name} on track</span>
+          </span>
+        </>
+      ) : (
+        <>
+          <span className="shrink-0 uppercase tracking-[0.12em] text-subtle">{s.nextRace ? "Next race" : "Next session"}</span>
+          <span className="min-w-0 truncate font-semibold" title={`${target!.event ?? ""} ${target!.name}, ${sessionStart(target!.start)}`}>
+            {target!.event ?? target!.name}
+          </span>
+          <span className="ml-auto shrink-0 font-display text-sm font-semibold tabular-nums" aria-label={ended ? "Starting now" : undefined}>
+            {now == null || start == null ? "--:--:--" : ended ? "Starting" : shortCountdown(start - now)}
+          </span>
+        </>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The next race as a running countdown (OpenF1's public schedule: the next session named Race, else the next session; times in the viewer's
+ * time zone), with the weekend's first session under it when that comes earlier. Same target as the Live tab. On track: says so and opens
+ * Live. When the countdown ends it asks the schedule again rather than assuming the session started.
+ */
+export function NextSessionCountdown() {
+  const { s, now, start, ended } = useCountdownTo((x) => (x.nextRace ?? x.next)?.start);
 
   let body;
   if (s === null) body = <p className="mt-3 text-sm text-muted">Checking the schedule…</p>;
@@ -80,9 +136,11 @@ export function NextSessionCountdown() {
         </ButtonLink>
       </>
     );
-  else if (s === "error" || !s.next)
+  else if (s === "error" || !(s.nextRace ?? s.next))
     body = <p className="mt-3 text-sm text-muted">The schedule is unavailable right now, so no countdown is shown.</p>;
   else {
+    const target = (s.nextRace ?? s.next)!;
+    const first = s.next && s.next.start < target.start ? s.next : null;
     const c = countdown(start! - (now ?? start!));
     const units: [string, number, string][] = [
       ["d", c.d, "days"],
@@ -92,10 +150,15 @@ export function NextSessionCountdown() {
     ];
     body = (
       <>
-        <p className="mt-3 pr-28 font-display text-2xl font-semibold tracking-[0.01em] sm:pr-32">{s.next.event ?? "Next event"}</p>
+        <p className="mt-3 pr-28 font-display text-2xl font-semibold tracking-[0.01em] sm:pr-32">{target.event ?? "Next event"}</p>
         <p className="mt-1 pr-28 text-sm text-muted sm:pr-32">
-          {s.next.name} · {sessionStart(s.next.start)}
+          {target.name} · {sessionStart(target.start)}
         </p>
+        {first && (
+          <p className="mt-0.5 pr-28 text-xs text-subtle sm:pr-32">
+            First on track: {first.name} · {sessionStart(first.start)}
+          </p>
+        )}
         {ended ? (
           <p className="mt-4 text-sm text-muted">Starting now: checking whether it is on track…</p>
         ) : (

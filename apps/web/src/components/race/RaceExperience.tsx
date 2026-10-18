@@ -74,6 +74,8 @@ export interface RaceExperienceProps {
   exitHref: string;
   /** Page-specific line under the status chips (Live: no live race, and the previous-race option). */
   notice?: ReactNode;
+  /** A small tab above the header panel, in the panels' glass (Live only: the next-race countdown). Hidden when it renders nothing. */
+  banner?: ReactNode;
   /** Session key whose fastest laps the Telemetry Lab has (links the replay comparison to it), when exported. */
   telemetrySessionKey?: number | null;
 }
@@ -106,7 +108,7 @@ function initialDriverFromUrl(): string | null {
   return slug && demoEntries().some((e) => e.id === slug) ? slug : null;
 }
 
-export function RaceExperience({ geometry, circuit, source, exitHref, notice, telemetrySessionKey = null }: RaceExperienceProps) {
+export function RaceExperience({ geometry, circuit, source, exitHref, notice, banner, telemetrySessionKey = null }: RaceExperienceProps) {
   const reducedMotion = useReducedMotion();
   const webgl = useWebGL();
   const [update, setUpdate] = useState<ProviderUpdate | null>(null);
@@ -809,6 +811,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, te
                 <div className="flex items-start justify-between gap-2">
                   {/* Left column: the race order stacks under the header, so it follows the header's real height (chips wrap, details open). */}
                   <div className="flex min-w-0 flex-col gap-2 md:max-h-[calc(100svh-9.75rem)] md:w-[20rem]">
+                  {banner && <div className={cn("pointer-events-auto min-w-0 shrink-0 empty:hidden", GLASS)}>{banner}</div>}
                   <div className={cn("pointer-events-auto min-w-0 shrink-0 px-3 py-2", GLASS)}>
                     <p className="eyebrow hidden sm:block">Race experience</p>
                     <h1 className="truncate font-display text-lg font-semibold leading-tight sm:text-xl">{circuit.name} · {source.kind === "demo" ? "Simulated race" : "Race"}</h1>

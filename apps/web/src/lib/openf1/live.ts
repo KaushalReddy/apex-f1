@@ -44,6 +44,8 @@ export interface LiveSnapshot {
   errorCategory: string | null;
   session: { key: number; name: string; event: string | null; circuit: string | null; start: string; end: string } | null;
   next: { name: string; event: string | null; start: string } | null;
+  /** The next session named "Race" on the public schedule (null when OpenF1 does not list one yet). */
+  nextRace: { name: string; event: string | null; start: string } | null;
   drivers: LiveDriver[];
   raceControl: { date: string; category: string | null; flag: string | null; message: string }[];
   /** Newest record timestamp from OpenF1 (when the source recorded it). */
@@ -90,6 +92,7 @@ export class LiveFeed {
   private readonly scheduleMs: number;
   private session: SessionRow | null = null;
   private next: LiveSnapshot["next"] = null;
+  private nextRace: LiveSnapshot["nextRace"] = null;
   private scheduleAt = -Infinity;
   private lastPoll = -Infinity;
   private fetchedAt: number | null = null;
@@ -143,6 +146,8 @@ export class LiveFeed {
       const current = sessions.find((s) => this.isLive(s, now)) ?? null;
       const upcoming = sessions.find((s) => ms(s.start) > now) ?? null;
       this.next = upcoming ? { name: upcoming.name, event: upcoming.event, start: upcoming.start } : null;
+      const race = sessions.find((s) => ms(s.start) > now && s.name === "Race");
+      this.nextRace = race ? { name: race.name, event: race.event, start: race.start } : null;
       if (current?.key !== this.session?.key) this.resetSession(current);
     } catch (e) {
       // Schedule unavailable: keep what we had; a live poll still reports its own failures.
@@ -237,7 +242,7 @@ export class LiveFeed {
 
   private view(): LiveSnapshot {
     const now = this.now();
-    const base = { next: this.next, pollMs: this.pollMs };
+    const base = { next: this.next, nextRace: this.nextRace, pollMs: this.pollMs };
     if (!this.o.authed)
       return { ...base, status: "unavailable", reason: "Live timing needs an OpenF1 real-time subscription, which this site has not configured.", errorCategory: null, session: this.session, drivers: [], raceControl: [], sourceTime: null, fetchedAt: null, stale: false };
     if (!this.session) return { ...base, status: "idle", reason: "No session is running.", errorCategory: this.failure?.category ?? null, session: null, drivers: [], raceControl: [], sourceTime: null, fetchedAt: null, stale: false };

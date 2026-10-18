@@ -187,7 +187,7 @@ export default async function Home() {
                 </svg>
               )}
               <h3 id="countdown-heading" className="eyebrow">
-                Next session
+                Next race
               </h3>
               <NextSessionCountdown />
             </section>

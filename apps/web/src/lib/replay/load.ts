@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { firstFile, readFirstValid, roots, seasonsIn } from "@/lib/data/store";
 import path from "node:path";
+import { circuitByShortName } from "@/lib/circuit/catalog";
 import { parseReplay, parseReplayIndex, type ReplayDataset, type ReplayIndexEntry } from "./dataset";
 
 /** Race datasets: synced copies (DATA_DIR/replay, tools/openf1-sync) first, then the ones bundled in public/ with the build. */
@@ -8,6 +9,11 @@ const BUNDLED = path.join(process.cwd(), "public", "replay");
 
 /** URL of one race's dataset (served by /api/replay from whichever copy is current). */
 export const replayUrl = (_season: number, sessionKey: number) => `/api/replay/${sessionKey}`;
+
+/** SERVER ONLY. The most recent recorded race at a circuit (it exists once that race has finished and been synced), or undefined. */
+export async function latestRaceAt(circuitId: string) {
+  return (await loadReplayIndex()).find((r) => circuitByShortName(r.circuitShortName)?.id === circuitId);
+}
 
 /** SERVER ONLY (node:fs). Every race across seasons and both sources (a synced entry replaces the bundled one), newest first. */
 export async function loadReplayIndex(): Promise<(ReplayIndexEntry & { season: number })[]> {

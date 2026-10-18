@@ -36,6 +36,15 @@ describe("LiveFeed", () => {
     expect(open.paths).toEqual([expect.stringMatching(/^sessions\?date_start>=/)]);
   });
 
+  it("reports the next Race separately from the next session, and none when the schedule lists no race yet", async () => {
+    const RACE = { ...NEXT, session_key: 11401, session_name: "Race", date_start: "2026-11-01T20:00:00+00:00", date_end: "2026-11-01T22:00:00+00:00" };
+    const feed = new LiveFeed({ authed: null, open: fake({ sessions: () => [RACE, NEXT] }).http, now: () => START + 3600_000 });
+    const s = await feed.snapshot();
+    expect(s.next).toMatchObject({ name: "Practice 1" });
+    expect(s.nextRace).toEqual({ name: "Race", event: "Mexico", start: RACE.date_start });
+    expect((await new LiveFeed({ authed: null, open: fake({ sessions: () => [NEXT] }).http, now: () => START + 3600_000 }).snapshot()).nextRace).toBeNull();
+  });
+
   it("with a subscription but no session running: idle, nothing polled", async () => {
     const open = fake({ sessions: () => [NEXT] });
     const authed = fake({});

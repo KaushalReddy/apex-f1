@@ -6,8 +6,9 @@ import { createRequire } from "node:module";
 
 const PORT = process.env.VERIFY_PORT ?? "3101";
 const BASE = `http://127.0.0.1:${PORT}`;
+// A circuit's simulated race is linked only while it has no recorded race (raced circuits link their replay): Bahrain was not held in 2026.
 const REQUIRED = [
-  "/", "/live", "/circuits/monaco/race", "/circuits/suzuka/race", "/drivers", "/drivers/norris", "/teams", "/teams/ferrari", "/cars", "/cars/mclaren", "/cars/mclaren/lab", "/cars/cadillac", "/cars/cadillac/lab",
+  "/", "/live", "/circuits/bahrain/race", "/drivers", "/drivers/norris", "/teams", "/teams/ferrari", "/cars", "/cars/mclaren", "/cars/mclaren/lab", "/cars/cadillac", "/cars/cadillac/lab",
   "/circuits", "/circuits/monza", "/circuits/suzuka", "/circuits/sepang", "/standings", "/analysis", "/replay", "/replay/11388", "/strategy", "/telemetry", "/race-engineer",
 ];
 // Pages that render on demand (races and drivers synced after the build): an unknown key answers 404, but the not-found body is streamed

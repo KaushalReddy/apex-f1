@@ -67,6 +67,8 @@ interface Props {
   all: ReadonlyArray<{ id: string; shortName: string; hasLayout: boolean }>;
   /** Telemetry Lab for this circuit's latest exported session, when there is one. */
   telemetryHref?: string | null;
+  /** The latest recorded race here: shown instead of the simulated race once one has been run. */
+  race?: { href: string; year: number } | null;
 }
 
 function Fact({ k, v, hint }: { k: string; v: ReactNode; hint?: ReactNode }) {
@@ -90,6 +92,7 @@ export function CircuitExplorer({
   events,
   all,
   telemetryHref,
+  race,
 }: Props) {
   const theater = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
@@ -476,7 +479,18 @@ export function CircuitExplorer({
           >
             <span className="hidden sm:inline">{next.shortName} </span>→
           </ButtonLink>
-          {geometry && (
+          {geometry && race ? (
+            <ButtonLink
+              href={race.href}
+              size="sm"
+              variant="secondary"
+              className="ml-1 h-8 shrink-0 whitespace-nowrap px-2.5"
+              title={`Replay the ${race.year} race here, as recorded`}
+            >
+              <span className="sm:hidden">{race.year} race</span>
+              <span className="max-sm:hidden">Replay the {race.year} race</span>
+            </ButtonLink>
+          ) : geometry && (
             <ButtonLink
               href={`/circuits/${circuit.id}/race`}
               size="sm"

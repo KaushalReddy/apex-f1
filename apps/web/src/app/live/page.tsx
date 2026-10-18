@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { LiveTimingStatus } from "@/components/live/LiveTimingStatus";
+import { NextRaceTab } from "@/components/live/NextSession";
 import { RaceExperience } from "@/components/race/RaceExperience";
 import { ComingSoon } from "@/components/ui/coming-soon";
 import { circuitByShortName, findCircuitById } from "@/lib/circuit/catalog";
@@ -121,6 +122,7 @@ export default async function Page({ searchParams }: Props) {
       }
       exitHref="/"
       notice={notice}
+      banner={<NextRaceTab />}
       telemetrySessionKey={recorded && (await loadTelemetryIndex()).some((s) => s.sessionKey === recorded.sessionKey) ? recorded.sessionKey : null}
     />
   );

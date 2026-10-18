@@ -5,6 +5,7 @@ import { centerlineLengthUnits, circuitExtentMeters, describeScale, describeTrac
 import { circuitHistory } from "@/lib/circuit/history";
 import { availableGeometrySlugs, loadCircuitGeometry } from "@/lib/circuit/load";
 import { loadSeasons } from "@/lib/drivers/load";
+import { latestRaceAt } from "@/lib/replay/load";
 import { loadTelemetryIndex } from "@/lib/telemetry/load";
 
 // Race data can change after the build (tools/openf1-sync writes DATA_DIR): rebuilt in the background at most every 15 minutes, and at once
@@ -25,7 +26,13 @@ export async function generateMetadata({ params }: Props) {
 export default async function CircuitPage({ params }: Props) {
   const circuit = findCircuitById((await params).circuit);
   if (!circuit) notFound();
-  const [result, { seasons }, withLayout, telemetry] = await Promise.all([loadCircuitGeometry(circuit.id), loadSeasons(), availableGeometrySlugs(), loadTelemetryIndex()]);
+  const [result, { seasons }, withLayout, telemetry, raced] = await Promise.all([
+    loadCircuitGeometry(circuit.id),
+    loadSeasons(),
+    availableGeometrySlugs(),
+    loadTelemetryIndex(),
+    latestRaceAt(circuit.id),
+  ]);
   const g = result.status === "ok" ? result.geometry : null;
   const provenance = g
     ? {
@@ -45,6 +52,7 @@ export default async function CircuitPage({ params }: Props) {
       geometry={g}
       provenance={provenance}
       events={circuitHistory(circuit, seasons)}
+      race={raced ? { href: `/replay/${raced.sessionKey}`, year: raced.season } : null}
       telemetryHref={telemetry.some((t) => t.circuitShortName != null && circuitByShortName(t.circuitShortName)?.id === circuit.id) ? `/telemetry?circuit=${circuit.id}` : null}
       all={[...CIRCUITS].sort((a, b) => a.shortName.localeCompare(b.shortName)).map((c) => ({ id: c.id, shortName: c.shortName, hasLayout: withLayout.has(c.id) }))}
     />

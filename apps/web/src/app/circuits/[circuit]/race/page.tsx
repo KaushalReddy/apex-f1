@@ -1,7 +1,8 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { RaceExperience } from "@/components/race/RaceExperience";
 import { CIRCUITS, findCircuitById } from "@/lib/circuit/catalog";
 import { loadCircuitGeometry } from "@/lib/circuit/load";
+import { latestRaceAt } from "@/lib/replay/load";
 
 /** Simulated race length: short enough to watch end to end, long enough for pit stops and battles. Not the real race distance. */
 const DEMO_LAPS = 12;
@@ -11,6 +12,8 @@ const seconds = (lap: string) => {
   return m ? Number(m[1]) * 60 + Number(m[2]) : null;
 };
 
+// Rebuilt at most every 15 min (and on /api/revalidate), so a circuit switches to its recorded race once the sync worker adds it.
+export const revalidate = 900;
 export const dynamicParams = false;
 // Only circuits with a generated layout get a simulated race; the rest have nothing to race on.
 export async function generateStaticParams() {
@@ -31,9 +34,11 @@ export async function generateMetadata({ params }: Props) {
   return { title: c ? `${c.shortName} · Simulated race` : "Simulated race" };
 }
 
-/** `/circuits/<id>/race`: the simulated race on a circuit's real layout. Real data (replay, live) is only on `/live`. */
+/** `/circuits/<id>/race`: the simulated race on a circuit's real layout, for circuits with no recorded race; otherwise that race's replay. */
 export default async function Page({ params }: Props) {
   const circuit = findCircuitById((await params).circuit);
+  const raced = circuit ? await latestRaceAt(circuit.id) : undefined;
+  if (raced) redirect(`/replay/${raced.sessionKey}`);
   const result = circuit ? await loadCircuitGeometry(circuit.id) : null;
   if (!circuit || !result || result.status !== "ok") notFound();
   // Demo pace: 4 % slower than the circuit's published F1 race lap record (a simulation parameter, not a prediction).
