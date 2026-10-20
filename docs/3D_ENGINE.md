@@ -16,8 +16,8 @@ provider coords (x, y, z in provider units)
   -> Three.js world (metres, Y up, right-handed)
 ```
 - Step 3 flips Y to -Z so a map-style top view (x right, y up) looks the same in Three.js.
-  Whether the provider frame is right- or left-handed **[VERIFY]**: if the rendered circuit is
-  mirrored, fix it here, once, with a single sign.
+  Verified: circuits are not mirrored. `catalog.test.ts` checks that every layout's direction of travel in the car data matches the
+  published direction (clockwise or anticlockwise); a mirrored frame would flip them all. Any future fix belongs here, once, as one sign.
 - `elevationScale` defaults to 1. Any exaggeration is a visible, labelled option, never baked in.
 - One pure TS module (`apps/web/src/lib/circuit/transform.ts`) owns this. Components never apply their own offsets.
 - A unit test round-trips known points (synthetic) and checks the centerline length is preserved.

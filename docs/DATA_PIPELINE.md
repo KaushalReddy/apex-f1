@@ -1,33 +1,35 @@
 # APEX F1: Data pipeline
 
-> **STATUS: OpenF1 validation BLOCKED by the sandbox network restriction (HTTP 403 `host_not_allowed`
-> for api.openf1.org). It must be validated later by the owner. No measurements exist.**
-
-Everything about OpenF1 below is **[VERIFY]** until the spike has run. Nothing in this document
-has been measured against the real API yet.
+> **Status: validated against the real OpenF1 API.** The spike ran on every circuit with a Grand Prix since 2023 (Phase 9): location
+> samples arrive at about 4.17 Hz per car, the coordinate unit is 0.1 m (24 of 25 layouts within 2.5 % of the published length), and
+> ADR-004 is accepted. Historical sync was last verified end to end on 2026-10-20. Only live mode is untested against the real API
+> (no subscription; mocked responses only). OpenF1 is the only data source: Jolpica, planned in Phase 0, was never needed.
 
 ## 1. Flow
 
 ```
-OpenF1 / Jolpica  ->  Provider impl  ->  normalize  ->  Postgres (history)
-                                                    ->  PositionFrame (LIVE or REPLAY)
-                                                    ->  REST / WebSocket  ->  web, ai
+OpenF1 (historical, no account) ─► export tools (tools/openf1-*) ─► JSON datasets ─┬─► bundled with the build (apps/web/src/data, public/)
+                                         ▲                                         └─► DATA_DIR (sync worker, read first) ─► Next.js pages + /api/*
+                                         └── tools/openf1-sync runs them on a schedule
+
+OpenF1 (real time, paid) ─► apps/web/src/lib/openf1 (server-side, polled on demand) ─► /api/live ─► /live
+
+OpenF1 ─► apps/api (Spring) ingestion ─► Postgres ─► /api/sessions/.../replay/timeline ─► /live fallback when no recorded race exists
 ```
 
-- **Ingestion** runs in the backend, in the background, in time windows. The frontend never
-  triggers a provider request. Playback reads our store only.
-- **Idempotent:** each window is keyed (session, driver, from, to); re-ingesting overwrites.
-- **Rate-limit protection:** one outbound queue per provider, bounded concurrency, exponential
-  backoff on 429/5xx, response caching. The spike uses a 0.4 s delay and an on-disk cache.
-- **Historical data** needs no credentials. **Real-time** access is believed to need an OpenF1
-  account **[VERIFY current terms]**. Credentials live in backend env vars only (`.env.example`).
+- **The site is file-based.** Race data are immutable per-session documents read whole, so they are exported once as validated JSON
+  (replays, fastest-lap telemetry, season results, circuit geometry and catalog) rather than stored in a database (ADR-021).
+- **The browser never calls OpenF1.** Every request goes to this site's server; credentials stay in server-side environment variables.
+- **Rate-limit protection:** one request at a time, at least 2.1 s apart, timeouts, bounded retries with backoff and jitter,
+  `Retry-After` honoured, and an on-disk response cache (`tools/openf1-client.mjs`). OpenF1 publishes no numeric limits.
+- **Historical data** needs no credentials. **Real-time** data needs a paid OpenF1 subscription (section 6).
 
-## 2. LIVE vs REPLAY
+## 2. Replay and live
 
-Same `PositionFrame` (`packages/contracts/schemas/position-frame.schema.json`).
-LIVE: provider -> normalize -> publish. REPLAY: stored chunks -> same normalize/publish.
-Frames carry `sampleT` per car and a `stale` flag; clients interpolate and never snap.
-Per-driver sample clocks are not assumed aligned. The spike measures how far apart they are.
+The web app's replays are full recorded races (`tools/openf1-replay`): positions, official order, gaps, laps, pit stops, stints, race
+control, weather and overtakes, each with source timestamps, loaded in a Web Worker and played on a monotonic clock. Live timing uses
+the same race view with a live source. The Java API's `PositionFrame` path (`packages/contracts`) is the Phase 2 design and now serves
+only as `/live`'s fallback for a race with no recorded replay.
 
 ## 3. The spike (`tools/openf1-spike`)
 
@@ -39,9 +41,8 @@ python spike.py --year 2024 --circuit Monza --session-name Race --known-length-m
 ./run_matrix.sh      # Suzuka, Monaco, Monza, Spa-Francorchamps, Silverstone
 pytest               # algorithm tests on SYNTHETIC data only
 ```
-Output: `out/<circuit>-<year>/report.json` and `report.md` (gitignored; copy summaries into
-docs after review). It needs `api.openf1.org` reachable. The environment this phase was built
-in could not reach it (HTTP 403 `host_not_allowed`), so **no real results exist yet**.
+Output: `out/<circuit>-<year>/report.json` and `report.md` (local only). It needs `api.openf1.org` reachable. It has been run for
+every circuit in the catalog; the layouts it exported, and their verdicts, are listed in `apps/web/src/data/circuits/README.md`.
 
 ### Questions -> where the answer appears in the report
 
@@ -63,8 +64,8 @@ in could not reach it (HTTP 403 `host_not_allowed`), so **no real results exist 
 3. Pick up to 3 fastest clean laps per driver (skip lap 1, pit-out laps, laps over 3% off best).
 4. Cut each lap to a closed loop, resample by arclength (about 2 m steps), align start index,
    average across laps/drivers, Gaussian-smooth (sigma 6 m by default).
-5. Unit: assumed 0.1 m per unit **[VERIFY]**. With `--known-length-m` the report also gives the
-   implied unit, so the unit is measured, not trusted.
+5. Unit: 0.1 m per unit, confirmed by measurement: with `--known-length-m` the report gives the implied unit (e.g. 0.102 at Albert
+   Park), and 24 of 25 layouts fall within 2.5 % of the published length.
 6. Consistency: build from driver A, project driver B's laps, report lateral distance percentiles.
 7. Positioning: project all samples to the nearest centerline vertex; pit lane/garage show up
    as the far tail (`frac_beyond_40m`).
@@ -81,11 +82,12 @@ in could not reach it (HTTP 403 `host_not_allowed`), so **no real results exist 
   (`widthMeters: null` in the schema) and must be sourced or estimated from dispersion, never invented.
 - Elevation (`z`) is only range-checked, not validated.
 
-## 4. Jolpica
-Used for seasons, circuits, results, standings. Mapped to our DTOs in Phase 2. Its rate limits
-and response shapes are **[VERIFY]** when that phase starts.
+## 4. Results and standings
 
-## 5. Manual validation (owner, required before Phase 2)
+Season results and championship standings come from OpenF1 too (`tools/openf1-results`, `apps/web/src/data/results/README.md`):
+official classifications per race, standings as published. Jolpica was not needed.
+
+## 5. Re-running the spike (how it was validated)
 
 1. On a machine that can reach `https://api.openf1.org/v1` (Python 3.10+):
    `cd tools/openf1-spike && pip install -r requirements.txt && pytest`
@@ -96,10 +98,9 @@ and response shapes are **[VERIFY]** when that phase starts.
 4. Review `out/<circuit>-2024/report.md` for each. Record per circuit: verdict, `hz_median`,
    `gaps_gt_5s`, `implied_unit_m`, `length_error_pct_with_assumed_unit`, cross-driver p95 lateral,
    `self_proximity_points_within_20m`, best smoothing sigma.
-5. Share the reports; only then update ADR-004 to ACCEPTED / ACCEPTED WITH CAVEATS / REJECTED.
-6. Also confirm current OpenF1 terms for real-time access and rate limits.
+5. ADR-004 was accepted on these reports; crossover circuits (Suzuka, Baku) use the windowed projection the caveat called for.
 
-## 6. Automatic synchronisation (implemented, not yet deployed)
+## 6. Automatic synchronisation (implemented; deployment prepared, see DEPLOYMENT.md)
 
 The site no longer needs a redeploy for new data. Two independent paths:
 
@@ -120,8 +121,8 @@ deduplicated and bounded. `/api/live` serves it; `/live` shows it with source ti
 the last data when a poll fails. Without credentials, live is reported as unavailable with the next session from the public schedule.
 
 Why polling, not MQTT: OpenF1 also pushes over MQTT (`mqtt.openf1.org:8883`) and WebSocket (`wss://mqtt.openf1.org:8084/mqtt`), using
-the token as password, which is the better transport once a persistent process exists. The hosting choice is still open (Phase 18), and
-on-demand polling works on every host, including serverless. A persistent worker can later feed the same `LiveFeed` state from MQTT.
+the token as password, which is the better transport once a persistent process exists. On-demand polling works on every host,
+including serverless; on the prepared Docker host (Phase 18) a persistent worker could later feed the same `LiveFeed` state from MQTT.
 
 **Verified vs not verified.** Real OpenF1 historical requests were made (session discovery, a full sync of the 2026 season results, an
 idempotent second run). Live mode is tested only against mocked responses: no subscription was available and no session was running
