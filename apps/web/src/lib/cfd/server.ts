@@ -27,6 +27,7 @@ const ROOT = path.resolve(WEB, "../..");
 const TOOLS = path.join(ROOT, "tools", "cfd");
 const PYTHON = path.join(TOOLS, ".local", "venv", "bin", "python");
 const SU2 = path.join(TOOLS, ".local", "su2", "bin", "SU2_CFD");
+const MAX_QUEUED = 5;
 const JOBS = path.join(WEB, ".cfd", "jobs");
 const SHIPPED = path.join(WEB, "public", "cfd");
 
@@ -188,11 +189,16 @@ function pump() {
   });
 }
 
-export async function submit(r: CfdRequest): Promise<{ cached: CfdSummary } | { jobId: string }> {
+/** `admit` is asked only when a new run would start (cached answers are free); it returns seconds to wait when the caller is over a limit. */
+export async function submit(r: CfdRequest, admit?: () => number): Promise<{ cached: CfdSummary } | { jobId: string } | { retryAfterS: number }> {
   const c = buildCase(r);
   const hit = await findCached(c.cacheKey);
   if (hit) return { cached: hit };
   if (!runnerAvailable()) throw new Error("The CFD solver is not available on this server.");
+  // One solver runs at a time: a bounded queue keeps a burst of requests from filling the disk and the backlog.
+  if (queue.length >= MAX_QUEUED) throw new Error("The solver is busy with other simulations. Try again in a few minutes.");
+  const wait = admit?.() ?? 0;
+  if (wait) return { retryAfterS: wait };
   const dir = path.join(JOBS, c.id);
   await mkdir(dir, { recursive: true });
   await writeFile(path.join(dir, "case.json"), JSON.stringify(c));

@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import { CircuitExplorer } from "@/components/circuits/CircuitExplorer";
-import { CIRCUITS, circuitByShortName, findCircuitById } from "@/lib/circuit/catalog";
+import { CIRCUITS, asOfToday, circuitByShortName, findCircuitById } from "@/lib/circuit/catalog";
 import { centerlineLengthUnits, circuitExtentMeters, describeScale, describeTrackWidth, resolveTrackWidth } from "@/lib/circuit/geometry";
 import { circuitHistory } from "@/lib/circuit/history";
 import { availableGeometrySlugs, loadCircuitGeometry } from "@/lib/circuit/load";
@@ -48,7 +48,7 @@ export default async function CircuitPage({ params }: Props) {
     : null;
   return (
     <CircuitExplorer
-      circuit={circuit}
+      circuit={asOfToday(circuit)}
       geometry={g}
       provenance={provenance}
       events={circuitHistory(circuit, seasons)}

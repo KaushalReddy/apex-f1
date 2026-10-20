@@ -6,7 +6,9 @@ services:
       POSTGRES_DB: ${POSTGRES_DB:-apex}
       POSTGRES_USER: ${POSTGRES_USER:-apex}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
-    ports: ["5432:5432"]
+    # Localhost only: the services reach it on the compose network; nothing outside the host should.
+    ports: ["127.0.0.1:5432:5432"]
+    restart: unless-stopped
     volumes: [pgdata:/var/lib/postgresql/data]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-apex} -d ${POSTGRES_DB:-apex}"]
@@ -18,6 +20,7 @@ services:
     env_file: .env
     depends_on: { postgres: { condition: service_healthy } }
     ports: ["8080:8080"]
+    restart: unless-stopped
 
   web:
     build: { context: ., dockerfile: infra/docker/web.Dockerfile }
@@ -25,6 +28,7 @@ services:
     environment: { DATA_DIR: /data }
     depends_on: [api]
     ports: ["3000:3000"]
+    restart: unless-stopped
     volumes: [apexdata:/data]
 
   # OpenF1 sync worker: new races, telemetry and standings land in the shared volume without a redeploy (tools/openf1-sync/README.md).

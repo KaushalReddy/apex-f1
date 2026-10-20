@@ -2,11 +2,14 @@ import { CircuitDirectory } from "@/components/circuits/CircuitDirectory";
 import { Badge } from "@/components/ui/badge";
 import { PageContainer } from "@/components/ui/page-container";
 import { PageHeader } from "@/components/ui/page-header";
-import { CATALOG, CIRCUITS } from "@/lib/circuit/catalog";
+import { CATALOG, CIRCUITS, asOfToday } from "@/lib/circuit/catalog";
 import { loadCircuitGeometry } from "@/lib/circuit/load";
 import { circuitOutline, type Outline } from "@/lib/circuit/outline";
 
 export const metadata = { title: "Circuits" };
+
+// Each circuit's 2026 status ("Raced in 2026" / "Later in 2026") follows the date: rebuilt at most every 15 minutes.
+export const revalidate = 900;
 
 export default async function CircuitsPage() {
   const outlines: Record<string, Outline | null> = {};
@@ -28,7 +31,7 @@ export default async function CircuitsPage() {
           </>
         }
       />
-      <CircuitDirectory circuits={CIRCUITS} outlines={outlines} />
+      <CircuitDirectory circuits={CIRCUITS.map(asOfToday)} outlines={outlines} />
     </PageContainer>
   );
 }

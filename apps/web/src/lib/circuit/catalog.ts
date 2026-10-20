@@ -49,6 +49,24 @@ export const circuitByShortName = (short: string | null | undefined) => (short ?
 
 export const TYPE_LABEL: Record<CircuitType, string> = { street: "Street circuit", permanent: "Permanent circuit", road: "Road circuit" };
 export const DIRECTION_LABEL: Record<CircuitDirection, string> = { clockwise: "Clockwise", anticlockwise: "Anticlockwise", "figure-of-eight": "Figure of eight" };
+/** The 2026 race weekend's first day (the catalog's date, from OpenF1 meetings), or "". */
+export const weekend2026 = (c: CircuitEntry) => c.grandsPrix.find((g) => g.year === 2026)?.date ?? "";
+
+/**
+ * Whether a circuit's 2026 race has been run, by date rather than the catalog's snapshot (which is only as current as its last rebuild):
+ * a weekend counts as held from three days after its first day (Thursday or Friday), so the race itself always comes first.
+ * "not-held" (called off) and null (not on the calendar) come from the catalog.
+ */
+export function season2026(c: CircuitEntry, today = new Date().toISOString().slice(0, 10)): CircuitEntry["season2026"] {
+  if (c.season2026 === "not-held" || !weekend2026(c)) return c.season2026;
+  const over = new Date(`${weekend2026(c)}T00:00:00Z`);
+  over.setUTCDate(over.getUTCDate() + 3);
+  return today >= over.toISOString().slice(0, 10) ? "held" : "upcoming";
+}
+
+/** The circuit with its 2026 status as of today (server pages pass this down, so the browser never recomputes it at another time). */
+export const asOfToday = (c: CircuitEntry): CircuitEntry => ({ ...c, season2026: season2026(c) });
+
 export const SEASON_LABEL: Record<NonNullable<CircuitEntry["season2026"]>, string> = {
   held: "Raced in 2026",
   upcoming: "Later in 2026",

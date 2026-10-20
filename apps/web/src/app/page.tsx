@@ -13,7 +13,7 @@ import { PageContainer } from "@/components/ui/page-container";
 import { Panel } from "@/components/ui/panel";
 import { SectionHeader, SectionMarker } from "@/components/ui/section-header";
 import { DEMO_DRIVERS, DEMO_TEAMS } from "@/domain/demo";
-import { CIRCUITS } from "@/lib/circuit/catalog";
+import { CIRCUITS, asOfToday, weekend2026 } from "@/lib/circuit/catalog";
 import { availableGeometrySlugs, loadCircuitGeometry } from "@/lib/circuit/load";
 import { circuitByShortName } from "@/lib/circuit/catalog";
 import { loadReplayIndex } from "@/lib/replay/load";
@@ -61,13 +61,11 @@ export default async function Home() {
   };
   const latestReplay = replays.find(playable);
   const latestRaceReplay = latest ? replays.find((r) => r.sessionKey === latest.race.sessionKey && playable(r)) : undefined;
-  // The next 2026 races by today's date (race day included; the page refreshes every 15 min, so it moves on by itself after each race),
+  // The next 2026 races by date (a weekend stays "next" until its race is run; the page refreshes every 15 min, so it moves on by itself),
   // then the most recent ones, with their real layout outlines. Races called off are left out.
-  const today = new Date().toISOString().slice(0, 10);
-  const date26 = (c: (typeof CIRCUITS)[number]) => c.grandsPrix.find((g) => g.year === 2026)?.date ?? "";
-  const on26 = CIRCUITS.filter((c) => date26(c) && c.season2026 !== "not-held");
-  const upcoming = on26.filter((c) => date26(c) >= today).sort((a, b) => date26(a).localeCompare(date26(b)));
-  const recent = on26.filter((c) => date26(c) < today).sort((a, b) => date26(b).localeCompare(date26(a)));
+  const now26 = CIRCUITS.map(asOfToday);
+  const upcoming = now26.filter((c) => c.season2026 === "upcoming").sort((a, b) => weekend2026(a).localeCompare(weekend2026(b)));
+  const recent = now26.filter((c) => c.season2026 === "held").sort((a, b) => weekend2026(b).localeCompare(weekend2026(a)));
   const featured = await Promise.all(
     [...upcoming, ...recent].slice(0, 4).map(async (circuit) => {
       const g = await loadCircuitGeometry(circuit.id);

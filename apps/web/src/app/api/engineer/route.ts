@@ -2,6 +2,7 @@ import { ApiError, GoogleGenAI } from "@google/genai";
 import { configured, runEngineer, validHistory, type EngineerEvent } from "@/lib/engineer/engineer";
 import { EngineerData } from "@/lib/engineer/tools";
 import type { ReplayDataset } from "@/lib/replay/dataset";
+import { clientKey, rateLimiter, tooMany } from "@/lib/rate-limit";
 import { loadReplayDataset, loadReplayIndex } from "@/lib/replay/load";
 
 /**
@@ -10,6 +11,9 @@ import { loadReplayDataset, loadReplayIndex } from "@/lib/replay/load";
  */
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+/** Each question is a paid AI call: at most 12 per visitor per 10 minutes. */
+const limit = rateLimiter(12, 10 * 60_000);
 
 /** The last few races asked about, parsed once (each file is several MB). */
 const cache = new Map<number, ReplayDataset>();
@@ -42,6 +46,8 @@ function friendly(e: unknown) {
 
 export async function POST(req: Request) {
   if (!configured()) return Response.json({ error: "not-configured" }, { status: 503 });
+  const wait = limit(clientKey(req));
+  if (wait) return tooMany(wait, `Too many questions in a short time. Try again in ${Math.ceil(wait / 60)} min.`);
   let body: Record<string, unknown>;
   try {
     body = (await req.json()) as Record<string, unknown>;
