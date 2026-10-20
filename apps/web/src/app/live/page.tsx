@@ -12,7 +12,9 @@ import { loadTelemetryIndex } from "@/lib/telemetry/load";
 
 export const metadata = { title: "Live Race" };
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
+// Server-side calls to the replay API: its internal address when deployed (API_INTERNAL_URL, e.g. http://api:8080 on the compose network),
+// else the public one the browser uses.
+const API_BASE_URL = process.env.API_INTERNAL_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8080";
 /** The stored sample replay (it matches the Replay page). Live is real data only; simulated races are under each circuit. */
 const SAMPLE = { circuit: "monaco", sessionKey: 9523, from: 1716728400000, to: 1716728410000, label: "Monaco 2024 · Race · OpenF1 session 9523 (10 s window)" };
 /** Length of the previous-race window replayed from its first ingested sample. */

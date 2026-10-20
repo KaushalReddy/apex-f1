@@ -42,7 +42,7 @@ test.describe("live timing status", () => {
   test("a failed poll reads Reconnecting, never Live, and says the data is not current", async ({ page }) => {
     await fakeLive(page, { ...live, stale: true, errorCategory: "rate-limit", reason: "Reconnecting to OpenF1: showing the last data received." });
     await page.goto("/live");
-    await expect(status(page)).toContainText("Reconnecting · United States · Race");
+    await expect(status(page)).toContainText("Reconnecting · United States · Race", { timeout: 45_000 }); // full 3D race on the page, as above
     await expect(status(page)).toContainText("it is not current");
     await expect(status(page)).not.toContainText(/^Live ·/);
   });

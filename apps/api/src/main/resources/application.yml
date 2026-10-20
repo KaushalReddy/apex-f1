@@ -9,9 +9,10 @@ management:
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/apex_f1
-    username: kaushalparvatala
-    password:
+    # From the environment when deployed (.env: APEX_DB_*); the defaults are the local development database.
+    url: ${APEX_DB_URL:jdbc:postgresql://localhost:5432/apex_f1}
+    username: ${APEX_DB_USER:kaushalparvatala}
+    password: ${APEX_DB_PASSWORD:}
     driver-class-name: org.postgresql.Driver
 
   jpa:

@@ -1,0 +1,22 @@
+# Public entry point (docker-compose.prod.yml). Caddy obtains and renews the HTTPS certificate for $DOMAIN on its own
+# (Let's Encrypt; ports 80 and 443 must reach this host and the domain's DNS must point here).
+{$DOMAIN} {
+	encode zstd gzip
+
+	# The Java replay API (Spring, /api/sessions/...): same origin as the site, so the browser needs no CORS.
+	handle /api/sessions/* {
+		reverse_proxy api:8080
+	}
+
+	# Everything else is the Next.js site. Caddy replaces any client-sent X-Forwarded-For with the real address, so the site's
+	# per-visitor rate limits cannot be dodged by forging the header.
+	handle {
+		reverse_proxy web:3000
+	}
+
+	header -Server
+	log {
+		output stdout
+		format console
+	}
+}
