@@ -16,6 +16,7 @@ const nextConfig: NextConfig = {
   // Resolve metadata before the first byte for every client (not only bots): pages that render on demand (a race or driver synced after
   // the build) can then answer an unknown key with the full not-found page in the HTML, not a shell completed in the browser.
   htmlLimitedBots: /.*/,
+  experimental: { agentUpgrade: "security" },
   async headers() {
     // Exported race files change only on re-export: browsers keep them an hour and may reuse a stale copy for a week while refreshing.
     return [
