@@ -84,7 +84,7 @@ export default async function Home() {
             marker lapping it. Decorative: the countdown card names the race. */}
         <div aria-hidden="true" className="pointer-events-none absolute inset-y-0 right-0 hidden w-[58%] md:block">
           <div className="absolute inset-0 bg-[radial-gradient(closest-side,rgb(240_68_68/0.14),transparent)]" />
-          <svg viewBox={hero.viewBox} fill="none" className="absolute left-[46%] top-1/2 h-[112%] w-auto max-w-none -translate-x-1/2 -translate-y-1/2">
+          <svg viewBox={hero.viewBox} fill="none" className="absolute left-1/2 top-1/2 h-[80%] w-auto max-w-none -translate-x-1/2 -translate-y-1/2">
             <path d={hero.d} stroke="rgb(255 255 255 / 0.13)" strokeWidth={hero.width * 3} strokeLinejoin="round" strokeLinecap="round" />
             <path d={hero.d} stroke="rgb(255 255 255 / 0.4)" strokeWidth={hero.width * 0.25} strokeDasharray={`${hero.width} ${hero.width * 1.4}`} strokeLinejoin="round" />
             <path

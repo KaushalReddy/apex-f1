@@ -3,32 +3,12 @@
 import { useEffect, useState } from "react";
 import { StatusDot } from "@/components/ui/status-dot";
 import type { LiveSnapshot } from "@/lib/openf1/live";
-import { Poller, type PollUpdate } from "@/lib/openf1/poller";
+import { useLiveState } from "@/lib/openf1/liveStore";
+import type { PollUpdate } from "@/lib/openf1/poller";
 import { ago, clockTime, sessionStart } from "@/lib/openf1/time";
 
-/** Polls /api/live while the page is visible (stops when hidden or left). Live sessions every poll interval, otherwise once a minute. */
-export function useLiveTiming(): PollUpdate<LiveSnapshot> | null {
-  const [u, setU] = useState<PollUpdate<LiveSnapshot> | null>(null);
-  useEffect(() => {
-    const p = new Poller<LiveSnapshot>({
-      load: async (signal) => {
-        const r = await fetch("/api/live", { signal, cache: "no-store" });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
-        return (await r.json()) as LiveSnapshot;
-      },
-      nextMs: (d) => (d.status === "live" ? d.pollMs : 60_000),
-      onUpdate: setU,
-    });
-    const onVisibility = () => (document.hidden ? p.stop() : p.start());
-    document.addEventListener("visibilitychange", onVisibility);
-    if (!document.hidden) p.start();
-    return () => {
-      document.removeEventListener("visibilitychange", onVisibility);
-      p.stop();
-    };
-  }, []);
-  return u;
-}
+/** The tab's shared live state (lib/openf1/liveStore), at the live interval while a session is on track. */
+export const useLiveTiming = (): PollUpdate<LiveSnapshot> | null => useLiveState(true);
 
 const gap = (d: LiveSnapshot["drivers"][number]) => (d.position === 1 ? "Leader" : d.lapsDown ? `+${d.lapsDown} lap${d.lapsDown > 1 ? "s" : ""}` : d.gapToLeader != null ? `+${d.gapToLeader.toFixed(3)}` : "—");
 
@@ -55,14 +35,14 @@ export function LiveTimingStatus() {
   if (s.status === "error") return <Line tone="danger">{s.reason}</Line>;
 
   const title = [s.session?.event, s.session?.name].filter(Boolean).join(" · ");
-  const recorded = s.sourceTime ? `recorded by OpenF1 at ${clockTime(s.sourceTime)}` : "no data recorded yet";
+  const recorded = s.sourceTime ? `Latest data recorded by OpenF1 at ${clockTime(s.sourceTime)}` : "No data from OpenF1 yet";
   const received = ago(s.fetchedAt, now);
   const stale = s.stale || !!u.error;
   return (
     <div role="status" aria-live="polite" className="space-y-2">
       <Line tone={stale ? "warning" : "accent"} pulse={!stale}>
-        <span className="font-semibold text-fg">{stale ? "Reconnecting" : "Live"}</span> · {title}. Latest data {recorded}
-        {received ? `, received ${received}` : ""}.{stale ? " Showing the last data received; it is not current." : ""}
+        <span className="font-semibold text-fg">{stale ? "Reconnecting" : "Live"}</span> · {title}. {recorded}
+        {received ? `, ${s.sourceTime ? "received" : "checked"} ${received}` : ""}.{stale ? " Showing the last data received; it is not current." : ""}
       </Line>
       {s.drivers.some((d) => d.position != null) && (
         <ol aria-label="Live running order" className={`grid grid-cols-[repeat(auto-fill,minmax(8.5rem,1fr))] gap-x-4 gap-y-1 text-xs tabular-nums ${stale ? "opacity-60" : ""}`}>

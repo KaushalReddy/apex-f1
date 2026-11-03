@@ -8,7 +8,7 @@
 // qualifying classification (position only) and the drivers' and constructors' championship standings after the race, plus each driver's identity and team
 // as OpenF1 reports them for that session. Nothing is computed or filled in here: a value OpenF1 does not provide is written as null.
 // Requests are rate-limited (OpenF1's free tier) and retried on 429/5xx.
-import { mkdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { openf1, writeAtomic } from "../openf1-client.mjs";
@@ -142,6 +142,12 @@ const doc = {
     .map((d) => ({ ...d, numbers: [...d.numbers].sort((a, b) => a - b), teams: [...d.teams].map(([name, colour]) => ({ name, colour })) }))
     .sort((a, b) => a.acronym.localeCompare(b.acronym)),
 };
+// Never replace a snapshot with one that has fewer races (e.g. a classification the source has temporarily withdrawn): keep the old file.
+const previous = existsSync(out) ? (JSON.parse(readFileSync(out, "utf8")).events?.length ?? 0) : 0;
+if (events.length < previous) {
+  console.error(`invalid output: ${events.length} races, but ${out} already has ${previous}; not replaced`);
+  process.exit(1);
+}
 mkdirSync(dirname(out), { recursive: true });
 writeAtomic(out, JSON.stringify(doc) + "\n");
 console.error(`wrote ${out}: ${events.length}/${races.length} races, ${doc.drivers.length} drivers`);

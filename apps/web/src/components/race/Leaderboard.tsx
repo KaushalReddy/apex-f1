@@ -36,6 +36,8 @@ export function Leaderboard({
     list.current?.querySelector<HTMLButtonElement>(`[data-row="${next}"]`)?.focus();
   };
 
+  const best = drivers.map((d) => d.bestLapMs).filter((t): t is number => t != null);
+  const fastest = best.length ? Math.min(...best) : null;
   return (
     <ol ref={list} onKeyDown={onKey} aria-label={ordered ? "Race order" : "Cars (race order not available from this source)"} className="divide-y divide-line">
       {drivers.map((d) => {
@@ -62,7 +64,15 @@ export function Leaderboard({
                 {d.stale && <span className="text-[10px] uppercase tracking-wider text-warning">Stale</span>}
               </span>
               <span className="text-right text-muted">{formatGap(d, gapMode)}</span>
-              <span className="text-right text-subtle">{formatLapTime(d.lastLapMs)}</span>
+              <span className="flex flex-col items-end leading-tight">
+                {/* Timing colours: purple the fastest lap of the session, green a car's own best. */}
+                <span className={cn(d.lastLapMs == null ? "text-subtle" : d.lastLapMs === fastest ? "text-timing-best" : d.lastLapMs === d.bestLapMs ? "text-timing-personal" : "text-subtle")}>{formatLapTime(d.lastLapMs)}</span>
+                {d.bestLapMs != null && (
+                  <span className={cn("text-[10px]", d.bestLapMs === fastest ? "font-semibold text-timing-best" : "text-subtle")} title={d.bestLapMs === fastest ? "Fastest lap" : "Best lap"}>
+                    {formatLapTime(d.bestLapMs)}
+                  </span>
+                )}
+              </span>
             </button>
           </li>
         );

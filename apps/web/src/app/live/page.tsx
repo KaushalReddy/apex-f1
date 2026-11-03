@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LiveSessionWatch } from "@/components/live/LiveSessionWatch";
 import { LiveTimingStatus } from "@/components/live/LiveTimingStatus";
 import { NextRaceTab } from "@/components/live/NextSession";
 import { RaceExperience } from "@/components/race/RaceExperience";
@@ -6,6 +7,7 @@ import { ComingSoon } from "@/components/ui/coming-soon";
 import { circuitByShortName, findCircuitById } from "@/lib/circuit/catalog";
 import { loadCircuitGeometry } from "@/lib/circuit/load";
 import { loadSeasons } from "@/lib/drivers/load";
+import { liveFeed } from "@/lib/openf1/server";
 import { previousRace } from "@/lib/race/previous";
 import { loadReplayIndex, replayUrl } from "@/lib/replay/load";
 import { loadTelemetryIndex } from "@/lib/telemetry/load";
@@ -48,17 +50,76 @@ async function firstIngestedSample(sessionKey: number): Promise<number | null> {
   }
 }
 
+/** The session on track now (shared server feed, so no extra OpenF1 requests), or null. Capped so a slow provider never holds the page. */
+async function liveSession() {
+  try {
+    // A full poll can take longer than 3 s; then use the session the feed already knows rather than wrongly showing a recorded race.
+    const feed = liveFeed();
+    const s = await Promise.race([feed.snapshot(), new Promise<ReturnType<typeof feed.cached>>((r) => setTimeout(() => r(feed.cached()), 3000))]);
+    return s?.status === "live" ? s.session : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Live Race Health panel: `next dev` only. Imported dynamically inside a literal NODE_ENV check, so a production build drops the branch,
+ * the import and the panel's code (a static import would still ship it in the page's client bundle, unrendered).
+ */
+async function devHealthPanel() {
+  if (process.env.NODE_ENV !== "development") return null;
+  const { LiveHealthPanel } = await import("@/components/live/LiveHealthPanel");
+  return <LiveHealthPanel />;
+}
+
 const day = (iso: string) => new Date(`${iso}T12:00:00Z`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 
 type Props = { searchParams: Promise<{ replay?: string }> };
 
 /**
- * `/live`: real data only. No live timing provider is connected, so there is never a live race here yet: the page says so and shows the
- * previous race (latest in the results snapshots): the full recorded race when Race Replay has it, else a window the APEX F1 API has
+ * `/live`: real data only. While a session is on track (and its circuit has a layout) the 3D view follows it live; otherwise the page
+ * says so and shows the previous race (latest in the results snapshots): the full recorded race when Race Replay has it, else a window the APEX F1 API has
  * ingested; otherwise, or with `?replay=sample`, the stored Monaco sample.
  */
 export default async function Page({ searchParams }: Props) {
   const wantSample = (await searchParams).replay === "sample";
+  const link = "font-medium text-fg underline decoration-line underline-offset-2 hover:decoration-fg";
+
+  // A session on track whose circuit has a generated layout: the 3D view follows it with genuine live positions (lib/race/live).
+  const live = wantSample ? null : await liveSession();
+  const liveCircuit = live ? circuitByShortName(live.circuit) : undefined;
+  const liveGeometry = liveCircuit ? await loadCircuitGeometry(liveCircuit.id) : null;
+  if (live && liveCircuit && liveGeometry?.status === "ok") {
+    const title = `${live.event ?? liveCircuit.shortName} · ${live.name}`;
+    // Keyed by circuit, not session: when the next session at the same track starts, the view (camera, selection) stays and only its data
+    // source changes.
+    return (
+      <>
+        <RaceExperience
+          key={`live-${liveCircuit.id}`}
+          geometry={liveGeometry.geometry}
+          circuit={{ slug: liveCircuit.id, name: liveCircuit.shortName }}
+          source={{ kind: "live", sessionKey: live.key, label: `${title} · OpenF1 session ${live.key}` }}
+          exitHref="/"
+          notice={
+            <>
+              <span className="mb-2 block">
+                <LiveTimingStatus />
+              </span>
+              <span className="font-medium text-fg">The 3D view follows {title} live.</span> Car positions come from OpenF1 as it publishes them; none are shown until it does.{" "}
+              <Link href="/replay" className={link}>
+                Recorded race replays
+              </Link>
+            </>
+          }
+          banner={<NextRaceTab />}
+        />
+        <LiveSessionWatch following={live.key} />
+        {await devHealthPanel()}
+      </>
+    );
+  }
+
   const prev = previousRace((await loadSeasons()).seasons, new Date().toISOString().slice(0, 10));
   const prevCircuit = prev?.circuitShortName ? circuitByShortName(prev.circuitShortName) : undefined;
   const prevGeometry = prevCircuit ? await loadCircuitGeometry(prevCircuit.id) : null;
@@ -82,7 +143,6 @@ export default async function Page({ searchParams }: Props) {
     );
   }
 
-  const link = "font-medium text-fg underline decoration-line underline-offset-2 hover:decoration-fg";
   const notice = (
     <>
       {/* Real-time status from /api/live (OpenF1 subscription, server-side): unavailable, next session, or live order and freshness. */}
@@ -111,21 +171,26 @@ export default async function Page({ searchParams }: Props) {
   );
 
   return (
-    <RaceExperience
-      key={showPrevious ? "previous" : "sample"}
-      geometry={result.geometry}
-      circuit={{ slug: circuit.id, name: circuit.shortName }}
-      source={
-        showPrevious && recorded
-          ? { kind: "history", sessionKey: recorded.sessionKey, url: replayUrl(recorded.season, recorded.sessionKey), label: `${prevTitle} · Race · OpenF1 session ${recorded.sessionKey}` }
-          : showPrevious && prevStart !== null
-          ? { kind: "replay", sessionKey: prev.sessionKey, from: prevStart, to: prevStart + PREVIOUS_WINDOW_MS, label: `${prevTitle} · Race · OpenF1 session ${prev.sessionKey} (${PREVIOUS_WINDOW_MS / 1000} s from ${new Date(prevStart).toISOString().slice(11, 19)} UTC)` }
-          : { kind: "replay", ...SAMPLE }
-      }
-      exitHref="/"
-      notice={notice}
-      banner={<NextRaceTab />}
-      telemetrySessionKey={recorded && (await loadTelemetryIndex()).some((s) => s.sessionKey === recorded.sessionKey) ? recorded.sessionKey : null}
-    />
+    <>
+      <RaceExperience
+        key={showPrevious ? "previous" : "sample"}
+        geometry={result.geometry}
+        circuit={{ slug: circuit.id, name: circuit.shortName }}
+        source={
+          showPrevious && recorded
+            ? { kind: "history", sessionKey: recorded.sessionKey, url: replayUrl(recorded.season, recorded.sessionKey), label: `${prevTitle} · Race · OpenF1 session ${recorded.sessionKey}` }
+            : showPrevious && prevStart !== null
+            ? { kind: "replay", sessionKey: prev.sessionKey, from: prevStart, to: prevStart + PREVIOUS_WINDOW_MS, label: `${prevTitle} · Race · OpenF1 session ${prev.sessionKey} (${PREVIOUS_WINDOW_MS / 1000} s from ${new Date(prevStart).toISOString().slice(11, 19)} UTC)` }
+            : { kind: "replay", ...SAMPLE }
+        }
+        exitHref="/"
+        notice={notice}
+        banner={<NextRaceTab />}
+        telemetrySessionKey={recorded && (await loadTelemetryIndex()).some((s) => s.sessionKey === recorded.sessionKey) ? recorded.sessionKey : null}
+      />
+      {/* The sample is asked for explicitly: it never switches to a live session on its own. */}
+      {!wantSample && <LiveSessionWatch following={null} />}
+      {await devHealthPanel()}
+    </>
   );
 }

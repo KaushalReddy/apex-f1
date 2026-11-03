@@ -32,8 +32,9 @@ Logs are one JSON object per line on stdout (`sync.plan`, `sync.job.done`, `sync
 request, cache-hit, retry and rate-limit counts). They never contain credentials or response bodies.
 
 ## Rate limits
-OpenF1 documents that authenticated access has higher limits but publishes no numbers. The worker is unauthenticated and keeps the
-export tools' pace: one request at a time, at least `OPENF1_MIN_INTERVAL_MS` (2100 ms) apart, with a timeout, bounded retries with
+OpenF1 documents that authenticated access has higher limits but publishes no numbers. With `OPENF1_USERNAME` / `OPENF1_PASSWORD` set the worker
+logs in (shared client, `tools/openf1-client.mjs`); without them it is unauthenticated and its runs fail with `auth` while a live session
+is running, because OpenF1 then refuses all requests without a login. Either way it keeps the export tools' pace: one request at a time, at least `OPENF1_MIN_INTERVAL_MS` (2100 ms) apart, with a timeout, bounded retries with
 exponential backoff and jitter, and `Retry-After` honoured on 429. A cold first run of a season takes several minutes; later runs make
 one request (the session list) unless something new finished. Responses are cached in `DATA_DIR/.cache` so an interrupted run resumes.
 

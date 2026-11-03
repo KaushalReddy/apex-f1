@@ -1,3 +1,4 @@
+import { positionFreshness } from "./liveFreshness";
 import { lerpProgress } from "./track";
 import type { DriverState, RaceMode, RaceSnapshot, SourceStatus } from "./types";
 
@@ -51,12 +52,18 @@ export type Freshness = "waiting" | "fresh" | "delayed" | "stale" | "paused" | "
  * How current the view is, from the wall-clock age of the last snapshot. Playback that is paused or finished is reported as such rather
  * than as stale; a failed source is "disconnected".
  */
+/** `intervalMs`: how often the source sends new data (live polling); data is not late until one interval has passed. */
 export function freshness(o: { snapshot: RaceSnapshot | null; receivedAt: number | null; now: number; playing: boolean; sourceStatus: SourceStatus }): { state: Freshness; ageMs: number | null } {
   if (o.sourceStatus === "error") return { state: "disconnected", ageMs: null };
   if (!o.snapshot || o.receivedAt == null) return { state: "waiting", ageMs: null };
   const ageMs = Math.max(0, o.now - o.receivedAt);
   if (o.snapshot.session.status === "finished") return { state: "finished", ageMs };
-  if (o.snapshot.mode !== "LIVE" && !o.playing) return { state: "paused", ageMs };
+  // Live: `receivedAt` is when OpenF1 recorded the newest position (LiveProvider), judged by the same rule as the health panel.
+  if (o.snapshot.mode === "LIVE") {
+    const p = positionFreshness("live", ageMs);
+    return { state: p === "live" ? "fresh" : p === "delayed" ? "delayed" : "stale", ageMs };
+  }
+  if (!o.playing) return { state: "paused", ageMs };
   return { state: ageMs < 2000 ? "fresh" : ageMs < 6000 ? "delayed" : "stale", ageMs };
 }
 

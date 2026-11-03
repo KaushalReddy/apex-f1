@@ -16,6 +16,7 @@ import { cn } from "@/lib/cn";
 import { createDemoRace, paceProfile } from "@/lib/race/demo";
 import { demoEntries, driverColor, NEUTRAL_MARKER } from "@/lib/race/entries";
 import { appendEvents, type RaceEvent } from "@/lib/race/events";
+import { LiveProvider, SWITCHING } from "@/lib/race/live";
 import { DemoProvider, PLAYBACK_SPEEDS, ReplayProvider, realScheduler, type ProviderUpdate, type RaceProvider } from "@/lib/race/providers";
 import { MODE_LABEL, SnapshotBuffer, battles, formatGap, formatLapTime, freshness, sortByRaceOrder, toggleSelection } from "@/lib/race/session";
 import type { RaceView } from "@/lib/race/fit";
@@ -69,7 +70,9 @@ export interface RaceExperienceProps {
     | { kind: "demo"; totalLaps: number; /** Simulated base lap time (s), chosen per circuit by the page. */ baseLapS: number }
     | { kind: "replay"; sessionKey: number; from: number; to: number; label: string }
     /** A full recorded race (lib/replay): one validated dataset file, fetched from this site. */
-    | { kind: "history"; sessionKey: number; url: string; label: string };
+    | { kind: "history"; sessionKey: number; url: string; label: string }
+    /** The session on track now: genuine OpenF1 live positions via /api/live, never recorded ones. */
+    | { kind: "live"; sessionKey: number; label: string };
   /** Where Exit goes when there is no previous page on this site. */
   exitHref: string;
   /** Page-specific line under the status chips (Live: no live race, and the previous-race option). */
@@ -191,7 +194,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, ba
   useEffect(() => {
     const attach = (p: RaceProvider) => {
       provider.current = p;
-      buffer.current = new SnapshotBuffer(p.updateIntervalMs);
+      buffer.current = new SnapshotBuffer(p.renderDelayMs ?? p.updateIntervalMs);
       const off = p.subscribe((u) => {
         if (u.snapshot) buffer.current.push(u.snapshot, u.at);
         // After a reset/seek/restart the provider sends the full history to that point: replace the log, so nothing is shown twice.
@@ -230,6 +233,10 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, ba
         detach?.();
       };
     }
+    if (source.kind === "live")
+      return attach(
+        new LiveProvider({ toWorld: frame.transform.toWorld, z: frame.transform.origin[2], path: frame.path, circuit: { circuitSlug: circuit.slug, circuitName: circuit.name }, sessionKey: source.sessionKey }),
+      );
     const session = { id: source.kind === "demo" ? "apex-demo" : `openf1-${source.sessionKey}`, type: "Race", circuitSlug: circuit.slug, circuitName: circuit.name };
     const p: RaceProvider =
       source.kind === "demo"
@@ -277,9 +284,11 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, ba
   const markerDrivers = drivers.map((d) => ({ id: d.id, color: driverColor(d), position: d.position, stale: d.stale, hollow: isHollow(emph, d.id) }));
   const battlePairs = useMemo(() => (snapshot ? battles(snapshot) : []), [snapshot]);
   const playing = update?.playback?.playing ?? false;
-  const fresh = freshness({ snapshot, receivedAt: update?.at ?? null, now: Math.max(now, update?.at ?? 0), playing, sourceStatus: update?.source.status ?? "connecting" });
+  // Live with no car placed yet is "waiting", however recently the (empty) feed was read.
+  const livePlaced = source.kind !== "live" || drivers.some((d) => d.progress != null);
+  const fresh = freshness({ snapshot, receivedAt: livePlaced ? (update?.at ?? null) : null, now: Math.max(now, update?.at ?? 0), playing, sourceStatus: update?.source.status ?? "connecting" });
   const sel = selected ? byId.get(selected) ?? null : null;
-  const mode = snapshot?.mode ?? (source.kind === "demo" ? "DEMO" : "REPLAY");
+  const mode = snapshot?.mode ?? (source.kind === "demo" ? "DEMO" : source.kind === "live" ? "LIVE" : "REPLAY");
   const name = (id: string) => byId.get(id)?.code ?? id;
   const fitCircuit = () => {
     setFollow(false);
@@ -581,6 +590,8 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, ba
       : sessionStatus === "not-started"
         ? "Not started"
         : "No data";
+  // Live: when OpenF1 recorded the newest car position shown (UTC), only while cars are actually placed.
+  const liveAsOf = mode === "LIVE" && snapshot && drivers.some((d) => d.progress != null) ? new Date(snapshot.t).toISOString().slice(11, 19) : null;
   const freshnessChip = (
     <span className="inline-flex items-center gap-1.5 rounded-sm border border-line px-1.5 py-0.5">
       <StatusDot tone={FRESHNESS_COPY[fresh.state].tone} pulse={fresh.state === "fresh" && playing} />
@@ -593,12 +604,17 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, ba
       {freshnessChip}
       {/* Not repeated when the freshness chip already says the same ("Paused"). */}
       {statusText !== FRESHNESS_COPY[fresh.state].text && <span className="rounded-sm border border-line px-1.5 py-0.5">{statusText}</span>}
-      <span className="rounded-sm border border-line px-1.5 py-0.5 tabular-nums">{lap != null && laps != null ? `Lap ${lap} / ${laps}` : "Lap —"}</span>
+      {mode === "LIVE" && lap != null && <span className="rounded-sm border border-line px-1.5 py-0.5 tabular-nums">Lap {lap}</span>}
+      {liveAsOf ? (
+        <span className="rounded-sm border border-line px-1.5 py-0.5 tabular-nums">Positions {liveAsOf} UTC</span>
+      ) : (
+        mode !== "LIVE" && <span className="rounded-sm border border-line px-1.5 py-0.5 tabular-nums">{lap != null && laps != null ? `Lap ${lap} / ${laps}` : "Lap —"}</span>
+      )}
     </div>
   );
 
   const toolButton = (label: string, onClick: () => void, pressed?: boolean, extra?: string) => (
-    <Button size="sm" variant="ghost" aria-pressed={pressed} className={cn("h-8 px-2.5", pressed && "text-fg", pressed === false && "text-subtle", extra)} onClick={onClick}>
+    <Button size="sm" variant="ghost" aria-pressed={pressed} className={cn("h-8 shrink-0 px-2.5", pressed && "text-fg", pressed === false && "text-subtle", extra)} onClick={onClick}>
       {label}
     </Button>
   );
@@ -634,7 +650,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, ba
         <span>Pos</span>
         <span>Driver</span>
         <span className="text-right">{gapMode === "leader" ? "Gap" : "Int"}</span>
-        <span className="text-right">Last lap</span>
+        <span className="text-right">Last · best</span>
       </div>
       <div className="min-h-0 overflow-y-auto">
         {drivers.length ? (
@@ -697,20 +713,38 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, ba
         Real data (stored replay, live when connected) is on the Live page.
       </Link>
     ) : (
-      <span className="text-muted">{source.kind === "history" ? "Recorded race · OpenF1" : "Stored replay · live timing is not connected."}</span>
+      <span className="text-muted">{source.kind === "live" ? `Live · ${source.label}` : source.kind === "history" ? "Recorded race · OpenF1" : "Stored replay · live timing is not connected."}</span>
     );
 
   const errorBox = !snapshot && update?.source.status === "error" && (
     // Top centre on desktop, clear of the header card (which carries the page's notice) and the toolbar.
     <div className={cn("pointer-events-auto absolute inset-x-3 top-[7.5rem] z-10 p-4 text-sm md:left-1/2 md:right-auto md:w-[30rem] md:-translate-x-1/2", GLASS, "border-danger/40")} role="alert">
-      <p className="font-medium text-danger">{source.kind === "history" ? "This replay could not be loaded" : "The replay source is unavailable"}</p>
+      <p className="font-medium text-danger">{source.kind === "live" ? "Live car positions are unavailable" : source.kind === "history" ? "This replay could not be loaded" : "The replay source is unavailable"}</p>
       <p className="mt-1 text-muted">
-        {source.kind === "history"
+        {source.kind === "live"
+          ? `${update.source.detail?.replace(/\.?$/, ".") ?? ""} No cars are drawn rather than guessed.`
+          : source.kind === "history"
           ? `The race data could not be loaded: ${update.source.detail ?? "unknown error"}. Nothing is shown rather than guessed.`
           : `${update.source.detail?.replace(/\.?$/, ".")} The stored replay needs the APEX F1 API (port 8080) with session data ingested.`}
       </p>
-      <ButtonLink href={source.kind === "history" ? "/replay" : `/circuits/${circuit.slug}/race`} size="sm" variant="secondary" className="mt-3">
-        {source.kind === "history" ? "All replays" : "Simulated race on this circuit"}
+      <ButtonLink href={source.kind === "history" || source.kind === "live" ? "/replay" : `/circuits/${circuit.slug}/race`} size="sm" variant="secondary" className="mt-3">
+        {source.kind === "live" ? "Recorded race replays" : source.kind === "history" ? "All replays" : "Simulated race on this circuit"}
+      </ButtonLink>
+    </div>
+  );
+
+  // Live with no car placed yet: say so instead of an empty circuit (recorded races are offered separately, never mixed in).
+  const liveWaiting = source.kind === "live" && update && update.source.status !== "error" && !drivers.some((d) => d.progress != null) && (
+    // Phones: at the bottom (live has no playback bar there), clear of the header card; wider screens: top centre like the error box.
+    <div className={cn("pointer-events-auto absolute inset-x-3 bottom-3 z-10 p-4 text-sm md:bottom-auto md:left-1/2 md:right-auto md:top-[7.5rem] md:w-[30rem] md:-translate-x-1/2", GLASS)} role="status">
+      <p className="font-medium">{update.source.detail === SWITCHING ? "Switching session" : "Waiting for car positions"}</p>
+      <p className="mt-1 text-muted">
+        {update.source.detail === SWITCHING
+          ? "A new session is on track and the view is moving to it. Nothing from it is drawn until then."
+          : "OpenF1 has not sent car locations for this session yet. Cars appear as soon as it does; none are drawn rather than guessed."}
+      </p>
+      <ButtonLink href="/replay" size="sm" variant="secondary" className="mt-3">
+        Recorded race replays
       </ButtonLink>
     </div>
   );
@@ -759,7 +793,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, ba
                     selected={selected}
                     focus={hovered ? [...shownFocus, hovered] : shownFocus}
                     follow={follow && !!selected}
-                    animating={playing}
+                    animating={playing || mode === "LIVE"}
                     onSelect={selectFromMarker}
                     onHover={hover}
                   />
@@ -808,13 +842,15 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, ba
 
             {/* Floating glass HUD. The layer itself ignores the pointer so the circuit can be dragged and zoomed between panels. */}
               <div className="pointer-events-none absolute inset-0 z-10 p-2 pt-14 sm:p-4 sm:pt-16">
-                <div className="flex items-start justify-between gap-2">
+                {/* Phones: the toolbar is one row on top (scrolls sideways) and the header card gets the full width under it; wider screens:
+                    header column on the left, toolbar on the right. */}
+                <div className="flex flex-col-reverse gap-2 md:flex-row md:items-start md:justify-between">
                   {/* Left column: the race order stacks under the header, so it follows the header's real height (chips wrap, details open). */}
-                  <div className="flex min-w-0 flex-col gap-2 md:max-h-[calc(100svh-9.75rem)] md:w-[20rem]">
+                  <div className="flex min-w-0 flex-col gap-2 md:max-h-[calc(100svh-9.75rem)] md:w-[20rem] md:shrink-0">
                   {banner && <div className={cn("pointer-events-auto min-w-0 shrink-0 empty:hidden", GLASS)}>{banner}</div>}
                   <div className={cn("pointer-events-auto min-w-0 shrink-0 px-3 py-2", GLASS)}>
                     <p className="eyebrow hidden sm:block">Race experience</p>
-                    <h1 className="truncate font-display text-lg font-semibold leading-tight sm:text-xl">{circuit.name} · {source.kind === "demo" ? "Simulated race" : "Race"}</h1>
+                    <h1 className="truncate font-display text-lg font-semibold leading-tight sm:text-xl">{circuit.name} · {source.kind === "demo" ? "Simulated race" : source.kind === "live" ? (snapshot?.session.type ?? "Live session") : "Race"}</h1>
                     <div className="mt-1 hidden sm:block">{statusChips}</div>
                     {trackStatus && (
                       <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
@@ -855,7 +891,13 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, ba
                   </div>
                   {showOrder && !phone && <div className={cn("pointer-events-auto flex min-h-0 flex-col overflow-hidden", GLASS)}>{orderPanel}</div>}
                   </div>
-                  <div ref={toolbarRef} className={cn("pointer-events-auto flex flex-wrap justify-end gap-1 p-1", GLASS)}>
+                  <div
+                    ref={toolbarRef}
+                    className={cn(
+                      "pointer-events-auto flex gap-1 overflow-x-auto p-1 [scrollbar-width:none] [mask-image:linear-gradient(to_right,black_88%,transparent)] md:flex-wrap md:justify-end md:overflow-visible md:[mask-image:none] [&::-webkit-scrollbar]:hidden",
+                      GLASS,
+                    )}
+                  >
                     <span className="hidden items-center px-1 text-xs text-muted lg:inline-flex">{freshnessChip}</span>
                     {toolButton("Fit", fitCircuit)}
                     <span className="hidden sm:contents">{toolButton("Top-down", topDown)}</span>
@@ -875,6 +917,7 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, ba
                 </div>
 
                 {errorBox}
+                {liveWaiting}
 
                 {/* Desktop: race order floats on the left, driver details and events on the right. Phone: one bottom sheet at a time. */}
                 {showOrder && phone && !sel && !comparePanel && !dockOpen && (
@@ -1010,9 +1053,12 @@ export function RaceExperience({ geometry, circuit, source, exitHref, notice, ba
                     </div>
                   </div>
                 )}
-                <div className="pointer-events-none absolute inset-x-2 bottom-2 flex justify-center sm:inset-x-4 sm:bottom-4">
-                  <div className="pointer-events-auto w-full max-w-3xl [&>div]:border-white/10 [&>div]:bg-surface/70 [&>div]:backdrop-blur-xl">{playbackBar}</div>
-                </div>
+                {/* A live session cannot be paused, rewound or sped up: no playback bar. */}
+                {source.kind !== "live" && (
+                  <div className="pointer-events-none absolute inset-x-2 bottom-2 flex justify-center sm:inset-x-4 sm:bottom-4">
+                    <div className="pointer-events-auto w-full max-w-3xl [&>div]:border-white/10 [&>div]:bg-surface/70 [&>div]:backdrop-blur-xl">{playbackBar}</div>
+                  </div>
+                )}
               </div>
     </div>
   );

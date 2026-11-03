@@ -4,29 +4,16 @@ import { useEffect, useState } from "react";
 import { ButtonLink } from "@/components/ui/button";
 import { StatusDot } from "@/components/ui/status-dot";
 import type { LiveSnapshot } from "@/lib/openf1/live";
+import { liveStore, useLiveState } from "@/lib/openf1/liveStore";
 import { sessionStart } from "@/lib/openf1/time";
 
-// One /api/live request per page, shared by the components below; dropped when a countdown ends so the next answer is fresh.
-let shared: Promise<LiveSnapshot> | null = null;
-const loadLive = (fresh = false) => {
-  if (fresh || !shared)
-    shared = fetch("/api/live").then((r) => (r.ok ? (r.json() as Promise<LiveSnapshot>) : Promise.reject(new Error(String(r.status)))));
-  return shared;
-};
-
-function useLive(nonce = 0) {
-  const [s, setS] = useState<LiveSnapshot | null | "error">(null);
+/** The tab's shared live state (lib/openf1/liveStore); a new `nonce` asks for a fresh answer (a countdown just ended). */
+function useLive(nonce = 0): LiveSnapshot | null | "error" {
+  const u = useLiveState();
   useEffect(() => {
-    let on = true;
-    loadLive(nonce > 0).then(
-      (x) => on && setS(x),
-      () => on && setS("error"),
-    );
-    return () => {
-      on = false;
-    };
+    if (nonce > 0) liveStore().refresh();
   }, [nonce]);
-  return s;
+  return u == null ? null : (u.data ?? (u.error ? "error" : null));
 }
 
 /** Days, hours, minutes and seconds until a time (zero once it has passed). */

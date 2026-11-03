@@ -30,6 +30,8 @@ export interface RaceProvider {
   readonly mode: RaceMode;
   /** Wall-clock interval between updates (ms); views render one interval behind to interpolate. */
   readonly updateIntervalMs: number;
+  /** How far behind the views render, when not one update interval (live: see LiveProvider). */
+  readonly renderDelayMs?: number;
   subscribe(fn: (u: ProviderUpdate) => void): () => void;
   start(): void;
   dispose(): void;

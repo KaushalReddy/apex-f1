@@ -22,7 +22,10 @@ OpenF1 ─► apps/api (Spring) ingestion ─► Postgres ─► /api/sessions/.
 - **The browser never calls OpenF1.** Every request goes to this site's server; credentials stay in server-side environment variables.
 - **Rate-limit protection:** one request at a time, at least 2.1 s apart, timeouts, bounded retries with backoff and jitter,
   `Retry-After` honoured, and an on-disk response cache (`tools/openf1-client.mjs`). OpenF1 publishes no numeric limits.
-- **Historical data** needs no credentials. **Real-time** data needs a paid OpenF1 subscription (section 6).
+- **Historical data** needs no credentials, except while a live session is running: OpenF1 then answers 401 to every request without a
+  login, past sessions included. With `OPENF1_USERNAME` / `OPENF1_PASSWORD` set, the export tools and the sync worker log in through the
+  shared client and keep working. Run a tool locally with them loaded: `node --env-file=.env.local tools/openf1-results/export.mjs ...`.
+  **Real-time** data needs a paid OpenF1 subscription (section 6).
 
 ## 2. Replay and live
 

@@ -38,7 +38,7 @@ Optional extras, each in `apps/web/.env.local` (copy `apps/web/.env.example`; ne
 | Setting | Enables |
 |---|---|
 | `GEMINI_API_KEY` | The Race Engineer (otherwise it says it is not configured) |
-| `OPENF1_USERNAME`, `OPENF1_PASSWORD` | Live timing during sessions (paid OpenF1 subscription) |
+| `OPENF1_USERNAME`, `OPENF1_PASSWORD` | Live timing during sessions (paid OpenF1 subscription); the sync worker and export tools log in with them so they work during live sessions too |
 | `DATA_DIR` | Newer data from the sync worker. Use one absolute path for both: `DATA_DIR=/abs/path node tools/openf1-sync/sync.mjs --once` from the repository root |
 
 The whole stack (site, sync worker, Java API, Postgres) runs with `cp .env.example .env && docker compose up --build`.

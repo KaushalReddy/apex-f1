@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // OpenF1 sync worker: keeps DATA_DIR up to date with new races, telemetry and season results, so the deployed website shows new data
-// without a code change or redeploy. Historical data only (no OpenF1 account needed). See README.md in this folder.
+// without a code change or redeploy. Historical data; logs in with OPENF1_USERNAME / OPENF1_PASSWORD when set (needed during live sessions). See README.md in this folder.
 //
 //   node tools/openf1-sync/sync.mjs --once          one run (for cron / a scheduled job)
 //   node tools/openf1-sync/sync.mjs --watch         keep running: one run every OPENF1_SYNC_INTERVAL_MIN (backs off after failures)

@@ -1,5 +1,5 @@
 # OpenF1 sync worker (tools/openf1-sync): keeps the shared DATA_DIR volume up to date with new races, telemetry and season results.
-# Historical data only (no OpenF1 account). It needs the website's bundled indexes to skip races the site already ships.
+# Historical data; logs in when OPENF1_USERNAME / OPENF1_PASSWORD are set (needed while a session is live). It needs the website's bundled indexes to skip races the site already ships.
 FROM node:22-alpine
 WORKDIR /app
 COPY tools/openf1-client.mjs tools/openf1-client.mjs

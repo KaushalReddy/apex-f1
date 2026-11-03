@@ -6,6 +6,7 @@ import { createDemoRace, paceProfile, rng, type DemoRace } from "./demo";
 import { demoEntries, teamColor } from "./entries";
 import { appendEvents, diffSnapshots } from "./events";
 import { DemoProvider, ReplayProvider, parseReplayFrames, type ProviderUpdate, type Scheduler } from "./providers";
+import { DELAYED_MS, POSITIONS_LIVE_MS } from "./liveFreshness";
 import { SnapshotBuffer, battles, formatGap, formatLapTime, freshness, sortByRaceOrder, stepSelection, toggleSelection } from "./session";
 import { createTrackPath, forwardDelta, lerpProgress, wrap01 } from "./track";
 import type { DriverState, RaceSnapshot } from "./types";
@@ -341,11 +342,19 @@ describe("freshness and mode labelling", () => {
   it("distinguishes waiting, fresh, delayed, stale, paused, finished and disconnected", () => {
     expect(freshness({ snapshot: null, receivedAt: null, now: 0, playing: true, sourceStatus: "connecting" }).state).toBe("waiting");
     expect(freshness({ snapshot: null, receivedAt: null, now: 0, playing: true, sourceStatus: "error" }).state).toBe("disconnected");
-    expect(freshness({ snapshot: s("LIVE"), receivedAt: 0, now: 500, playing: true, sourceStatus: "ok" }).state).toBe("fresh");
-    expect(freshness({ snapshot: s("LIVE"), receivedAt: 0, now: 3000, playing: true, sourceStatus: "ok" }).state).toBe("delayed");
-    expect(freshness({ snapshot: s("LIVE"), receivedAt: 0, now: 9000, playing: true, sourceStatus: "ok" }).state).toBe("stale");
+    expect(freshness({ snapshot: s("REPLAY"), receivedAt: 0, now: 500, playing: true, sourceStatus: "ok" }).state).toBe("fresh");
+    expect(freshness({ snapshot: s("REPLAY"), receivedAt: 0, now: 3000, playing: true, sourceStatus: "ok" }).state).toBe("delayed");
+    expect(freshness({ snapshot: s("REPLAY"), receivedAt: 0, now: 9000, playing: true, sourceStatus: "ok" }).state).toBe("stale");
     expect(freshness({ snapshot: s("DEMO"), receivedAt: 0, now: 9000, playing: false, sourceStatus: "ok" }).state).toBe("paused");
     expect(freshness({ snapshot: s("DEMO", "finished"), receivedAt: 0, now: 9000, playing: false, sourceStatus: "ok" }).state).toBe("finished");
+  });
+
+  it("live: judged by the age of the newest position (the health panel's rule): live to 15 s, delayed to 30 s, then stale", () => {
+    const live = (now: number) => freshness({ snapshot: s("LIVE"), receivedAt: 0, now, playing: false, sourceStatus: "ok" }).state;
+    expect(live(8000)).toBe("fresh"); // OpenF1's ~3.5 s lag plus a 5 s poll: normal, not "delayed"
+    expect(live(POSITIONS_LIVE_MS)).toBe("fresh");
+    expect(live(POSITIONS_LIVE_MS + 1)).toBe("delayed");
+    expect(live(DELAYED_MS + 1)).toBe("stale");
   });
 });
 

@@ -1,3 +1,4 @@
+import { withDiagnostics } from "@/lib/openf1/diagnostics";
 import { liveFeed } from "@/lib/openf1/server";
 
 /**
@@ -8,5 +9,6 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function GET() {
-  return Response.json(await liveFeed().snapshot(), { headers: { "cache-control": "no-store" } });
+  const feed = liveFeed();
+  return Response.json(withDiagnostics(await feed.snapshot(), feed, process.env.NODE_ENV), { headers: { "cache-control": "no-store" } });
 }

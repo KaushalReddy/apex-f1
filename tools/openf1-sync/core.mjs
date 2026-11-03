@@ -52,10 +52,11 @@ export const writeState = (dataDir, state) => writeAtomic(join(dataDir, "sync-st
 /** Sanitised error category from an exporter failure (its last stderr lines): never the raw output, which could be long. */
 export function categorize(text) {
   if (/rate limited|HTTP 429/i.test(text)) return "rate-limit";
-  if (/HTTP 40[13]\b/.test(text)) return "auth";
+  if (/HTTP 40[13]\b|OpenF1 login/i.test(text)) return "auth";
   if (/HTTP 4\d\d\b/.test(text)) return "request";
   if (/no answer|network error|timeout|ECONN|ENOTFOUND|fetch failed/i.test(text)) return "unavailable";
   if (/invalid output/i.test(text)) return "invalid-output";
+  if (/invalid response/i.test(text)) return "invalid-response";
   return "exporter";
 }
 
