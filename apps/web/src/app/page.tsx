@@ -18,6 +18,7 @@ import { availableGeometrySlugs, loadCircuitGeometry } from "@/lib/circuit/load"
 import { circuitByShortName } from "@/lib/circuit/catalog";
 import { loadReplayIndex } from "@/lib/replay/load";
 import { NextSessionCountdown } from "@/components/live/NextSession";
+import { HeroWatchButton } from "@/components/live/HeroWatchButton";
 import { circuitOutline } from "@/lib/circuit/outline";
 import { getNavItem } from "@/domain/navigation";
 import { loadSeasons } from "@/lib/drivers/load";
@@ -113,7 +114,7 @@ export default async function Home() {
               strategy, and ask the race engineer why the order changed. Built on OpenF1 timing data.
             </p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <ButtonLink href={latestReplay ? `/replay/${latestReplay.sessionKey}` : "/replay"}>{latestReplay ? "Watch the latest race" : "Race replays"}</ButtonLink>
+              <HeroWatchButton href={latestReplay ? `/replay/${latestReplay.sessionKey}` : "/replay"} label={latestReplay ? "Watch the latest race" : "Race replays"} />
               <ButtonLink href="/circuits" variant="secondary">
                 Explore the circuits
               </ButtonLink>
